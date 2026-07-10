@@ -25,12 +25,12 @@ import {
   createHTMLTargetConfig as createRspackHTMLTargetConfig,
   createNodeTargetConfig as createRspackNodeTargetConfig,
   createWorkerTargetConfig as createRspackWorkerTargetConfig,
-} from './rspack';
+} from './rspack/index';
 import {
   createHTMLTargetConfig as createWebpackHTMLTargetConfig,
   createNodeTargetConfig as createWebpackNodeTargetConfig,
   createWorkerTargetConfig as createWebpackWorkerTargetConfig,
-} from './webpack';
+} from './webpack/index';
 import {
   shouldUploadReleaseAssets,
   uploadDistAssetsToS3,
