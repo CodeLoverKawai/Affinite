@@ -21,7 +21,7 @@ class AffineLinkPreviewService extends LinkPreviewService {
     url: string,
     signal?: AbortSignal
   ): Promise<any> => {
-    if (url.includes('localhost:1337') || url.includes('/boards/')) {
+    if (url.includes('localhost:7337') || url.includes('localhost:1337') || url.includes('/boards/')) {
       const boardMatch = url.match(/\/boards\/([a-zA-Z0-9\-_]+)/);
       const cardMatch = url.match(/\/cards\/([a-zA-Z0-9\-_]+)/);
 

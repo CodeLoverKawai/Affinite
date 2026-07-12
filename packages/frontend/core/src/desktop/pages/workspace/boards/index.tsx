@@ -7,7 +7,7 @@ import {
 
 export const Component = () => {
   // Point to local Planka service port
-  const plankaUrl = "http://localhost:1337";
+  const plankaUrl = "http://localhost:7337";
 
   return (
     <>
