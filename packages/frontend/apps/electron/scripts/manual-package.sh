@@ -5,7 +5,7 @@ set -euo pipefail
 # Bypasses extract-zip bug on Node v24
 
 BUILD_TYPE="${BUILD_TYPE:-canary}"
-PRODUCT_NAME="AFFiNE-${BUILD_TYPE}"
+PRODUCT_NAME="AFFiNITe-${BUILD_TYPE}"
 ELECTRON_DIR="/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron"
 APP_DIR="${ELECTRON_DIR}"
 OUT_DIR="${ELECTRON_DIR}/out/${BUILD_TYPE}/${PRODUCT_NAME}-linux-x64"
