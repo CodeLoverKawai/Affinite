@@ -24,7 +24,7 @@ export const Component = () => {
             src={plankaUrl}
             style={{ width: '100%', height: '100%', border: 'none' }}
             title="Planka Project Board"
-            sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+            allow="storage-access; fullscreen; clipboard-read; clipboard-write"
           />
         </div>
       </ViewBody>
