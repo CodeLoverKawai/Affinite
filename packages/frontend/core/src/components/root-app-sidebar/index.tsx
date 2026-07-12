@@ -116,6 +116,24 @@ const AIChatButton = () => {
   );
 };
 
+const BoardsButton = () => {
+  const { workbenchService } = useServices({
+    WorkbenchService,
+  });
+  const workbench = workbenchService.workbench;
+  const boardsActive = useLiveData(
+    workbench.location$.selector(location => location.pathname === '/boards')
+  );
+
+  return (
+    <MenuLinkItem icon={<ImportIcon />} active={boardsActive} to={'/boards'}>
+      <span data-testid="boards-page">
+        Boards
+      </span>
+    </MenuLinkItem>
+  );
+};
+
 /**
  * This is for the whole affine app sidebar.
  * This component wraps the app sidebar in `@affine/component` with logic and data.
@@ -215,6 +233,7 @@ export const RootAppSidebar = memo((): ReactElement => {
         <AppSidebarJournalButton />
         {sessionStatus === 'authenticated' && <NotificationButton />}
         <AIChatButton />
+        <BoardsButton />
         <MenuItem
           data-testid="slider-bar-workspace-setting-button"
           icon={<SettingsIcon />}
