@@ -16,6 +16,36 @@ class AffineLinkPreviewService extends LinkPreviewService {
     super(cache);
     this.setEndpoint(endpoint);
   }
+
+  override query = async (
+    url: string,
+    signal?: AbortSignal
+  ): Promise<any> => {
+    if (url.includes('localhost:1337') || url.includes('/boards/')) {
+      const boardMatch = url.match(/\/boards\/([a-zA-Z0-9\-_]+)/);
+      const cardMatch = url.match(/\/cards\/([a-zA-Z0-9\-_]+)/);
+
+      if (cardMatch) {
+        const cardId = cardMatch[1];
+        return {
+          title: `Planka Task #${cardId}`,
+          description: 'Live Task Card from Planka Kanban Board',
+          icon: 'https://raw.githubusercontent.com/planka-board/planka/master/client/public/favicon.ico',
+          image: 'https://raw.githubusercontent.com/planka-board/planka/master/client/public/apple-touch-icon.png',
+        };
+      } else if (boardMatch) {
+        const boardId = boardMatch[1];
+        return {
+          title: `Planka Project Board #${boardId}`,
+          description: 'Interactive project task board',
+          icon: 'https://raw.githubusercontent.com/planka-board/planka/master/client/public/favicon.ico',
+          image: 'https://raw.githubusercontent.com/planka-board/planka/master/client/public/apple-touch-icon.png',
+        };
+      }
+    }
+
+    return super.query(url, signal);
+  };
 }
 
 /**
