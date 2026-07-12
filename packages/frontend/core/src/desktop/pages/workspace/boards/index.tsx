@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 import {
   ViewBody,
   ViewHeader,
@@ -5,9 +7,43 @@ import {
   ViewTitle,
 } from '@affine/core/modules/workbench';
 
+// Electron webview element type (not in standard React DOM types)
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace JSX {
+    interface IntrinsicElements {
+      webview: React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement> & {
+          src?: string;
+          allowpopups?: string;
+          disablewebsecurity?: string;
+          partition?: string;
+          useragent?: string;
+          preload?: string;
+        },
+        HTMLElement
+      >;
+    }
+  }
+}
+
 export const Component = () => {
-  // Point to local Planka service port
-  const plankaUrl = "http://localhost:7337";
+  const plankaUrl = 'http://localhost:7337';
+  const webviewRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const wv = webviewRef.current as any;
+    if (!wv) return;
+
+    const handleFailLoad = (e: any) => {
+      console.error('[Boards] webview load failed:', e);
+    };
+
+    wv.addEventListener('did-fail-load', handleFailLoad);
+    return () => {
+      wv.removeEventListener('did-fail-load', handleFailLoad);
+    };
+  }, []);
 
   return (
     <>
@@ -19,12 +55,13 @@ export const Component = () => {
         </div>
       </ViewHeader>
       <ViewBody>
-        <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>
-          <iframe
+        <div style={{ width: '100%', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {/* Use Electron's <webview> tag — runs in its own process, bypasses CSP frame restrictions */}
+          <webview
+            ref={webviewRef as any}
             src={plankaUrl}
-            style={{ width: '100%', height: '100%', border: 'none' }}
-            title="Planka Project Board"
-            allow="storage-access; fullscreen; clipboard-read; clipboard-write"
+            allowpopups="true"
+            style={{ flex: 1, width: '100%', height: '100%', border: 'none' }}
           />
         </div>
       </ViewBody>

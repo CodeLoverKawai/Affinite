@@ -99,6 +99,7 @@ export class MainWindowManager {
       show: false, // Use 'ready-to-show' event to show window
       webPreferences: buildWebPreferences({
         webgl: true,
+        webviewTag: true,
       }),
     });
     const helper = await ensureHelperProcess();
