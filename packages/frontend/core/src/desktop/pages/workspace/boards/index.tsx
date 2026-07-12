@@ -1,69 +1,64 @@
 import { useEffect, useRef } from 'react';
 
+import { DesktopApiService } from '@affine/core/modules/desktop-api';
 import {
   ViewBody,
   ViewHeader,
   ViewIcon,
   ViewTitle,
 } from '@affine/core/modules/workbench';
-
-// Electron webview element type (not in standard React DOM types)
-declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
-  namespace JSX {
-    interface IntrinsicElements {
-      webview: React.DetailedHTMLProps<
-        React.HTMLAttributes<HTMLElement> & {
-          src?: string;
-          allowpopups?: string;
-          disablewebsecurity?: string;
-          partition?: string;
-          useragent?: string;
-          preload?: string;
-        },
-        HTMLElement
-      >;
-    }
-  }
-}
+import { useServiceOptional } from '@toeverything/infra';
 
 export const Component = () => {
-  const plankaUrl = 'http://localhost:7337';
-  const webviewRef = useRef<HTMLElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const desktopApi = useServiceOptional(DesktopApiService);
 
   useEffect(() => {
-    const wv = webviewRef.current as any;
-    if (!wv) return;
+    const el = containerRef.current;
+    if (!el || !desktopApi?.handler?.ui) return;
 
-    const handleFailLoad = (e: any) => {
-      console.error('[Boards] webview load failed:', e);
+    const sendBounds = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+
+      desktopApi.handler.ui
+        .showPlankaView({
+          x: Math.round(rect.left),
+          y: Math.round(rect.top),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+        })
+        .catch(console.error);
     };
 
-    wv.addEventListener('did-fail-load', handleFailLoad);
+    // Send bounds on mount and on resize
+    sendBounds();
+    const resizeObserver = new ResizeObserver(sendBounds);
+    resizeObserver.observe(el);
+
     return () => {
-      wv.removeEventListener('did-fail-load', handleFailLoad);
+      resizeObserver.disconnect();
+      desktopApi.handler.ui.hidePlankaView().catch(console.error);
     };
-  }, []);
+  }, [desktopApi]);
 
   return (
     <>
       <ViewTitle title="Boards" />
       <ViewIcon icon="import" />
       <ViewHeader>
-        <div style={{ padding: '0 16px', fontWeight: 'bold', fontSize: '14px' }}>
+        <div
+          style={{ padding: '0 16px', fontWeight: 'bold', fontSize: '14px' }}
+        >
           AFFiNITe Boards
         </div>
       </ViewHeader>
       <ViewBody>
-        <div style={{ width: '100%', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {/* Use Electron's <webview> tag — runs in its own process, bypasses CSP frame restrictions */}
-          <webview
-            ref={webviewRef as any}
-            src={plankaUrl}
-            allowpopups="true"
-            style={{ flex: 1, width: '100%', height: '100%', border: 'none' }}
-          />
-        </div>
+        {/* This div's bounds are sent to the main process to position the native Planka WebContentsView */}
+        <div
+          ref={containerRef}
+          style={{ width: '100%', height: '100%', background: 'transparent' }}
+        />
       </ViewBody>
     </>
   );

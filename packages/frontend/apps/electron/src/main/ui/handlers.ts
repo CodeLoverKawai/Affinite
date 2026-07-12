@@ -36,6 +36,7 @@ import {
 import { showTabContextMenu } from '../windows-manager/context-menu';
 import { getOrCreateCustomThemeWindow } from '../windows-manager/custom-theme-window';
 import { getChallengeResponse } from './challenge';
+import { hidePlankaView, showPlankaView } from '../planka-view';
 import { uiSubjects } from './subject';
 
 const EMPTY_OBJECT = Object.freeze({
@@ -318,5 +319,14 @@ export const uiHandlers = {
     }
 
     clipboard.writeImage(nativeImage.createFromBuffer(buffer));
+  },
+  showPlankaView: async (
+    _,
+    bounds: { x: number; y: number; width: number; height: number }
+  ) => {
+    await showPlankaView(bounds);
+  },
+  hidePlankaView: async () => {
+    await hidePlankaView();
   },
 } satisfies NamespaceHandlers;
