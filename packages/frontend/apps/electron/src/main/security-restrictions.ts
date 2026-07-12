@@ -14,6 +14,14 @@ app.on('web-contents-created', (_, contents) => {
       ) {
         return true;
       }
+      // Allow Planka (local Kanban board) to navigate internally
+      if (
+        parsed.protocol === 'http:' &&
+        (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') &&
+        (parsed.port === '7337' || parsed.port === '1337')
+      ) {
+        return true;
+      }
     } catch {}
     return false;
   };

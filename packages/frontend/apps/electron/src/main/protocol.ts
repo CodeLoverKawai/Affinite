@@ -233,6 +233,9 @@ export function registerProtocol() {
           }
 
           const { protocol, hostname } = new URL(url);
+          const isLocalhostResponse =
+            (protocol === 'http:' || protocol === 'https:') &&
+            (hostname === 'localhost' || hostname === '127.0.0.1');
 
           // Adjust CORS for assets responses and allow blob redirects on affine domains
           if (protocol === 'assets:') {
@@ -241,7 +244,13 @@ export function registerProtocol() {
             delete responseHeaders['Access-Control-Allow-Origin'];
             delete responseHeaders['Access-Control-Allow-Headers'];
             setHeader(responseHeaders, 'X-Frame-Options', 'SAMEORIGIN');
-            ensureFrameAncestors(responseHeaders, "'self'");
+            ensureFrameAncestors(responseHeaders, "'self' http://localhost:7337 http://localhost:1337");
+          } else if (isLocalhostResponse) {
+            // Allow localhost services (e.g. Planka) to be embedded in iframes
+            delete responseHeaders['x-frame-options'];
+            delete responseHeaders['X-Frame-Options'];
+            ensureFrameAncestors(responseHeaders, "'self' assets:");
+            allowCors(responseHeaders, 'assets://.');
           } else if (
             (protocol === 'http:' || protocol === 'https:') &&
             affineDomains.some(regex => regex.test(hostname))
