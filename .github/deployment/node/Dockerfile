@@ -4,6 +4,7 @@ FROM node:22-bookworm-slim AS assets
 WORKDIR /app
 
 COPY ./packages/backend/server /app
+COPY ./node_modules /app/node_modules
 COPY ./packages/frontend/apps/web/dist /app/static
 COPY ./packages/frontend/admin/dist /app/static/admin
 COPY ./packages/frontend/apps/mobile/dist /app/static/mobile
