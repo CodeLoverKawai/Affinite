@@ -4,7 +4,7 @@ set -euo pipefail
 # Script to build and push the custom AFFiNITe Docker Server Image to Docker Hub
 # Run from the project root: ./build-docker.sh
 
-DOCKER_USER="rousseau"
+DOCKER_USER="rousseaukairos"
 IMAGE_NAME="affinite"
 
 echo "=== Building AFFiNITe Server Docker Image ==="
