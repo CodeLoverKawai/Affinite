@@ -33,7 +33,9 @@ yarn affine @affine/server build
 # Step 4: Build Web Assets for production
 echo ""
 echo "--- [3/5] Building production web assets ---"
-BUILD_TYPE=stable PUBLIC_PATH="/" yarn build
+BUILD_TYPE=stable PUBLIC_PATH="/" yarn affine @affine/web build
+BUILD_TYPE=stable PUBLIC_PATH="/" yarn affine @affine/admin build
+BUILD_TYPE=stable PUBLIC_PATH="/" yarn affine @affine/mobile build
 
 # Step 5: Build Docker Image
 echo ""
