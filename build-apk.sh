@@ -14,7 +14,7 @@ BUILD_TYPE=stable PUBLIC_PATH="/" yarn affine @affine/android build
 echo "[2/3] Syncing assets with Capacitor..."
 cd packages/frontend/apps/android
 npx cap sync android
-cd ../../..
+cd ../../../..
 
 # Step 3: Run Gradle compilation (signed using anx-remix keys)
 echo "[3/3] Running Gradle build..."
