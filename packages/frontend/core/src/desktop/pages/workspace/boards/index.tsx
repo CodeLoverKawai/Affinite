@@ -176,6 +176,14 @@ export const Component = () => {
         const database = doc.blockSuiteDoc.getModelById(databaseId);
         if (database) {
           const datasource = new DatabaseBlockDataSource(database);
+          
+          // Pre-populate core Planka-like columns
+          datasource.propertyAdd('end', { type: 'select', name: 'Assignee' });
+          datasource.propertyAdd('end', { type: 'multi-select', name: 'Labels' });
+          datasource.propertyAdd('end', { type: 'date', name: 'Due Date' });
+          datasource.propertyAdd('end', { type: 'checkbox', name: 'Completed' });
+
+          // Add Kanban layout (which automatically uses the Status column)
           datasource.viewManager.viewAdd('kanban');
         }
       }
@@ -260,7 +268,51 @@ export const Component = () => {
       </ViewHeader>
 
       <ViewBody>
-        <div style={{ padding: '24px', overflowY: 'auto', height: '100%' }}>
+        <div style={{ padding: '24px', overflowY: 'auto', height: '100%', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          {/* Native Planka-like Features Guide Card */}
+          <div
+            style={{
+              background: 'var(--affine-background-secondary-color, #f9f9f9)',
+              border: '1px solid var(--affine-border-color, #e8e8e8)',
+              borderRadius: '10px',
+              padding: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}
+          >
+            <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--affine-text-primary-color, #121212)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              💡 Guía de Características en tus Tableros Nativos
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--affine-text-primary-color)' }}>📎 Archivos y Portadas</span>
+                <span style={{ fontSize: '12px', color: 'var(--affine-text-secondary-color, #777)' }}>
+                  Arrastra y suelta imágenes o PDFs directamente dentro de cualquier tarjeta para adjuntarlos.
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--affine-text-primary-color)' }}>💬 Comentarios y Notas</span>
+                <span style={{ fontSize: '12px', color: 'var(--affine-text-secondary-color, #777)' }}>
+                  Escribe descripciones con formato enriquecido y añade hilos de comentarios usando la barra nativa en tus tarjetas.
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--affine-text-primary-color)' }}>📅 Tareas y Checklists</span>
+                <span style={{ fontSize: '12px', color: 'var(--affine-text-secondary-color, #777)' }}>
+                  Escribe <code style={{background:'#e8e8e8', padding:'1px 4px', borderRadius:'3px'}}>/todo</code> en el cuerpo de la tarjeta para crear listas de tareas interactivas.
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontWeight: 600, fontSize: '13px', color: 'var(--affine-text-primary-color)' }}>👥 Asignados y Fechas</span>
+                <span style={{ fontSize: '12px', color: 'var(--affine-text-secondary-color, #777)' }}>
+                  Usa las columnas pre-pobladas de la tarjeta para asignar miembros, poner fechas límite e hitos.
+                </span>
+              </div>
+            </div>
+          </div>
+
           {boardDocs.length === 0 ? (
             <div
               style={{
@@ -268,9 +320,10 @@ export const Component = () => {
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                height: '80%',
+                flex: 1,
                 textAlign: 'center',
                 gap: '16px',
+                padding: '40px 0',
               }}
             >
               <div
