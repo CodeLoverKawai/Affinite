@@ -530,8 +530,8 @@ export function createNodeTargetConfig(
         data.request &&
         // import ... from 'module'
         /^[a-zA-Z@]/.test(data.request) &&
-        // not workspace deps
-        !pkg.deps.some(dep => data.request!.startsWith(dep.name))
+        // not workspace deps (except native module server-native)
+        (!pkg.deps.some(dep => data.request!.startsWith(dep.name)) || data.request.includes('server-native'))
       ) {
         callback(null, true);
       } else {
