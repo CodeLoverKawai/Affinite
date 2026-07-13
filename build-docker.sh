@@ -13,10 +13,15 @@ echo "=== Building AFFiNITe Server Docker Image ==="
 VERSION=$(node -p "require('./packages/frontend/core/package.json').version")
 echo "Detected Version: $VERSION"
 
-# Step 2: Build Server Native module
+# Step 2: Build Server Native module inside a Bookworm container to match target GLIBC
 echo ""
-echo "--- [1/5] Building @affine/server-native Rust module ---"
-yarn workspace @affine/server-native build
+echo "--- [1/5] Building @affine/server-native Rust module in Bookworm container ---"
+docker run --rm -v "$(pwd)":/workspace -w /workspace node:22-bookworm-slim sh -c "
+  apt-get update && apt-get install -y curl build-essential libssl-dev pkg-config &&
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y &&
+  export PATH=\"\$HOME/.cargo/bin:\$PATH\" &&
+  yarn workspace @affine/server-native build
+"
 
 # Ensure architecture links exist for Rspack resolver
 cd packages/backend/native
