@@ -20,6 +20,7 @@ docker run --rm -v "$(pwd)":/workspace -w /workspace node:22-bookworm-slim sh -c
   apt-get update && apt-get install -y curl build-essential libssl-dev pkg-config &&
   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y &&
   export PATH=\"\$HOME/.cargo/bin:\$PATH\" &&
+  corepack enable &&
   yarn workspace @affine/server-native build
 "
 
