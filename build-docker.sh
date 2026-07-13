@@ -44,6 +44,9 @@ docker build -f .github/deployment/node/Dockerfile \
   -t "$DOCKER_USER/$IMAGE_NAME:latest" \
   -t "$DOCKER_USER/$IMAGE_NAME:v$VERSION" .
 
+# Explicitly tag the latest image to prevent BuildKit tag omission
+docker tag "$DOCKER_USER/$IMAGE_NAME:v$VERSION" "$DOCKER_USER/$IMAGE_NAME:latest"
+
 # Step 6: Push Docker Image to Docker Hub
 echo ""
 echo "--- [5/5] Pushing Docker image to Docker Hub ---"
