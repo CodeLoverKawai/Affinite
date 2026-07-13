@@ -619,7 +619,7 @@ export function createNodeTargetConfig(
     stats: { errorDetails: true },
     optimization: {
       nodeEnv: false,
-      minimize: !dev,
+      minimize: false,
       minimizer: [
         new rspack.SwcJsMinimizerRspackPlugin({
           extractComments: true,
