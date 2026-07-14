@@ -1370,3 +1370,43 @@ const CardModal = ({
     </div>
   );
 };
+
+const styles = {
+  searchBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    background: 'var(--affine-background-secondary-color, #f4f5f7)',
+    border: '1px solid var(--affine-border-color, #e3e3e3)',
+    borderRadius: '8px',
+    padding: '0 12px',
+    height: '36px',
+    width: '200px',
+  },
+  createBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    background: 'var(--affine-brand-color, #0079bf)',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '8px',
+    padding: '0 16px',
+    fontWeight: 600,
+    fontSize: '13px',
+    cursor: 'pointer',
+    height: '36px',
+  },
+  dashboardContainer: {
+    padding: '24px',
+    height: '100%',
+    overflowY: 'auto' as const,
+    background: 'var(--affine-background-primary-color, #ffffff)',
+  },
+  boardGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+    gap: '16px',
+  },
+};
+
