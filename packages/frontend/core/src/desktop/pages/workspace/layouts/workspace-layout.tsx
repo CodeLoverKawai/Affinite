@@ -21,6 +21,18 @@ export const WorkspaceLayout = function WorkspaceLayout({
   return (
     <SWRConfigProvider>
       <WorkspaceDialogs />
+      
+      {/* Hide Kanban options from database blocks in standard notes to prevent collision with boards */}
+      <style>{`
+        [data-view-type="kanban"],
+        [data-testid="kanban"],
+        [data-testid="view-type-kanban"],
+        .view-type-kanban,
+        .database-view-type-option-kanban,
+        button[data-testid="database-view-tab-kanban"] {
+          display: none !important;
+        }
+      `}</style>
 
       {/* ---- some side-effect components ---- */}
       {currentWorkspace?.flavour !== 'local' ? (

@@ -19,6 +19,7 @@ import { TrashPageFooter } from '@affine/core/components/pure/trash-page-footer'
 import { TopTip } from '@affine/core/components/top-tip';
 import { ServerService } from '@affine/core/modules/cloud';
 import { DocService } from '@affine/core/modules/doc';
+import { DocsService } from '../../../../modules/doc';
 import { EditorService } from '@affine/core/modules/editor';
 import { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import { GlobalContextService } from '@affine/core/modules/global-context';
@@ -60,7 +61,7 @@ import {
 import clsx from 'clsx';
 import { nanoid } from 'nanoid';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import type { Subscription } from 'rxjs';
 
 import { PageNotFound } from '../../404';
@@ -96,6 +97,18 @@ const DetailPageImpl = memo(function DetailPageImpl() {
   const workspace = workspaceService.workspace;
   const globalContext = globalContextService.globalContext;
   const doc = docService.doc;
+
+  const navigate = useNavigate();
+  const docsService = useService(DocsService);
+  const docRecord = docsService.list.doc$(doc.id).value;
+  const properties = useLiveData(docRecord?.properties$);
+  const isBoard = properties ? properties['custom:isBoard'] === 'true' : false;
+
+  useEffect(() => {
+    if (isBoard) {
+      navigate(`/workspace/${workspace.id}/boards?boardId=${doc.id}`, { replace: true });
+    }
+  }, [isBoard, doc.id, workspace.id, navigate]);
 
   const mode = useLiveData(editor.mode$);
   const activeSidebarTab = useLiveData(view.activeSidebarTab$);
