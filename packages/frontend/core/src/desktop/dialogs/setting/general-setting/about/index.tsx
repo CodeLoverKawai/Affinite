@@ -54,11 +54,11 @@ export const AboutAffine = () => {
   return (
     <>
       <SettingHeader
-        title={t['com.affine.aboutAFFiNE.title']()}
-        subtitle={t['com.affine.aboutAFFiNE.subtitle']()}
+        title="About AFFiNITe"
+        subtitle="Your private native canvas"
         data-testid="about-title"
       />
-      <SettingWrapper title={t['com.affine.aboutAFFiNE.version.title']()}>
+      <SettingWrapper title="Version Info">
         <SettingRow
           name={appName}
           desc={BUILD_CONFIG.appVersion}
@@ -67,53 +67,9 @@ export const AboutAffine = () => {
           <img src={appIcon} alt={appName} width={56} height={56} />
         </SettingRow>
         <SettingRow
-          name={t['com.affine.aboutAFFiNE.version.editor.title']()}
+          name="Editor Version"
           desc={BUILD_CONFIG.editorVersion}
         />
-        {BUILD_CONFIG.isElectron ? (
-          <>
-            <UpdateCheckSection />
-            <SettingRow
-              name={t['com.affine.aboutAFFiNE.autoCheckUpdate.title']()}
-              desc={t['com.affine.aboutAFFiNE.autoCheckUpdate.description']()}
-            >
-              <Switch
-                checked={appSettings.autoCheckUpdate}
-                onChange={onSwitchAutoCheck}
-              />
-            </SettingRow>
-            <SettingRow
-              name={t['com.affine.aboutAFFiNE.autoDownloadUpdate.title']()}
-              desc={t[
-                'com.affine.aboutAFFiNE.autoDownloadUpdate.description'
-              ]()}
-            >
-              <Switch
-                checked={appSettings.autoDownloadUpdate}
-                onChange={onSwitchAutoDownload}
-              />
-            </SettingRow>
-            <SettingRow
-              name={t['com.affine.aboutAFFiNE.changelog.title']()}
-              desc={t['com.affine.aboutAFFiNE.changelog.description']()}
-              style={{ cursor: 'pointer' }}
-              onClick={() => {
-                urlService.openPopupWindow(BUILD_CONFIG.changelogUrl);
-              }}
-            >
-              <ArrowRightSmallIcon />
-            </SettingRow>
-          </>
-        ) : null}
-        <SettingRow
-          name={t['com.affine.telemetry.enable']()}
-          desc={t['com.affine.telemetry.enable.desc']()}
-        >
-          <Switch
-            checked={appSettings.enableTelemetry !== false}
-            onChange={onSwitchTelemetry}
-          />
-        </SettingRow>
       </SettingWrapper>
       <SettingWrapper title={t['com.affine.aboutAFFiNE.contact.title']()}>
         <a

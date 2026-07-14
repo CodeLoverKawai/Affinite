@@ -121,6 +121,14 @@ export abstract class CopilotProvider<C = any> {
       if (model) return model;
       // allow online model without capabilities check
       if (hasOnlineModel) return { id: modelId, capabilities: [] };
+
+      // Allow any modelId if a custom OpenAI/Ollama endpoint is configured
+      const config = this.config as any;
+      const isCustomUrl = config?.baseURL && !config.baseURL.includes('api.openai.com') && !config.baseURL.includes('api.perplexity.ai');
+      if (isCustomUrl && this.type === 'openai') {
+        return { id: modelId, capabilities: [] };
+      }
+
       return undefined;
     }
     if (!outputType) return undefined;

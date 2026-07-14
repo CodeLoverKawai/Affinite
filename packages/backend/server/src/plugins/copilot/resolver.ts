@@ -481,9 +481,27 @@ export class CopilotResolver {
     if (!prompt) {
       throw new NotFoundException('Prompt not found');
     }
+
+    // Query active models from configured providers to list them dynamically (e.g. custom Ollama/OpenAI endpoints)
+    const activeModelIds: string[] = [];
+    for (const provider of this.providerFactory.getProviders()) {
+      if (provider.configured()) {
+        // Cache standard provider models
+        for (const m of provider.models) {
+          activeModelIds.push(m.id);
+          this.modelNames.set(m.id, m.name || m.id);
+        }
+        // Also fetch custom online models list (like Ollama models fetched dynamically from endpoint)
+        for (const id of provider.onlineModelList) {
+          activeModelIds.push(id);
+          this.modelNames.set(id, id);
+        }
+      }
+    }
+
     const convertModels = (ids: string[]) => {
       return ids
-        .map(id => ({ id, name: this.modelNames.get(id) }))
+        .map(id => ({ id, name: this.modelNames.get(id) || id }))
         .filter(m => !!m.name) as CopilotModelType[];
     };
     const proModels = prompt.config?.proModels || [];
@@ -504,9 +522,12 @@ export class CopilotResolver {
       }
     }
 
+    // Combine default optional models with configured active models list
+    const combinedOptionalModels = Array.from(new Set([...prompt.optionalModels, ...activeModelIds]));
+
     return {
       defaultModel: prompt.model,
-      optionalModels: convertModels(prompt.optionalModels),
+      optionalModels: convertModels(combinedOptionalModels),
       proModels: convertModels(proModels),
     };
   }

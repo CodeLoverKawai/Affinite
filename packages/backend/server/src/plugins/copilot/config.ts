@@ -66,7 +66,7 @@ defineModuleConfig('copilot', {
   'providers.openai': {
     desc: 'The config for the openai provider.',
     default: {
-      apiKey: process.env.COPILOT_OPENAI_API_KEY || '',
+      apiKey: process.env.COPILOT_OPENAI_API_KEY || (process.env.COPILOT_OPENAI_BASE_URL ? 'ollama' : ''),
       baseURL: process.env.COPILOT_OPENAI_BASE_URL || 'https://api.openai.com/v1',
     },
     link: 'https://github.com/openai/openai-node',

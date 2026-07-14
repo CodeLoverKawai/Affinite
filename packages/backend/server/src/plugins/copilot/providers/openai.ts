@@ -322,20 +322,31 @@ export class OpenAIProvider extends CopilotProvider<OpenAIConfig> {
   #instance!: VercelOpenAIProvider | VercelOpenAICompatibleProvider;
 
   override configured(): boolean {
-    return !!this.config.apiKey;
+    const isCustomUrl = this.config.baseURL && !this.config.baseURL.includes('api.openai.com');
+    return !!this.config.apiKey || !!isCustomUrl;
+  }
+
+  override async match(cond: ModelFullConditions = {}): Promise<boolean> {
+    if (!this.configured()) return false;
+    const isCustomUrl = this.config.baseURL && !this.config.baseURL.includes('api.openai.com');
+    if (isCustomUrl && cond.modelId) {
+      return true;
+    }
+    return super.match(cond);
   }
 
   protected override setup() {
     super.setup();
+    const isCustomUrl = this.config.baseURL && !this.config.baseURL.includes('api.openai.com');
     this.#instance =
       this.config.oldApiStyle && this.config.baseURL
         ? createOpenAICompatible({
             name: 'openai-compatible-old-style',
-            apiKey: this.config.apiKey,
+            apiKey: this.config.apiKey || (isCustomUrl ? 'ollama' : ''),
             baseURL: this.config.baseURL,
           })
         : createOpenAI({
-            apiKey: this.config.apiKey,
+            apiKey: this.config.apiKey || (isCustomUrl ? 'ollama' : ''),
             baseURL: this.config.baseURL,
           });
   }
