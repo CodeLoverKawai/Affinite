@@ -331,7 +331,7 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
     const { doc, release } = docsService.open(boardId);
     docRef.current = doc;
 
-    const yMap = doc.blockSuiteDoc.getMap('board_data');
+    const yMap = doc.yDoc.getMap('board_data');
 
     const updateState = () => {
       const columns = yMap.get('columns') as any[];
@@ -359,8 +359,8 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
   // Helper to commit updates back to Yjs Map
   const saveToYjs = useCallback((columns: any[], cards: any[]) => {
     if (!docRef.current) return;
-    const yMap = docRef.current.blockSuiteDoc.getMap('board_data');
-    docRef.current.blockSuiteDoc.transact(() => {
+    const yMap = docRef.current.yDoc.getMap('board_data');
+    docRef.current.yDoc.transact(() => {
       yMap.set('columns', columns);
       yMap.set('cards', cards);
     });
