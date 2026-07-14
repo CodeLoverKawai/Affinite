@@ -71,6 +71,17 @@ const BOARD_GRADIENTS = [
   'linear-gradient(135deg, #89609e, #ba9bc8)',
 ];
 
+// Available labels (Standard Planka palette)
+const LABELS = [
+  { name: 'Red', color: '#e12c40' },
+  { name: 'Orange', color: '#ff7a00' },
+  { name: 'Yellow', color: '#fcd53f' },
+  { name: 'Green', color: '#2ecc71' },
+  { name: 'Blue', color: '#1e96eb' },
+  { name: 'Purple', color: '#9b59b6' },
+];
+
+
 const BoardCard = ({ doc, index, onClick }: { doc: DocRecord; index: number; onClick: () => void }) => {
   const title = useLiveData(doc.title$);
   const bgGradient = BOARD_GRADIENTS[index % BOARD_GRADIENTS.length];
