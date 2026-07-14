@@ -58,6 +58,15 @@ const Icons = {
       <line x1="18" y1="6" x2="6" y2="18"></line>
       <line x1="6" y1="6" x2="18" y2="18"></line>
     </svg>
+  ),
+  Palette: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 14.7255 3.09032 17.1962 4.85857 19C5.0346 19.176 5.12262 19.264 5.1613 19.378C5.20002 19.492 5.17676 19.6108 5.13023 19.8485C4.84379 21.3121 4.54226 21.8213 5.42426 21.9796C5.64287 22.0189 5.88937 22 6.16667 22H12Z" />
+      <circle cx="7.5" cy="10.5" r="1.5" fill="currentColor" />
+      <circle cx="11.5" cy="7.5" r="1.5" fill="currentColor" />
+      <circle cx="16.5" cy="9.5" r="1.5" fill="currentColor" />
+      <circle cx="15.5" cy="14.5" r="1.5" fill="currentColor" />
+    </svg>
   )
 };
 
@@ -71,6 +80,21 @@ const BOARD_GRADIENTS = [
   'linear-gradient(135deg, #89609e, #ba9bc8)',
 ];
 
+const CUSTOMIZE_COLORS = [
+  { name: 'Classic Blue', color: '#0079bf' },
+  { name: 'Emerald Green', color: '#519839' },
+  { name: 'Warm Orange', color: '#d29034' },
+  { name: 'Crimson Red', color: '#b04632' },
+  { name: 'Royal Purple', color: '#89609e' },
+  { name: 'Dark Slate', color: '#4f5d73' },
+  { name: 'Sunset Gradient', color: 'linear-gradient(135deg, #ff8c00, #e52d27)' },
+  { name: 'Ocean Gradient', color: 'linear-gradient(135deg, #00c6ff, #0072ff)' },
+  { name: 'Forest Gradient', color: 'linear-gradient(135deg, #11998e, #38ef7d)' },
+  { name: 'Aurora Gradient', color: 'linear-gradient(135deg, #7F00FF, #E100FF)' },
+  { name: 'Warm Flame', color: 'linear-gradient(135deg, #f12711, #f5af19)' },
+  { name: 'Cool Dark', color: 'linear-gradient(135deg, #1f1c2c, #928dab)' },
+];
+
 // Available labels (Standard Planka palette)
 const LABELS = [
   { name: 'Red', color: '#e12c40' },
@@ -80,7 +104,6 @@ const LABELS = [
   { name: 'Blue', color: '#1e96eb' },
   { name: 'Purple', color: '#9b59b6' },
 ];
-
 
 const BoardCard = ({ doc, index, onClick }: { doc: DocRecord; index: number; onClick: () => void }) => {
   const title = useLiveData(doc.title$);
@@ -189,9 +212,9 @@ export const Component = () => {
         display: flex;
         flex-direction: column;
         height: 100%;
-        background: #0079bf; /* Signature Planka Blue */
         overflow: hidden;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        position: relative;
       }
       .planka-board-details-header {
         display: flex;
@@ -202,11 +225,31 @@ export const Component = () => {
         background: rgba(0, 0, 0, 0.15);
         gap: 16px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        z-index: 10;
+        justify-content: space-between;
       }
-      .planka-board-details-title {
+      .planka-board-details-title-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+      }
+      .planka-board-details-title-input {
+        background: transparent;
+        border: none;
+        color: #ffffff;
         font-weight: 700;
         font-size: 18px;
-        color: #ffffff;
+        padding: 4px 8px;
+        border-radius: 4px;
+        outline: none;
+        transition: background 0.15s;
+        width: auto;
+        max-width: 320px;
+      }
+      .planka-board-details-title-input:focus {
+        background: rgba(255, 255, 255, 0.2);
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.4);
       }
       .planka-board-details-back-btn {
         background: rgba(255, 255, 255, 0.2);
@@ -247,17 +290,24 @@ export const Component = () => {
         box-shadow: 0 1px 3px rgba(0,0,0,0.12);
         padding: 8px;
         gap: 8px;
+        transition: opacity 0.15s ease, transform 0.15s ease;
       }
       .planka-board-col-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
         padding: 2px 4px;
+        cursor: grab;
+      }
+      .planka-board-col-header:active {
+        cursor: grabbing;
       }
       .planka-board-col-title {
         font-weight: 600;
         font-size: 14px;
         color: #172b4d;
+        word-wrap: break-word;
+        max-width: 180px;
       }
       .planka-board-col-actions {
         display: flex;
@@ -297,17 +347,21 @@ export const Component = () => {
         overflow-y: auto;
         flex: 1;
         padding-right: 2px;
+        min-height: 20px;
       }
       .planka-board-card {
         background: #ffffff;
         border-radius: 3px;
         padding: 8px 10px;
-        cursor: pointer;
+        cursor: grab;
         box-shadow: 0 1px 0 rgba(9,30,66,.25);
         display: flex;
         flex-direction: column;
         gap: 6px;
-        transition: background 0.15s;
+        transition: background 0.15s, opacity 0.15s;
+      }
+      .planka-board-card:active {
+        cursor: grabbing;
       }
       .planka-board-card:hover {
         background: #f4f5f7;
@@ -451,21 +505,23 @@ export const Component = () => {
         justify-content: center;
         z-index: 9999;
         overflow-y: auto;
-        padding: 48px 0;
+        padding: 24px 0;
       }
       .planka-modal-window {
         background: #f4f5f7;
-        border-radius: 2px;
+        border-radius: 4px;
         width: 768px;
-        max-width: 90%;
+        max-width: 95%;
+        max-height: 90vh;
+        overflow-y: auto;
         display: flex;
         flex-direction: column;
-        box-shadow: 0 8px 16px -4px rgba(9,30,66,.25), 0 0 0 1px rgba(9,30,66,.08);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
         position: relative;
         margin: auto;
       }
       .planka-modal-header {
-        padding: 12px 40px 8px 16px;
+        padding: 16px 40px 8px 16px;
         display: flex;
         flex-direction: column;
         gap: 4px;
@@ -493,8 +549,8 @@ export const Component = () => {
       }
       .planka-modal-close-btn {
         position: absolute;
-        top: 12px;
-        right: 12px;
+        top: 16px;
+        right: 16px;
         background: transparent;
         border: none;
         font-size: 22px;
@@ -530,6 +586,24 @@ export const Component = () => {
         display: flex;
         flex-direction: column;
         gap: 12px;
+        min-width: 168px;
+      }
+
+      /* Responsive Modal Layout depending on window/app size */
+      @media (max-width: 730px) {
+        .planka-modal-grid {
+          flex-direction: column;
+        }
+        .planka-modal-sidebar {
+          width: 100%;
+          min-width: 100%;
+          flex-direction: row;
+          flex-wrap: wrap;
+          gap: 16px;
+        }
+        .planka-modal-sidebar > * {
+          flex: 1 1 120px;
+        }
       }
 
       /* Modal Sections */
@@ -654,6 +728,9 @@ export const Component = () => {
         cursor: pointer;
         font-size: 14px;
         color: #172b4d;
+        word-wrap: break-word;
+        white-space: normal;
+        max-width: 80%;
       }
 
       /* Comment Feed */
@@ -707,6 +784,7 @@ export const Component = () => {
         display: flex;
         flex-direction: column;
         gap: 4px;
+        max-width: calc(100% - 42px);
       }
       .planka-comment-meta {
         display: flex;
@@ -717,6 +795,43 @@ export const Component = () => {
       .planka-comment-text {
         font-size: 14px;
         color: #172b4d;
+        word-wrap: break-word;
+      }
+
+      /* Customize dropdown style */
+      .planka-customize-dropdown {
+        position: absolute;
+        top: 54px;
+        right: 16px;
+        width: 250px;
+        background: #ffffff;
+        border-radius: 4px;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+        border: 1px solid #dfe1e6;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        z-index: 100;
+      }
+      .planka-customize-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+      }
+      .planka-customize-color-circle {
+        height: 36px;
+        border-radius: 50%;
+        cursor: pointer;
+        border: 2px solid transparent;
+        box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
+        transition: border-color 0.15s;
+      }
+      .planka-customize-color-circle:hover {
+        transform: scale(1.05);
+      }
+      .planka-customize-color-circle-active {
+        border-color: #0079bf;
       }
     `}</style>
   );
@@ -799,9 +914,13 @@ export const Component = () => {
 // --- BOARD DETAIL KANBAN VIEW (YJS DRIVEN) ---
 const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => void }) => {
   const docsService = useService(DocsService);
-  const [boardData, setBoardData] = useState<{ columns: any[]; cards: any[] }>({ columns: [], cards: [] });
+  const [boardData, setBoardData] = useState<{ columns: any[]; cards: any[]; background?: string }>({ columns: [], cards: [], background: '#0079bf' });
   const [activeCard, setActiveCard] = useState<any | null>(null);
   const [labelsExpanded, setLabelsExpanded] = useState(false);
+
+  // Customization Menu toggle
+  const [showCustomize, setShowCustomize] = useState(false);
+  const [titleInput, setTitleInput] = useState('');
   
   // Inline input states to replace prompt() dialogs
   const [newColTitle, setNewColTitle] = useState('');
@@ -809,12 +928,17 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
   const [addingCardColId, setAddingCardColId] = useState<string | null>(null);
   const [newCardTitle, setNewCardTitle] = useState('');
 
+  // Drag and Drop tracking states
+  const [draggedColId, setDraggedColId] = useState<string | null>(null);
+  const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
+
   const docRef = useRef<any>(null);
 
   // Sync state with Yjs Map inside the BlockSuite document
   useEffect(() => {
     const { doc, release } = docsService.open(boardId);
     docRef.current = doc;
+    setTitleInput(doc.record.title$.value || '');
 
     const yMap = doc.yDoc.getMap('board_data');
 
@@ -823,9 +947,11 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
       // We retrieve them from JSON string, otherwise fallback to empty lists.
       const columnsStr = yMap.get('columns') as string;
       const cardsStr = yMap.get('cards') as string;
+      const bg = yMap.get('background') as string;
       setBoardData({
         columns: columnsStr ? JSON.parse(columnsStr) : [],
         cards: cardsStr ? JSON.parse(cardsStr) : [],
+        background: bg || '#0079bf',
       });
     };
 
@@ -852,6 +978,20 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
       yMap.set('cards', JSON.stringify(cards));
     });
   }, []);
+
+  const saveBackgroundToYjs = (bgValue: string) => {
+    if (!docRef.current) return;
+    const yMap = docRef.current.yDoc.getMap('board_data');
+    docRef.current.yDoc.transact(() => {
+      yMap.set('background', bgValue);
+    });
+  };
+
+  const handleSaveTitle = () => {
+    if (titleInput.trim() && docRef.current) {
+      docRef.current.record.setMeta({ title: titleInput });
+    }
+  };
 
   const handleAddColumn = () => {
     if (!newColTitle.trim()) return;
@@ -942,22 +1082,67 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
     }
   };
 
-  const getBoardTitle = () => {
-    if (!docRef.current) return 'Boards';
-    return docRef.current.meta$.value?.title || 'Untitled Board';
-  };
-
   return (
-    <div className="planka-board-container">
+    <div className="planka-board-container" style={{ background: boardData.background || '#0079bf' }}>
       <div className="planka-board-details-header">
-        <button onClick={onClose} className="planka-board-details-back-btn">
-          <Icons.Back />
-          Boards
-        </button>
-        <div className="planka-board-details-title">
-          {getBoardTitle()}
+        <div className="planka-board-details-title-container">
+          <button onClick={onClose} className="planka-board-details-back-btn">
+            <Icons.Back />
+            Boards
+          </button>
+          
+          <input
+            type="text"
+            value={titleInput}
+            onChange={e => setTitleInput(e.target.value)}
+            onBlur={handleSaveTitle}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.currentTarget.blur();
+              }
+            }}
+            className="planka-board-details-title-input"
+            title="Click to rename board"
+          />
         </div>
+
+        <button 
+          onClick={() => setShowCustomize(!showCustomize)} 
+          className="planka-board-details-back-btn"
+          style={{ gap: '8px' }}
+        >
+          <Icons.Palette />
+          Customize
+        </button>
       </div>
+
+      {/* Customize background and properties panel */}
+      {showCustomize && (
+        <div className="planka-customize-dropdown">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #dfe1e6', paddingBottom: '6px' }}>
+            <span style={{ fontWeight: 600, fontSize: '14px', color: '#172b4d' }}>Customize Board</span>
+            <button onClick={() => setShowCustomize(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#5e6c84' }}>×</button>
+          </div>
+          
+          <div>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: '#5e6c84', marginBottom: '8px' }}>Select Background</div>
+            <div className="planka-customize-grid">
+              {CUSTOMIZE_COLORS.map(c => {
+                const isActive = boardData.background === c.color;
+                return (
+                  <div
+                    key={c.name}
+                    onClick={() => saveBackgroundToYjs(c.color)}
+                    style={{ background: c.color }}
+                    className={`planka-customize-color-circle ${isActive ? 'planka-customize-color-circle-active' : ''}`}
+                    title={c.name}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className="planka-board-canvas">
         {boardData.columns.map((col, colIdx) => {
@@ -965,7 +1150,37 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
           const isAddingCard = addingCardColId === col.id;
 
           return (
-            <div key={col.id} className="planka-board-col">
+            <div 
+              key={col.id} 
+              className="planka-board-col"
+              // HTML5 Drag & Drop Column configuration
+              draggable={!draggedCardId}
+              onDragStart={(e) => {
+                e.dataTransfer.setData('text/plain', `col:${col.id}`);
+                setDraggedColId(col.id);
+              }}
+              onDragOver={(e) => {
+                if (draggedColId && draggedColId !== col.id) {
+                  e.preventDefault();
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const dragData = e.dataTransfer.getData('text/plain');
+                if (dragData.startsWith('col:')) {
+                  const fromColId = dragData.split(':')[1];
+                  const fromIdx = boardData.columns.findIndex(c => c.id === fromColId);
+                  const toIdx = boardData.columns.findIndex(c => c.id === col.id);
+                  if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
+                    const cols = [...boardData.columns];
+                    const [temp] = cols.splice(fromIdx, 1);
+                    cols.splice(toIdx, 0, temp);
+                    saveToYjs(cols, boardData.cards);
+                  }
+                }
+                setDraggedColId(null);
+              }}
+            >
               <div className="planka-board-col-header">
                 <span className="planka-board-col-title">{col.title}</span>
                 <div className="planka-board-col-actions">
@@ -975,7 +1190,33 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
                 </div>
               </div>
               
-              <div className="planka-board-cards-list">
+              <div 
+                className="planka-board-cards-list"
+                // HTML5 Drag & Drop Card drop zone (on list container)
+                onDragOver={(e) => {
+                  if (draggedCardId) {
+                    e.preventDefault();
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const dragData = e.dataTransfer.getData('text/plain');
+                  if (dragData.startsWith('card:')) {
+                    const fromCardId = dragData.split(':')[1];
+                    const fromCardIdx = boardData.cards.findIndex(c => c.id === fromCardId);
+                    if (fromCardIdx !== -1) {
+                      const fromCard = boardData.cards[fromCardIdx];
+                      if (fromCard.columnId !== col.id) {
+                        // Move card to this column (placed at the bottom)
+                        const updatedCards = boardData.cards.map(c => 
+                          c.id === fromCard.id ? { ...c, columnId: col.id } : c
+                        );
+                        saveToYjs(boardData.columns, updatedCards);
+                      }
+                    }
+                  }
+                }}
+              >
                 {colCards.map(card => {
                   const checkedCount = card.checklist?.filter((item: any) => item.completed).length || 0;
                   const totalCount = card.checklist?.length || 0;
@@ -984,6 +1225,42 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
                       key={card.id}
                       onClick={() => setActiveCard(card)}
                       className="planka-board-card"
+                      // HTML5 Drag & Drop Card configuration
+                      draggable
+                      onDragStart={(e) => {
+                        e.stopPropagation();
+                        e.dataTransfer.setData('text/plain', `card:${card.id}`);
+                        setDraggedCardId(card.id);
+                      }}
+                      onDragOver={(e) => {
+                        if (draggedCardId && draggedCardId !== card.id) {
+                          e.preventDefault();
+                        }
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const dragData = e.dataTransfer.getData('text/plain');
+                        if (dragData.startsWith('card:')) {
+                          const fromCardId = dragData.split(':')[1];
+                          const fromCardIdx = boardData.cards.findIndex(c => c.id === fromCardId);
+                          if (fromCardIdx !== -1) {
+                            const fromCard = boardData.cards[fromCardIdx];
+                            if (fromCard.id !== card.id) {
+                              const updatedCards = [...boardData.cards];
+                              // Remove from old position
+                              updatedCards.splice(fromCardIdx, 1);
+                              // Find target position
+                              const targetIdx = updatedCards.findIndex(c => c.id === card.id);
+                              // Insert card in new index with updated columnId
+                              const newCard = { ...fromCard, columnId: card.columnId };
+                              updatedCards.splice(targetIdx, 0, newCard);
+                              saveToYjs(boardData.columns, updatedCards);
+                            }
+                          }
+                        }
+                        setDraggedCardId(null);
+                      }}
                     >
                       {card.labels?.length > 0 && (
                         <div
@@ -1469,4 +1746,3 @@ const styles = {
     gap: '16px',
   },
 };
-
