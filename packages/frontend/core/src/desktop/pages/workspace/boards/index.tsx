@@ -185,6 +185,39 @@ const LABELS = [
   { name: 'Purple', color: '#9b59b6' },
 ];
 
+const BoardCard = ({ doc, onClick }: { doc: DocRecord; onClick: () => void }) => {
+  const title = useLiveData(doc.title$);
+  return (
+    <div
+      onClick={onClick}
+      style={styles.boardCard}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.borderColor = 'var(--affine-brand-color, #1e96eb)';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.borderColor = 'var(--affine-border-color, #e3e3e3)';
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontWeight: 600, fontSize: '15px', color: 'var(--affine-text-primary-color)' }}>
+          {title || 'Untitled Board'}
+        </span>
+        <button
+          onClick={e => {
+            e.stopPropagation();
+            doc.moveToTrash();
+          }}
+          style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ff4d4f' }}
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export const Component = () => {
   const docsService = useService(DocsService);
   const workbenchService = useService(WorkbenchService);
@@ -269,39 +302,13 @@ export const Component = () => {
             </div>
           ) : (
             <div style={styles.boardGrid}>
-              {boardDocs.map((doc: DocRecord) => {
-                const title = useLiveData(doc.title$);
-                return (
-                  <div
-                    key={doc.id}
-                    onClick={() => setSearchParams({ boardId: doc.id })}
-                    style={styles.boardCard}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.borderColor = 'var(--affine-brand-color, #1e96eb)';
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.borderColor = 'var(--affine-border-color, #e3e3e3)';
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 600, fontSize: '15px', color: 'var(--affine-text-primary-color)' }}>
-                        {title || 'Untitled Board'}
-                      </span>
-                      <button
-                        onClick={e => {
-                          e.stopPropagation();
-                          doc.moveToTrash();
-                        }}
-                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ff4d4f' }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+              {boardDocs.map((doc: DocRecord) => (
+                <BoardCard
+                  key={doc.id}
+                  doc={doc}
+                  onClick={() => setSearchParams({ boardId: doc.id })}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -671,7 +678,7 @@ const CardModal = ({
     <div style={styles.modalOverlay} onClick={onClose}>
       <div style={styles.modal} onClick={e => e.stopPropagation()}>
         {/* Modal Header */}
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--affine-border-color, #e3e3e3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--affine-border-color, #e3e3e3)', display: 'flex', justifySelf: 'stretch', justifyContent: 'space-between', alignItems: 'center' }}>
           <input
             type="text"
             value={card.title}
@@ -700,7 +707,7 @@ const CardModal = ({
 
             {/* Checklist */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', justifySelf: 'stretch', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--affine-text-primary-color)' }}>Checklist</span>
                 {totalCount > 0 && <span style={{ fontSize: '12px', color: 'var(--affine-text-secondary-color)' }}>{progressPercent}% completed</span>}
               </div>
