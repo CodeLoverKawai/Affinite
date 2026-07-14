@@ -21,13 +21,13 @@ import {
 // --- INLINE SVG ICONS (Bulletproof styling, no compilation risks) ---
 const Icons = {
   Back: () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <line x1="19" y1="12" x2="5" y2="12"></line>
       <polyline points="12 19 5 12 12 5"></polyline>
     </svg>
   ),
   Calendar: () => (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
       <line x1="16" y1="2" x2="16" y2="6"></line>
       <line x1="8" y1="2" x2="8" y2="6"></line>
@@ -35,13 +35,13 @@ const Icons = {
     </svg>
   ),
   Checklist: () => (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="9 11 12 14 22 4"></polyline>
       <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
     </svg>
   ),
   Comments: () => (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
     </svg>
   ),
@@ -53,47 +53,48 @@ const Icons = {
       <line x1="14" y1="11" x2="14" y2="17"></line>
     </svg>
   ),
-  User: () => (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-      <circle cx="12" cy="7" r="4"></circle>
+  Close: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
     </svg>
   )
 };
 
-// Available labels (Standard Planka palette)
-const LABELS = [
-  { name: 'Red', color: '#e12c40' },
-  { name: 'Orange', color: '#ff7a00' },
-  { name: 'Yellow', color: '#fcd53f' },
-  { name: 'Green', color: '#2ecc71' },
-  { name: 'Blue', color: '#1e96eb' },
-  { name: 'Purple', color: '#9b59b6' },
+// Gradients list for board cards (Trello/Planka style)
+const BOARD_GRADIENTS = [
+  'linear-gradient(135deg, #0079bf, #50b6f5)',
+  'linear-gradient(135deg, #3f51b5, #2196f3)',
+  'linear-gradient(135deg, #519839, #9ac855)',
+  'linear-gradient(135deg, #d29034, #f4c270)',
+  'linear-gradient(135deg, #b04632, #e5735f)',
+  'linear-gradient(135deg, #89609e, #ba9bc8)',
 ];
 
-const BoardCard = ({ doc, onClick }: { doc: DocRecord; onClick: () => void }) => {
+const BoardCard = ({ doc, index, onClick }: { doc: DocRecord; index: number; onClick: () => void }) => {
   const title = useLiveData(doc.title$);
+  const bgGradient = BOARD_GRADIENTS[index % BOARD_GRADIENTS.length];
+  
   return (
     <div
       onClick={onClick}
       className="planka-board-item-card"
+      style={{ background: bgGradient }}
     >
-      <div className="planka-board-item-header">
-        <span className="planka-board-item-title">
-          {title || 'Untitled Board'}
-        </span>
-        <button
-          onClick={e => {
-            e.stopPropagation();
-            if (confirm('Delete this board?')) {
-              doc.moveToTrash();
-            }
-          }}
-          className="planka-board-item-delete"
-        >
-          <Icons.Trash />
-        </button>
-      </div>
+      <span className="planka-board-item-title">
+        {title || 'Untitled Board'}
+      </span>
+      <button
+        onClick={e => {
+          e.stopPropagation();
+          if (confirm('Delete this board?')) {
+            doc.moveToTrash();
+          }
+        }}
+        className="planka-board-item-delete"
+      >
+        <Icons.Trash />
+      </button>
     </div>
   );
 };
@@ -132,45 +133,44 @@ export const Component = () => {
     <style>{`
       /* Planka Native CSS Theme */
       .planka-board-item-card {
-        background: var(--affine-background-secondary-color, #f4f5f7);
-        border: 1px solid var(--affine-border-color, #e3e3e3);
-        border-radius: 6px;
+        border-radius: 4px;
         padding: 16px;
         cursor: pointer;
-        transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        height: 96px;
+        position: relative;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
       }
       .planka-board-item-card:hover {
         transform: translateY(-2px);
-        border-color: var(--affine-brand-color, #0079bf);
-        box-shadow: 0 4px 12px rgba(9, 30, 66, 0.08);
-      }
-      .planka-board-item-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        box-shadow: 0 6px 16px rgba(0,0,0,0.25);
       }
       .planka-board-item-title {
-        font-weight: 600;
-        font-size: 14px;
-        color: var(--affine-text-primary-color, #172b4d);
+        font-weight: 700;
+        font-size: 16px;
+        color: #ffffff;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.4);
       }
       .planka-board-item-delete {
-        background: transparent;
+        align-self: flex-end;
+        background: rgba(0, 0, 0, 0.15);
         border: none;
         cursor: pointer;
-        color: #eb5757;
-        opacity: 0.6;
-        padding: 4px;
+        color: #ffffff;
+        opacity: 0.8;
+        padding: 6px;
         border-radius: 4px;
-        transition: opacity 0.15s, background-color 0.15s;
+        transition: background-color 0.15s, opacity 0.15s;
         display: flex;
         align-items: center;
         justify-content: center;
       }
       .planka-board-item-delete:hover {
         opacity: 1;
-        background: rgba(235, 87, 87, 0.1);
+        background: rgba(235, 87, 87, 0.9);
       }
 
       /* Board workspace layout styles */
@@ -180,6 +180,7 @@ export const Component = () => {
         height: 100%;
         background: #0079bf; /* Signature Planka Blue */
         overflow: hidden;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       }
       .planka-board-details-header {
         display: flex;
@@ -193,7 +194,7 @@ export const Component = () => {
       }
       .planka-board-details-title {
         font-weight: 700;
-        font-size: 16px;
+        font-size: 18px;
         color: #ffffff;
       }
       .planka-board-details-back-btn {
@@ -240,7 +241,7 @@ export const Component = () => {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 0 4px;
+        padding: 2px 4px;
       }
       .planka-board-col-title {
         font-weight: 600;
@@ -257,10 +258,13 @@ export const Component = () => {
         border: none;
         font-size: 11px;
         cursor: pointer;
-        padding: 2px 4px;
+        padding: 4px;
         border-radius: 3px;
         color: #5e6c84;
-        transition: background 0.15s;
+        transition: background 0.15s, color 0.15s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       .planka-board-col-btn:hover {
         background: rgba(9, 30, 66, 0.08);
@@ -292,7 +296,7 @@ export const Component = () => {
         display: flex;
         flex-direction: column;
         gap: 6px;
-        transition: background 0.15s, transform 0.15s;
+        transition: background 0.15s;
       }
       .planka-board-card:hover {
         background: #f4f5f7;
@@ -314,7 +318,7 @@ export const Component = () => {
       .planka-board-card-badge {
         display: flex;
         align-items: center;
-        gap: 3px;
+        gap: 4px;
         padding: 2px 4px;
         border-radius: 3px;
         background: rgba(9, 30, 66, 0.04);
@@ -433,7 +437,7 @@ export const Component = () => {
         background: rgba(0, 0, 0, 0.6);
         display: flex;
         align-items: center;
-        justifyContent: center;
+        justify-content: center;
         z-index: 9999;
         overflow-y: auto;
         padding: 48px 0;
@@ -525,10 +529,10 @@ export const Component = () => {
         margin-bottom: 8px;
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 8px;
       }
       .planka-modal-section-body {
-        padding-left: 20px;
+        padding-left: 22px;
       }
       .planka-modal-desc-input {
         width: 100%;
@@ -758,10 +762,11 @@ export const Component = () => {
             </div>
           ) : (
             <div style={styles.boardGrid}>
-              {boardDocs.map((doc: DocRecord) => (
+              {boardDocs.map((doc: DocRecord, index: number) => (
                 <BoardCard
                   key={doc.id}
                   doc={doc}
+                  index={index}
                   onClick={() => setSearchParams({ boardId: doc.id })}
                 />
               ))}
@@ -795,11 +800,13 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
     const yMap = doc.yDoc.getMap('board_data');
 
     const updateState = () => {
-      const columns = yMap.get('columns') as any[];
-      const cards = yMap.get('cards') as any[];
+      // Yjs map only stores primitive values (like JSON string).
+      // We retrieve them from JSON string, otherwise fallback to empty lists.
+      const columnsStr = yMap.get('columns') as string;
+      const cardsStr = yMap.get('cards') as string;
       setBoardData({
-        columns: columns ? JSON.parse(JSON.stringify(columns)) : [],
-        cards: cards ? JSON.parse(JSON.stringify(cards)) : [],
+        columns: columnsStr ? JSON.parse(columnsStr) : [],
+        cards: cardsStr ? JSON.parse(cardsStr) : [],
       });
     };
 
@@ -817,13 +824,13 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
     };
   }, [boardId, docsService]);
 
-  // Helper to commit updates back to Yjs Map
+  // Helper to commit updates back to Yjs Map (serialized as primitive string)
   const saveToYjs = useCallback((columns: any[], cards: any[]) => {
     if (!docRef.current) return;
     const yMap = docRef.current.yDoc.getMap('board_data');
     docRef.current.yDoc.transact(() => {
-      yMap.set('columns', columns);
-      yMap.set('cards', cards);
+      yMap.set('columns', JSON.stringify(columns));
+      yMap.set('cards', JSON.stringify(cards));
     });
   }, []);
 
@@ -1002,6 +1009,12 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
                     placeholder="Enter a title for this card..."
                     value={newCardTitle}
                     onChange={e => setNewCardTitle(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleAddCard(col.id);
+                      }
+                    }}
                     className="planka-inline-textarea"
                     autoFocus
                   />
@@ -1034,6 +1047,11 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
                 placeholder="Enter list title..."
                 value={newColTitle}
                 onChange={e => setNewColTitle(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    handleAddColumn();
+                  }
+                }}
                 className="planka-inline-input"
                 autoFocus
               />
@@ -1227,6 +1245,11 @@ const CardModal = ({
                     placeholder="Add an item..."
                     value={newTodo}
                     onChange={e => setNewTodo(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        handleAddTodo();
+                      }
+                    }}
                     className="planka-inline-input"
                     style={{ flex: 1, padding: '4px 8px' }}
                   />
