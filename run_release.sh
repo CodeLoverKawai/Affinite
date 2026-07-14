@@ -65,16 +65,16 @@ git commit -m "chore: Bump version to $NEW_VERSION" || true
 
 # Run the AppImage build script
 echo ""
-echo "--- [1/3] Building Linux AppImage ---"
-./build-appimage.sh
+echo "--- [1/3] Building Linux AppImage (Stable) ---"
+./build-appimage.sh stable
 
 # Run the APK build script
 echo ""
-echo "--- [2/3] Building Android APK ---"
+echo "--- [2/3] Building Android APK (Stable) ---"
 ./build-apk.sh
 
 # Check build outputs
-APPIMAGE_PATH="packages/frontend/apps/electron/out/AFFiNITe-canary-linux-x86_64.AppImage"
+APPIMAGE_PATH="packages/frontend/apps/electron/out/AFFiNITe-linux-x86_64.AppImage"
 APK_PATH="packages/frontend/apps/android/App/app/build/outputs/apk/stable/release/AFFINITE-release.apk"
 
 if [ ! -f "$APPIMAGE_PATH" ]; then
