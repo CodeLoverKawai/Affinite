@@ -614,6 +614,13 @@ export const Component = () => {
       .planka-label-pill-active {
         border-color: #172b4d;
       }
+      .planka-label-row {
+        transition: transform 0.15s ease, filter 0.15s ease;
+      }
+      .planka-label-row:hover {
+        filter: brightness(1.15);
+        transform: translateY(-1px);
+      }
 
       /* Checklist Styles */
       .planka-checklist-bar-container {
@@ -794,6 +801,7 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
   const docsService = useService(DocsService);
   const [boardData, setBoardData] = useState<{ columns: any[]; cards: any[] }>({ columns: [], cards: [] });
   const [activeCard, setActiveCard] = useState<any | null>(null);
+  const [labelsExpanded, setLabelsExpanded] = useState(false);
   
   // Inline input states to replace prompt() dialogs
   const [newColTitle, setNewColTitle] = useState('');
@@ -978,10 +986,35 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
                       className="planka-board-card"
                     >
                       {card.labels?.length > 0 && (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                          {card.labels.map((c: string) => (
-                            <div key={c} style={{ width: '32px', height: '6px', borderRadius: '3px', background: c }} />
-                          ))}
+                        <div
+                          onClick={e => {
+                            e.stopPropagation();
+                            setLabelsExpanded(!labelsExpanded);
+                          }}
+                          style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', cursor: 'pointer', marginBottom: '4px' }}
+                        >
+                          {card.labels.map((c: string) => {
+                            const labelObj = LABELS.find(l => l.color === c);
+                            const labelName = labelObj ? labelObj.name : '';
+                            return labelsExpanded ? (
+                              <div
+                                key={c}
+                                style={{
+                                  background: c,
+                                  color: '#ffffff',
+                                  fontSize: '10px',
+                                  fontWeight: 700,
+                                  padding: '2px 6px',
+                                  borderRadius: '3px',
+                                  textShadow: '0 1px 1px rgba(0,0,0,0.25)',
+                                }}
+                              >
+                                {labelName}
+                              </div>
+                            ) : (
+                              <div key={c} style={{ width: '40px', height: '8px', borderRadius: '4px', background: c }} />
+                            );
+                          })}
                         </div>
                       )}
                       <span className="planka-board-card-title">{card.title}</span>
@@ -1315,18 +1348,34 @@ const CardModal = ({
             
             {/* Color Labels Panel */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 600, color: '#5e6c84' }}>Labels</span>
-              <div className="planka-label-pill-grid">
+              <span className="planka-sidebar-title">Labels</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {LABELS.map(l => {
                   const isSelected = card.labels?.includes(l.color);
                   return (
                     <div
                       key={l.color}
                       onClick={() => toggleLabel(l.color)}
-                      className={`planka-label-pill ${isSelected ? 'planka-label-pill-active' : ''}`}
-                      style={{ background: l.color }}
-                      title={l.name}
-                    />
+                      style={{
+                        background: l.color,
+                        color: '#ffffff',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        padding: '6px 12px',
+                        borderRadius: '3px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                        transition: 'transform 0.1s ease, filter 0.15s ease',
+                        textShadow: '0 1px 1px rgba(0,0,0,0.3)',
+                      }}
+                      className="planka-label-row"
+                    >
+                      <span>{l.name}</span>
+                      {isSelected && <span style={{ fontWeight: 700 }}>✓</span>}
+                    </div>
                   );
                 })}
               </div>
