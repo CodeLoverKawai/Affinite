@@ -1,6 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
+# Set up logging to project logs/ directory
+mkdir -p logs
+LOG_FILE="logs/$(basename "$0" .sh)-$(date +%Y%m%d_%H%M%S).log"
+exec > >(tee -i "$LOG_FILE") 2>&1
+echo "📝 Log file: $LOG_FILE"
+
 # Script to build the AFFiNITe Desktop AppImage (Canary or Stable)
 # Run from the project root: ./build-appimage.sh [canary|stable]
 
