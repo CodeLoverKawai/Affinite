@@ -90,6 +90,12 @@ if [ ! -f /tmp/appimagetool ]; then
   curl -fsSL -o /tmp/appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
   chmod +x /tmp/appimagetool
 fi
+
+# Kill active instances and clean up destination to avoid "Text file busy" error
+pkill -f "${APPIMAGE_OUT_NAME}" || true
+pkill -f "${APP_BIN_NAME}" || true
+rm -f "packages/frontend/apps/electron/out/${APPIMAGE_OUT_NAME}"
+
 ARCH=x86_64 /tmp/appimagetool --comp zstd "${APPDIR}" "packages/frontend/apps/electron/out/${APPIMAGE_OUT_NAME}"
 
 echo "=== AppImage build complete! ==="
