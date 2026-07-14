@@ -34,7 +34,7 @@ if [ "$BUILD_TYPE" = "canary" ]; then
   ICON_SRC="icon_canary_512x512.png"
 else
   OUT_DIR="packages/frontend/apps/electron/out/stable/AFFiNITe-stable-linux-x64"
-  APP_BIN_NAME="AFFiNITe"
+  APP_BIN_NAME="AFFiNITe-stable"
   APPIMAGE_OUT_NAME="AFFiNITe-linux-x86_64.AppImage"
   DESKTOP_NAME="AFFiNITe"
   DESKTOP_FILE="affinite.desktop"
