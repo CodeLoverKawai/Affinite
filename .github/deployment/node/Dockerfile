@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM node:22-bookworm-slim AS assets
+FROM node:22 AS assets
 WORKDIR /app
 
 COPY ./packages/backend/server /app
@@ -20,7 +20,7 @@ RUN apt-get update && \
 
 RUN AFFINE_DOCKER_CLEAN=1 TARGETARCH="${TARGETARCH}" TARGETVARIANT="${TARGETVARIANT}" node ./scripts/docker-clean.mjs
 
-FROM node:22-bookworm-slim
+FROM node:22
 WORKDIR /app
 
 COPY --from=assets /app /app

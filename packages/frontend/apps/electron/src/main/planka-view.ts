@@ -3,7 +3,7 @@ import { WebContentsView } from 'electron';
 import { logger } from './logger';
 import { getMainWindow } from './windows-manager';
 
-const PLANKA_URL = 'http://localhost:7337';
+const PLANKA_URL = 'http://localhost:1337';
 
 let plankaView: WebContentsView | null = null;
 

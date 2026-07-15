@@ -1,0 +1,162 @@
+📝 Log file: logs/build-apk-20260714_180019.log
+=== Building AFFiNITe Android APK ===
+[1/3] Compiling web assets for Android...
+[bundle] Packing package @affine/android with rspack...
+[bundle] Cleaning old output...
+Building [@affine/android] for [stable] channel in [production] mode.
+Entry points: index: /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/android/src/index.tsx
+Output path: /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/android/dist
+Config: {
+  "debug": false,
+  "distribution": "android",
+  "isDesktopEdition": false,
+  "isMobileEdition": true,
+  "isElectron": false,
+  "isWeb": false,
+  "isMobileWeb": false,
+  "isIOS": false,
+  "isAndroid": true,
+  "isNative": true,
+  "isAdmin": false,
+  "appBuildType": "stable",
+  "appVersion": "0.26.3",
+  "editorVersion": "0.26.3",
+  "githubUrl": "https://github.com/toeverything/AFFiNE",
+  "changelogUrl": "https://affine.pro/what-is-new",
+  "downloadUrl": "https://affine.pro/download",
+  "pricingUrl": "https://affine.pro/pricing",
+  "discordUrl": "https://affine.pro/redirect/discord",
+  "requestLicenseUrl": "https://affine.pro/redirect/license",
+  "imageProxyUrl": "/api/worker/image-proxy",
+  "linkPreviewUrl": "/api/worker/link-preview",
+  "CAPTCHA_SITE_KEY": "",
+  "SENTRY_DSN": ""
+}
+./packages/frontend/apps/android/src/index.tsx:
+  831 assets
+  11125 modules
+
+  WARNING in ⚠ asset size limit: The following asset(s) exceed the recommended size limit (244.141 KiB). This can impact web performance.
+    │ Assets:
+    │   assets/TidyMindMapV3.034dd777.zip (1.424 MiB)
+    │   static/c820edeeba50006b531883903f5bb0b96bf523c9a6b3ce5868f03db5.gif (379.637 KiB)
+    │   static/templates/JwGgaM_IRE2A9RLtMk8KKbyHAz1rQ3SxnCmNt5CI0Q4=.png (545.721 KiB)
+    │   assets/completeWritingWithAI.38c3ca79.zip (1.768 MiB)
+    │   static/newIssue.mp4 (1.760 MiB)
+    │   static/templates/YuPd_NI22xNMhfm3GHSonetlA9pebkl-z1fsocwM638=.png (433.840 KiB)
+    │   assets/Kalam-Light.93c3de37.ttf (427.234 KiB)
+    │   static/1326bc48553a572c6756d9ee1b30a0dfdda26222fc2d2c872b14e609.gif (1.255 MiB)
+    │   imgs/screenshot1.png (827.626 KiB)
+    │   js/npm-async-@shikijs.65976354.js (8.174 MiB)
+    │   assets/typst_ts_web_compiler_bg.ead9717c.wasm (27.063 MiB)
+    │   assets/redHat.03f26830.zip (1.946 MiB)
+    │   assets/freelyCommunicateWithAI.aa2d74c1.zip (1.528 MiB)
+    │   js/i18n-langs.ru.7479fd9d.js (247.236 KiB)
+    │   js/npm-blocksuite.8dbd743a.js (1.035 MiB)
+    │   assets/other-page.dark.119524bd.png (365.979 KiB)
+    │   assets/other-page.light.28a72192.png (374.378 KiB)
+    │   assets/onboarding.27900f54.zip (704.378 KiB)
+    │   static/templates/4KbnQ1P38nUux0Tf2fdGqc909fVzGz8PJVuvuSVvnzc=.png (499.639 KiB)
+    │   static/githubStar.mp4 (6.831 MiB)
+    │   static/9288be57321c8772d04e05dbb69a22742372b3534442607a2d6a9998.gif (1.392 MiB)
+    │   assets/dot-bg.light.57dfc801.png (299.988 KiB)
+    │   js/npm-async-@lottiefiles.1fe1cf1e.js (525.817 KiB)
+    │   assets/typst_ts_renderer_bg.2bcb9d4e.wasm (950.459 KiB)
+    │   assets/Kalam-Bold.66c568d5.ttf (450.070 KiB)
+    │   static/6aa785ee927547ce9dd9d7b43e01eac948337fe57571443e87bc3a60.png (944.615 KiB)
+    │   onboarding/ai-onboarding.general.4.mp4 (762.612 KiB)
+    │   js/npm-async-cytoscape.5a728f2c.js (418.721 KiB)
+    │   static/28516717d63e469cd98729ff46be6595711898bab3dc43302319a987.gif (363.258 KiB)
+    │   assets/readAforeign.6c731d23.zip (1.226 MiB)
+    │   assets/Kalam-Regular.a6865ae4.ttf (417.320 KiB)
+    │   js/2414.8c8c6599.js (624.773 KiB)
+    │   assets/Inter-VariableFont_slnt,wght.1cccc37b.ttf (784.555 KiB)
+    │   assets/dot-bg.dark.f094bbaa.png (252.386 KiB)
+    │   js/npm-async-recharts.f9b6986f.js (249.938 KiB)
+    │   js/vendor.0ac945e3.js (3.204 MiB)
+    │   onboarding/ai-onboarding.general.3.mp4 (264.695 KiB)
+    │   assets/SourceSerif4-Bold.2a8fb63f.ttf (321.383 KiB)
+    │   js/npm-async-mermaid.f92b7653.js (1.036 MiB)
+    │   static/e93536e1be97e3b5206d43bf0793fdef24e60044d174f0abdefebe08.gif (6.801 MiB)
+    │   imgs/screenshot2.png (450.699 KiB)
+    │   static/27f983d0765289c19d10ee0b51c00c3c7665236a1a82406370d46e0a.gif (821.684 KiB)
+    │   assets/SourceSerif4-SemiBold.7aa2d3a3.ttf (321.426 KiB)
+    │   static/templates/jnpiF-qH-9NYu1WEx_asdmPfIBVf_Y5AX64yq-Jvbic=.png (439.041 KiB)
+    │   assets/SourceSerif4-Regular.40793c3c.ttf (321.129 KiB)
+    │   js/npm-async-@dotlottie.fe754f95.js (1.671 MiB)
+    │   js/index.dd85c228.js (6.844 MiB)
+    │   assets/SourceSerif4-Medium.b00361b5.ttf (321.352 KiB)
+    │   js/npm-async-pdfmake.8ede1575.js (1.264 MiB)
+    │   static/templates/pmPMoebd5Z2h2cblWB_TxEw4C5VKdVc0r4BDzMu5Jrw=.png (348.667 KiB)
+    │   static/047ebf2c9a5c7c9d8521c2ea5e6140ff7732ef9e28a9f944e9bf3ca4.png (709.638 KiB)
+
+  WARNING in ⚠ entrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244.141 KiB). This can impact web performance.
+    │ Entrypoints:
+    │   index (11.748 MiB)
+    │       js/runtime.b97b09e6.js
+    │       styles.be90f6f4.css
+    │       js/npm-rxjs.11b8e534.js
+    │       js/i18n.3620f878.js
+    │       js/i18n-langs.i18n-completenesses.f9d5cbe5.js
+    │       js/npm-blocksuite.8dbd743a.js
+    │       js/npm-react.0676fc08.js
+    │       js/npm-jotai.9a538fd4.js
+    │       js/npm-emotion.237ab8eb.js
+    │       js/vendor.0ac945e3.js
+    │       vendor.2bcb4f87.css
+    │       js/index.dd85c228.js
+
+  /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/android/src/index.tsx (Rspack 1.7.6) compiled with 2 warnings in 67.22 s
+
+./packages/frontend/core/src/modules/workspace-engine/impls/workspace-profile.worker.ts:
+  2 assets
+  243 modules
+  /home/rousseau/Documents/GitHub/Affinite/packages/frontend/core/src/modules/workspace-engine/impls/workspace-profile.worker.ts (Rspack 1.7.6) compiled successfully in 3.03 s
+
+./packages/frontend/core/src/modules/pdf/renderer/pdf.worker.ts:
+  3 assets
+  267 modules
+  /home/rousseau/Documents/GitHub/Affinite/packages/frontend/core/src/modules/pdf/renderer/pdf.worker.ts (Rspack 1.7.6) compiled successfully in 2.99 s
+
+./packages/frontend/core/src/blocksuite/view-extensions/turbo-renderer/turbo-painter.worker.ts:
+  1 asset
+  2148 modules
+  /home/rousseau/Documents/GitHub/Affinite/packages/frontend/core/src/blocksuite/view-extensions/turbo-renderer/turbo-painter.worker.ts (Rspack 1.7.6) compiled successfully in 3.12 s
+
+./packages/frontend/apps/android/src/nbstore.worker.ts:
+  2 assets
+  3689 modules
+  /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/android/src/nbstore.worker.ts (Rspack 1.7.6) compiled successfully in 7.04 s
+[2/3] Syncing assets with Capacitor...
+✔ Copying web assets from dist to App/app/src/main/assets/public in 352.25ms
+✔ Creating capacitor.config.json in App/app/src/main/assets in 1.96ms
+✔ copy android in 407.35ms
+✔ Updating Android plugins in 8.41ms
+[info] Found 4 Capacitor plugins for android:
+       @capacitor/app@7.1.1
+       @capacitor/keyboard@7.0.4
+       @capacitor/status-bar@7.0.4
+       @capgo/inappbrowser@8.1.11
+✔ update android in 107.05ms
+[info] Sync finished in 0.568s
+[3/3] Running Gradle build...
+
+> Configure project :app
+WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+
+> Configure project :capacitor-cordova-android-plugins
+WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+
+> Task :service:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :service:checkApolloVersions UP-TO-DATE
+> Task :service:generateAffineApolloOptions UP-TO-DATE
+> Task :service:generateAffineApolloSources UP-TO-DATE
+> Task :service:compileKotlin UP-TO-DATE
+> Task :service:compileJava NO-SOURCE
+> Task :service:processResources NO-SOURCE
+> Task :service:classes UP-TO-DATE
+> Task :service:jar UP-TO-DATE
+> Task :generateLinkerWrapper UP-TO-DATE
+
+> Task :app:cargoBuildArm64
+    Blocking waiting for file lock on artifact directory
