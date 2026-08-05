@@ -234,9 +234,13 @@ export const Component = () => {
         flex-direction: column;
         height: 100%;
         width: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
         overflow: hidden;
         font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        position: relative;
         background-size: cover;
         background-position: center;
       }
@@ -322,7 +326,7 @@ export const Component = () => {
       .affinite-board-canvas {
         display: flex;
         gap: 16px;
-        padding: 16px 20px;
+        padding: 20px;
         overflow-x: auto;
         overflow-y: hidden;
         flex: 1;
@@ -341,11 +345,12 @@ export const Component = () => {
         background: rgba(255, 255, 255, 0.25);
       }
 
-      /* Column styles */
+      /* Fixed Column styles for standard Kanban experience */
       .affinite-board-col {
-        min-width: 240px;
-        max-width: 400px;
-        flex: 1 1 260px;
+        width: 280px;
+        min-width: 280px;
+        max-width: 280px;
+        flex-shrink: 0;
         background: rgba(22, 26, 34, 0.75);
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
