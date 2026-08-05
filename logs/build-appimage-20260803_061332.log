@@ -1,0 +1,305 @@
+📝 Log file: logs/build-appimage-20260803_061332.log
+=== Building AFFiNITe AppImage (stable) ===
+[1/5] Compiling Electron build assets...
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[@affine/electron] yarn node ./scripts/build-layers.ts
+(node:23607) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Build layers done
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[@affine/electron] yarn node ./scripts/generate-assets.ts
+(node:24060) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+build with following variables {
+  repoRootDir: '/home/rousseau/Documents/GitHub/Affinite',
+  electronRootDir: '/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron',
+  publicDistDir: '/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron/resources',
+  affineSrcDir: '/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron-renderer',
+  affineSrcOutDir: '/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron-renderer/dist',
+  publicAffineOutDir: '/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron/resources/web-static',
+  releaseVersionEnv: ''
+}
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[bundle] Packing package @affine/electron-renderer with rspack...
+[bundle] Cleaning old output...
+Building [@affine/electron-renderer] for [stable] channel in [production] mode.
+Entry points: index: /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron-renderer/src/app/index.tsx, shell: /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron-renderer/src/shell/index.tsx, popup: /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron-renderer/src/popup/index.tsx, backgroundWorker: /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron-renderer/src/background-worker/index.ts
+Output path: /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron-renderer/dist
+Config: {
+  "debug": false,
+  "distribution": "desktop",
+  "isDesktopEdition": true,
+  "isMobileEdition": false,
+  "isElectron": true,
+  "isWeb": false,
+  "isMobileWeb": false,
+  "isIOS": false,
+  "isAndroid": false,
+  "isNative": true,
+  "isAdmin": false,
+  "appBuildType": "stable",
+  "appVersion": "0.26.3",
+  "editorVersion": "0.26.3",
+  "githubUrl": "https://github.com/toeverything/AFFiNE",
+  "changelogUrl": "https://affine.pro/what-is-new",
+  "downloadUrl": "https://affine.pro/download",
+  "pricingUrl": "https://affine.pro/pricing",
+  "discordUrl": "https://affine.pro/redirect/discord",
+  "requestLicenseUrl": "https://affine.pro/redirect/license",
+  "imageProxyUrl": "/api/worker/image-proxy",
+  "linkPreviewUrl": "/api/worker/link-preview",
+  "CAPTCHA_SITE_KEY": "",
+  "SENTRY_DSN": ""
+}
+./packages/frontend/apps/electron-renderer/src/app/index.tsx:
+  894 assets
+  11124 modules
+
+  WARNING in ⚠ asset size limit: The following asset(s) exceed the recommended size limit (244.141 KiB). This can impact web performance.
+    │ Assets:
+    │   assets/TidyMindMapV3.034dd777.zip (1.424 MiB)
+    │   static/c820edeeba50006b531883903f5bb0b96bf523c9a6b3ce5868f03db5.gif (379.637 KiB)
+    │   static/templates/JwGgaM_IRE2A9RLtMk8KKbyHAz1rQ3SxnCmNt5CI0Q4=.png (545.721 KiB)
+    │   assets/completeWritingWithAI.38c3ca79.zip (1.768 MiB)
+    │   static/newIssue.mp4 (1.760 MiB)
+    │   static/templates/YuPd_NI22xNMhfm3GHSonetlA9pebkl-z1fsocwM638=.png (433.840 KiB)
+    │   assets/Kalam-Light.93c3de37.ttf (427.234 KiB)
+    │   static/1326bc48553a572c6756d9ee1b30a0dfdda26222fc2d2c872b14e609.gif (1.255 MiB)
+    │   imgs/screenshot1.png (827.626 KiB)
+    │   js/npm-async-@dotlottie.30db86ef.js (1.671 MiB)
+    │   assets/typst_ts_web_compiler_bg.ead9717c.wasm (27.063 MiB)
+    │   assets/redHat.03f26830.zip (1.946 MiB)
+    │   assets/freelyCommunicateWithAI.aa2d74c1.zip (1.528 MiB)
+    │   js/3597.c09c55ac.js (630.303 KiB)
+    │   js/i18n-langs.ru.7479fd9d.js (247.236 KiB)
+    │   js/npm-async-@lottiefiles.b4ba4c68.js (525.831 KiB)
+    │   js/npm-blocksuite.b4d34e3a.js (1.035 MiB)
+    │   js/685.4597669d.js (4.982 MiB)
+    │   assets/other-page.dark.119524bd.png (365.979 KiB)
+    │   js/index.e6791df3.js (537.415 KiB)
+    │   assets/other-page.light.28a72192.png (374.378 KiB)
+    │   assets/onboarding.27900f54.zip (704.378 KiB)
+    │   static/templates/4KbnQ1P38nUux0Tf2fdGqc909fVzGz8PJVuvuSVvnzc=.png (499.639 KiB)
+    │   static/githubStar.mp4 (6.831 MiB)
+    │   static/9288be57321c8772d04e05dbb69a22742372b3534442607a2d6a9998.gif (1.392 MiB)
+    │   assets/dot-bg.light.57dfc801.png (299.988 KiB)
+    │   assets/typst_ts_renderer_bg.2bcb9d4e.wasm (950.459 KiB)
+    │   js/npm-async-cytoscape.abeac537.js (418.734 KiB)
+    │   assets/Kalam-Bold.66c568d5.ttf (450.070 KiB)
+    │   static/6aa785ee927547ce9dd9d7b43e01eac948337fe57571443e87bc3a60.png (944.615 KiB)
+    │   onboarding/ai-onboarding.general.4.mp4 (762.612 KiB)
+    │   js/1078.6bbf005a.js (336.770 KiB)
+    │   static/28516717d63e469cd98729ff46be6595711898bab3dc43302319a987.gif (363.258 KiB)
+    │   assets/readAforeign.6c731d23.zip (1.226 MiB)
+    │   assets/Kalam-Regular.a6865ae4.ttf (417.320 KiB)
+    │   vendor.557c7109.css (253.438 KiB)
+    │   assets/Inter-VariableFont_slnt,wght.1cccc37b.ttf (784.555 KiB)
+    │   assets/dot-bg.dark.f094bbaa.png (252.386 KiB)
+    │   js/npm-async-pdfmake.58b2e237.js (1.264 MiB)
+    │   js/2688.6c98f835.js (943.852 KiB)
+    │   onboarding/ai-onboarding.general.3.mp4 (264.695 KiB)
+    │   js/1146.ae001da4.js (456.088 KiB)
+    │   assets/SourceSerif4-Bold.2a8fb63f.ttf (321.383 KiB)
+    │   static/e93536e1be97e3b5206d43bf0793fdef24e60044d174f0abdefebe08.gif (6.801 MiB)
+    │   imgs/screenshot2.png (450.699 KiB)
+    │   static/27f983d0765289c19d10ee0b51c00c3c7665236a1a82406370d46e0a.gif (821.684 KiB)
+    │   assets/SourceSerif4-SemiBold.7aa2d3a3.ttf (321.426 KiB)
+    │   static/templates/jnpiF-qH-9NYu1WEx_asdmPfIBVf_Y5AX64yq-Jvbic=.png (439.041 KiB)
+    │   assets/SourceSerif4-Regular.40793c3c.ttf (321.129 KiB)
+    │   assets/SourceSerif4-Medium.b00361b5.ttf (321.352 KiB)
+    │   js/vendor.343b4156.js (3.660 MiB)
+    │   js/npm-async-mermaid.fa77aa3e.js (1.036 MiB)
+    │   js/npm-async-recharts.6891cf16.js (249.950 KiB)
+    │   static/templates/pmPMoebd5Z2h2cblWB_TxEw4C5VKdVc0r4BDzMu5Jrw=.png (348.667 KiB)
+    │   static/047ebf2c9a5c7c9d8521c2ea5e6140ff7732ef9e28a9f944e9bf3ca4.png (709.638 KiB)
+    │   js/npm-async-@shikijs.d20b9d77.js (8.174 MiB)
+
+  WARNING in ⚠ entrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244.141 KiB). This can impact web performance.
+    │ Entrypoints:
+    │   index (13.420 MiB)
+    │       js/runtime.9e870917.js
+    │       styles.91d8f2fa.css
+    │       js/npm-jotai.6e199bfe.js
+    │       js/npm-rxjs.31e1f878.js
+    │       js/npm-react.2b7ed5e7.js
+    │       js/npm-blocksuite.b4d34e3a.js
+    │       js/i18n.1e4f9a33.js
+    │       js/npm-emotion.ed1b3cee.js
+    │       js/i18n-langs.i18n-completenesses.f9d5cbe5.js
+    │       vendor.557c7109.css
+    │       js/vendor.343b4156.js
+    │       js/75.5d4c04f6.js
+    │       js/5845.6bde71d2.js
+    │       js/2164.86af09bd.js
+    │       js/8255.6c0f8576.js
+    │       js/9539.f890ee83.js
+    │       js/9714.7ea61f07.js
+    │       js/600.38bbd7c3.js
+    │       js/4783.34814102.js
+    │       js/6349.1dfb2a54.js
+    │       js/1146.ae001da4.js
+    │       js/3597.c09c55ac.js
+    │       js/2688.6c98f835.js
+    │       js/8697.27ff4ce5.js
+    │       js/685.4597669d.js
+    │       js/1290.07f76a69.js
+    │       js/6828.bf23f3eb.js
+    │       js/2944.1661a65a.js
+    │       js/index.e6791df3.js
+    │   shell (11.839 MiB)
+    │       js/runtime.9e870917.js
+    │       styles.91d8f2fa.css
+    │       js/npm-jotai.6e199bfe.js
+    │       js/npm-rxjs.31e1f878.js
+    │       js/npm-react.2b7ed5e7.js
+    │       js/npm-blocksuite.b4d34e3a.js
+    │       js/i18n.1e4f9a33.js
+    │       js/npm-emotion.ed1b3cee.js
+    │       js/i18n-langs.i18n-completenesses.f9d5cbe5.js
+    │       vendor.557c7109.css
+    │       js/vendor.343b4156.js
+    │       js/1146.ae001da4.js
+    │       js/2688.6c98f835.js
+    │       js/8697.27ff4ce5.js
+    │       js/685.4597669d.js
+    │       js/shell.1a06129e.js
+    │   popup (6.840 MiB)
+    │       js/runtime.9e870917.js
+    │       styles.91d8f2fa.css
+    │       js/npm-jotai.6e199bfe.js
+    │       js/npm-rxjs.31e1f878.js
+    │       js/npm-react.2b7ed5e7.js
+    │       js/npm-blocksuite.b4d34e3a.js
+    │       js/i18n.1e4f9a33.js
+    │       js/npm-emotion.ed1b3cee.js
+    │       js/i18n-langs.i18n-completenesses.f9d5cbe5.js
+    │       vendor.557c7109.css
+    │       js/vendor.343b4156.js
+    │       js/5845.6bde71d2.js
+    │       js/1146.ae001da4.js
+    │       js/2688.6c98f835.js
+    │       js/popup.2c772626.js
+    │   backgroundWorker (4.692 MiB)
+    │       js/runtime.9e870917.js
+    │       js/npm-jotai.6e199bfe.js
+    │       js/npm-rxjs.31e1f878.js
+    │       js/npm-react.2b7ed5e7.js
+    │       vendor.557c7109.css
+    │       js/vendor.343b4156.js
+    │       js/1146.ae001da4.js
+    │       js/8697.27ff4ce5.js
+    │       js/6828.bf23f3eb.js
+    │       js/backgroundWorker.92f92afa.js
+
+  /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron-renderer/src/app/index.tsx (Rspack 1.7.6) compiled with 2 warnings in 26.80 s
+
+./packages/frontend/core/src/modules/workspace-engine/impls/workspace-profile.worker.ts:
+  2 assets
+  243 modules
+  /home/rousseau/Documents/GitHub/Affinite/packages/frontend/core/src/modules/workspace-engine/impls/workspace-profile.worker.ts (Rspack 1.7.6) compiled successfully in 758 ms
+
+./packages/frontend/core/src/modules/pdf/renderer/pdf.worker.ts:
+  3 assets
+  267 modules
+  /home/rousseau/Documents/GitHub/Affinite/packages/frontend/core/src/modules/pdf/renderer/pdf.worker.ts (Rspack 1.7.6) compiled successfully in 715 ms
+
+./packages/frontend/core/src/blocksuite/view-extensions/turbo-renderer/turbo-painter.worker.ts:
+  1 asset
+  2148 modules
+  /home/rousseau/Documents/GitHub/Affinite/packages/frontend/core/src/blocksuite/view-extensions/turbo-renderer/turbo-painter.worker.ts (Rspack 1.7.6) compiled successfully in 635 ms
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[@affine/electron] yarn node ./scripts/build-layers.ts
+(node:26284) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Build layers done
+(node:24308) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[2/5] Running manual-package script...
+=== AFFiNE Manual Packager ===
+BUILD_TYPE: stable
+PRODUCT_NAME: AFFiNITe-stable
+OUT_DIR: /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron/out/stable/AFFiNITe-stable-linux-x64
+
+[1/6] Cleaning output directory...
+[2/6] Extracting Electron v39.2.7...
+  Electron extracted: 284M
+[3/6] Renaming electron binary to AFFiNITe-stable...
+[4/6] Copying application files...
+  Copied dist: 36M
+[5/6] Copying node_modules (this may take a while)...
+  node_modules linked/copied
+[6/6] Copying extra resources...
+
+=== Package complete ===
+Output: /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron/out/stable/AFFiNITe-stable-linux-x64
+Size: 542M
+
+To create AppImage, run:
+  npx @electron/asar pack /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron/out/stable/AFFiNITe-stable-linux-x64/resources/app /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron/out/stable/AFFiNITe-stable-linux-x64/resources/app.asar
+  rm -rf /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron/out/stable/AFFiNITe-stable-linux-x64/resources/app
+  # Then use appimagetool
+[3/5] Packing ASAR archive...
+npm notice run @affine/monorepo@0.26.3 npx
+npm notice run 'asar' pack packages/frontend/apps/electron/out/stable/AFFiNITe-stable-linux-x64/resources/app packages/frontend/apps/electron/out/stable/AFFiNITe-stable-linux-x64/resources/app.asar
+[4/5] Rebuilding AppDir structure...
+[5/5] Generating AppImage...
+appimagetool, continuous build (git version 8c8c91f), build 295 built on 2025-12-04 17:56:36 UTC
+Using architecture x86_64
+/tmp/AFFiNITe-stable.AppDir should be packaged as packages/frontend/apps/electron/out/AFFiNITe-linux-x86_64.AppImage
+Deleting pre-existing .DirIcon
+Creating .DirIcon symlink based on information from desktop file
+WARNING: AppStream upstream metadata is missing, please consider creating it
+         in usr/share/metainfo/affinite.appdata.xml
+         Please see https://www.freedesktop.org/software/appstream/docs/chap-Quickstart.html#sect-Quickstart-DesktopApps
+         for more information or use the generator at
+         https://docs.appimage.org/packaging-guide/optional/appstream.html#using-the-appstream-generator
+Generating squashfs...
+Downloading runtime file from https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64
+Downloaded runtime binary of size 944632
+Parallel mksquashfs: Using 16 processors
+Creating 4.0 filesystem on packages/frontend/apps/electron/out/AFFiNITe-linux-x86_64.AppImage, block size 131072.
+[================================================/             ] 3400/4315  78%[=============================================================-] 4315/4315 100%
+
+Exportable Squashfs 4.0 filesystem, zstd compressed, data block size 131072
+	compressed data, compressed metadata, compressed fragments,
+	compressed xattrs, compressed ids
+	duplicates are removed
+Filesystem size 199882.50 Kbytes (195.20 Mbytes)
+	36.55% of uncompressed filesystem size (546942.41 Kbytes)
+Inode table size 11649 bytes (11.38 Kbytes)
+	57.67% of uncompressed inode table size (20198 bytes)
+Directory table size 915 bytes (0.89 Kbytes)
+	52.80% of uncompressed directory table size (1733 bytes)
+Number of duplicate files found 1
+Number of inodes 93
+Number of files 81
+Number of fragments 3
+Number of symbolic links 1
+Number of device nodes 0
+Number of fifo nodes 0
+Number of socket nodes 0
+Number of directories 11
+Number of hard-links 0
+Number of ids (unique uids + gids) 1
+Number of uids 1
+	root (0)
+Number of gids 1
+	root (0)
+Embedding ELF...
+Marking the AppImage as executable...
+Embedding MD5 digest
+Success
+
+Please consider submitting your AppImage to AppImageHub, the crowd-sourced
+central directory of available AppImages, by opening a pull request
+at https://github.com/AppImage/appimage.github.io
+=== AppImage build complete! ===
+Output: packages/frontend/apps/electron/out/AFFiNITe-linux-x86_64.AppImage

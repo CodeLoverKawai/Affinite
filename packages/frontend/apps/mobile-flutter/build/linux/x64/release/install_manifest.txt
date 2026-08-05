@@ -1,0 +1,14 @@
+/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/bundle/affinite_mobile_flutter
+/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/bundle/data/icudtl.dat
+/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/bundle/lib/libflutter_linux_gtk.so
+/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/bundle/lib/libdartjni.so
+/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/bundle/data/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf
+/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/bundle/data/flutter_assets/fonts/MaterialIcons-Regular.otf
+/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/bundle/data/flutter_assets/shaders/ink_sparkle.frag
+/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/bundle/data/flutter_assets/shaders/stretch_effect.frag
+/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/bundle/data/flutter_assets/NativeAssetsManifest.json
+/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/bundle/data/flutter_assets/AssetManifest.bin
+/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/bundle/data/flutter_assets/FontManifest.json
+/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/bundle/data/flutter_assets/NOTICES.Z
+/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/bundle/data/flutter_assets/version.json
+/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/bundle/lib/libapp.so

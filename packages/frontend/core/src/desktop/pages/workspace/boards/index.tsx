@@ -4,7 +4,6 @@ import { useLiveData, useService } from '@toeverything/infra';
 
 import { DocsService } from '../../../../modules/doc';
 import { DocRecord } from '../../../../modules/doc/entities/record';
-import { WorkbenchService } from '../../../../modules/workbench';
 import {
   ViewBody,
   ViewHeader,
@@ -12,13 +11,12 @@ import {
   ViewTitle,
 } from '../../../../modules/workbench';
 import {
-  DeleteIcon,
   NewIcon,
   PlusIcon,
   SearchIcon,
 } from '@blocksuite/icons/rc';
 
-// --- INLINE SVG ICONS (Bulletproof styling, no compilation risks) ---
+// --- INLINE SVG ICONS ---
 const Icons = {
   Back: () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -70,65 +68,72 @@ const Icons = {
   )
 };
 
-// Gradients list for board cards (Trello/Planka style)
+// Gradients list for board dashboard items
 const BOARD_GRADIENTS = [
-  'linear-gradient(135deg, #0079bf, #50b6f5)',
-  'linear-gradient(135deg, #3f51b5, #2196f3)',
-  'linear-gradient(135deg, #519839, #9ac855)',
-  'linear-gradient(135deg, #d29034, #f4c270)',
-  'linear-gradient(135deg, #b04632, #e5735f)',
-  'linear-gradient(135deg, #89609e, #ba9bc8)',
+  'linear-gradient(135deg, #1e293b, #0f172a)',
+  'linear-gradient(135deg, #1e1b4b, #312e81)',
+  'linear-gradient(135deg, #064e3b, #022c22)',
+  'linear-gradient(135deg, #78350f, #451a03)',
+  'linear-gradient(135deg, #701a75, #4a044e)',
+  'linear-gradient(135deg, #1f2937, #111827)',
 ];
 
-const CUSTOMIZE_COLORS = [
-  { name: 'Classic Blue', color: '#0079bf' },
-  { name: 'Emerald Green', color: '#519839' },
-  { name: 'Warm Orange', color: '#d29034' },
-  { name: 'Crimson Red', color: '#b04632' },
-  { name: 'Royal Purple', color: '#89609e' },
-  { name: 'Dark Slate', color: '#4f5d73' },
-  { name: 'Sunset Gradient', color: 'linear-gradient(135deg, #ff8c00, #e52d27)' },
-  { name: 'Ocean Gradient', color: 'linear-gradient(135deg, #00c6ff, #0072ff)' },
-  { name: 'Forest Gradient', color: 'linear-gradient(135deg, #11998e, #38ef7d)' },
-  { name: 'Aurora Gradient', color: 'linear-gradient(135deg, #7F00FF, #E100FF)' },
-  { name: 'Warm Flame', color: 'linear-gradient(135deg, #f12711, #f5af19)' },
-  { name: 'Cool Dark', color: 'linear-gradient(135deg, #1f1c2c, #928dab)' },
+// Curated HD Wallpapers & Glass Colors
+const WALLPAPER_PRESETS = [
+  { name: 'Dark Cosmic', url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80' },
+  { name: 'Deep Space Nebula', url: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1920&q=80' },
+  { name: 'Forest Mist', url: 'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1920&q=80' },
+  { name: 'Cyberpunk Night', url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1920&q=80' },
+  { name: 'Minimal Obsidian', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1920&q=80' },
 ];
 
-// Available labels (Standard Planka palette)
+const COLOR_PRESETS = [
+  { name: 'Midnight Glass', color: 'linear-gradient(135deg, #0f172a, #1e293b)' },
+  { name: 'Aurora Borealis', color: 'linear-gradient(135deg, #052e16, #064e3b)' },
+  { name: 'Deep Indigo', color: 'linear-gradient(135deg, #1e1b4b, #312e81)' },
+  { name: 'Obsidian Velvet', color: 'linear-gradient(135deg, #18181b, #09090b)' },
+  { name: 'Sunset Glow', color: 'linear-gradient(135deg, #451a03, #78350f)' },
+  { name: 'Royal Purple', color: 'linear-gradient(135deg, #3b0764, #581c87)' },
+];
+
+// Available labels
 const LABELS = [
-  { name: 'Red', color: '#e12c40' },
-  { name: 'Orange', color: '#ff7a00' },
-  { name: 'Yellow', color: '#fcd53f' },
-  { name: 'Green', color: '#2ecc71' },
-  { name: 'Blue', color: '#1e96eb' },
-  { name: 'Purple', color: '#9b59b6' },
+  { name: 'Red', color: '#ef4444' },
+  { name: 'Orange', color: '#f97316' },
+  { name: 'Yellow', color: '#eab308' },
+  { name: 'Green', color: '#10b981' },
+  { name: 'Blue', color: '#3b82f6' },
+  { name: 'Purple', color: '#a855f7' },
 ];
 
-const BoardCard = ({ doc, index, onClick }: { doc: DocRecord; index: number; onClick: () => void }) => {
+const BoardCardItem = ({ doc, index, onClick }: { doc: DocRecord; index: number; onClick: () => void }) => {
   const title = useLiveData(doc.title$);
   const bgGradient = BOARD_GRADIENTS[index % BOARD_GRADIENTS.length];
   
   return (
     <div
       onClick={onClick}
-      className="planka-board-item-card"
+      className="affinite-board-item-card"
       style={{ background: bgGradient }}
     >
-      <span className="planka-board-item-title">
+      <span className="affinite-board-item-title">
         {title || 'Untitled Board'}
       </span>
-      <button
-        onClick={e => {
-          e.stopPropagation();
-          if (confirm('Delete this board?')) {
-            doc.moveToTrash();
-          }
-        }}
-        className="planka-board-item-delete"
-      >
-        <Icons.Trash />
-      </button>
+      <div className="affinite-board-item-footer">
+        <span className="affinite-board-item-badge">Native Board</span>
+        <button
+          onClick={e => {
+            e.stopPropagation();
+            if (confirm('Delete this board?')) {
+              doc.moveToTrash();
+            }
+          }}
+          className="affinite-board-item-delete"
+          title="Delete board"
+        >
+          <Icons.Trash />
+        </button>
+      </div>
     </div>
   );
 };
@@ -162,325 +167,416 @@ export const Component = () => {
     setSearchParams({ boardId: docRecord.id });
   }, [boardDocs.length, docsService, setSearchParams]);
 
-  // CSS Styles injection for exact Planka look-and-feel
+  // CSS Styles injection for AFFiNITe Dark Glassmorphism
   const styleBlock = (
     <style>{`
-      /* Planka Native CSS Theme */
-      .planka-board-item-card {
-        border-radius: 4px;
-        padding: 16px;
+      /* AFFiNITe Dark Glassmorphism CSS Theme */
+      .affinite-board-item-card {
+        border-radius: 12px;
+        padding: 20px;
         cursor: pointer;
-        height: 96px;
+        height: 120px;
         position: relative;
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255, 255, 255, 0.08);
         display: flex;
         flex-direction: column;
         justify-content: space-between;
+        overflow: hidden;
       }
-      .planka-board-item-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+      .affinite-board-item-card:hover {
+        transform: translateY(-3px) scale(1.01);
+        box-shadow: 0 12px 28px rgba(0,0,0,0.5);
+        border-color: rgba(255, 255, 255, 0.2);
       }
-      .planka-board-item-title {
+      .affinite-board-item-title {
         font-weight: 700;
-        font-size: 16px;
-        color: #ffffff;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+        font-size: 17px;
+        color: #f8fafc;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+        letter-spacing: -0.01em;
       }
-      .planka-board-item-delete {
-        align-self: flex-end;
-        background: rgba(0, 0, 0, 0.15);
+      .affinite-board-item-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .affinite-board-item-badge {
+        font-size: 11px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.7);
+        background: rgba(255, 255, 255, 0.1);
+        padding: 3px 8px;
+        border-radius: 6px;
+        backdrop-filter: blur(4px);
+      }
+      .affinite-board-item-delete {
+        background: rgba(0, 0, 0, 0.25);
         border: none;
         cursor: pointer;
-        color: #ffffff;
-        opacity: 0.8;
+        color: #cbd5e1;
         padding: 6px;
-        border-radius: 4px;
-        transition: background-color 0.15s, opacity 0.15s;
+        border-radius: 6px;
+        transition: all 0.15s;
         display: flex;
         align-items: center;
         justify-content: center;
       }
-      .planka-board-item-delete:hover {
-        opacity: 1;
-        background: rgba(235, 87, 87, 0.9);
+      .affinite-board-item-delete:hover {
+        color: #ffffff;
+        background: rgba(239, 68, 68, 0.9);
       }
 
       /* Board workspace layout styles */
-      .planka-board-container {
+      .affinite-board-container {
         display: flex;
         flex-direction: column;
         height: 100%;
+        width: 100%;
         overflow: hidden;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         position: relative;
+        background-size: cover;
+        background-position: center;
       }
-      .planka-board-details-header {
+      .affinite-board-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+        pointer-events: none;
+        transition: background-color 0.2s ease;
+      }
+      .affinite-board-content-wrapper {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+      }
+      .affinite-board-details-header {
         display: flex;
         align-items: center;
         width: 100%;
-        padding: 0 16px;
-        height: 48px;
-        background: rgba(0, 0, 0, 0.15);
+        padding: 0 20px;
+        height: 54px;
+        background: rgba(15, 17, 21, 0.65);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
         gap: 16px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         z-index: 10;
         justify-content: space-between;
       }
-      .planka-board-details-title-container {
+      .affinite-board-details-title-container {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 12px;
         flex: 1;
       }
-      .planka-board-details-title-input {
+      .affinite-board-details-title-input {
         background: transparent;
-        border: none;
-        color: #ffffff;
+        border: 1px solid transparent;
+        color: #f8fafc;
         font-weight: 700;
         font-size: 18px;
-        padding: 4px 8px;
-        border-radius: 4px;
+        padding: 4px 10px;
+        border-radius: 8px;
         outline: none;
-        transition: background 0.15s;
-        width: auto;
-        max-width: 320px;
+        transition: all 0.15s;
+        max-width: 340px;
       }
-      .planka-board-details-title-input:focus {
-        background: rgba(255, 255, 255, 0.2);
-        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.4);
+      .affinite-board-details-title-input:hover {
+        background: rgba(255, 255, 255, 0.06);
       }
-      .planka-board-details-back-btn {
-        background: rgba(255, 255, 255, 0.2);
-        border: none;
-        color: #ffffff;
-        padding: 6px 12px;
-        border-radius: 4px;
+      .affinite-board-details-title-input:focus {
+        background: rgba(0, 0, 0, 0.4);
+        border-color: rgba(59, 130, 246, 0.5);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+      }
+      .affinite-board-details-back-btn {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #f1f5f9;
+        padding: 6px 14px;
+        border-radius: 8px;
         font-size: 13px;
         font-weight: 600;
         cursor: pointer;
         display: flex;
         align-items: center;
         gap: 6px;
-        transition: background 0.15s;
+        transition: all 0.15s;
+        backdrop-filter: blur(4px);
       }
-      .planka-board-details-back-btn:hover {
-        background: rgba(255, 255, 255, 0.3);
+      .affinite-board-details-back-btn:hover {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.2);
+        transform: translateY(-1px);
       }
-      .planka-board-canvas {
+      .affinite-board-canvas {
         display: flex;
-        gap: 12px;
-        padding: 12px;
+        gap: 16px;
+        padding: 16px 20px;
         overflow-x: auto;
         overflow-y: hidden;
         flex: 1;
         align-items: flex-start;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .affinite-board-canvas::-webkit-scrollbar {
+        height: 10px;
+      }
+      .affinite-board-canvas::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 5px;
+      }
+      .affinite-board-canvas::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.25);
       }
 
       /* Column styles */
-      .planka-board-col {
-        width: 272px;
-        min-width: 272px;
-        background: #ebecf0;
-        border-radius: 3px;
+      .affinite-board-col {
+        min-width: 240px;
+        max-width: 400px;
+        flex: 1 1 260px;
+        background: rgba(22, 26, 34, 0.75);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
         display: flex;
         flex-direction: column;
         max-height: 100%;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-        padding: 8px;
-        gap: 8px;
-        transition: opacity 0.15s ease, transform 0.15s ease;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        padding: 12px;
+        gap: 10px;
+        transition: all 0.2s ease;
       }
-      .planka-board-col-header {
+      .affinite-board-col-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 2px 4px;
+        padding: 4px 6px;
         cursor: grab;
       }
-      .planka-board-col-header:active {
+      .affinite-board-col-header:active {
         cursor: grabbing;
       }
-      .planka-board-col-title {
-        font-weight: 600;
+      .affinite-board-col-title {
+        font-weight: 700;
         font-size: 14px;
-        color: #172b4d;
+        color: #f1f5f9;
         word-wrap: break-word;
-        max-width: 180px;
+        max-width: 190px;
+        letter-spacing: -0.01em;
       }
-      .planka-board-col-actions {
+      .affinite-board-col-actions {
         display: flex;
         align-items: center;
-        gap: 2px;
+        gap: 4px;
       }
-      .planka-board-col-btn {
-        background: transparent;
-        border: none;
+      .affinite-board-col-btn {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.06);
         font-size: 11px;
         cursor: pointer;
-        padding: 4px;
-        border-radius: 3px;
-        color: #5e6c84;
-        transition: background 0.15s, color 0.15s;
+        padding: 4px 6px;
+        border-radius: 6px;
+        color: #94a3b8;
+        transition: all 0.15s;
         display: flex;
         align-items: center;
         justify-content: center;
       }
-      .planka-board-col-btn:hover {
-        background: rgba(9, 30, 66, 0.08);
-        color: #172b4d;
+      .affinite-board-col-btn:hover {
+        background: rgba(255, 255, 255, 0.12);
+        color: #f8fafc;
       }
-      .planka-board-col-delete {
-        color: #eb5757;
+      .affinite-board-col-delete {
+        color: #ef4444;
       }
-      .planka-board-col-delete:hover {
-        background: rgba(235, 87, 87, 0.1);
-        color: #eb5757;
+      .affinite-board-col-delete:hover {
+        background: rgba(239, 68, 68, 0.2);
+        color: #fca5a5;
       }
 
       /* Card styles */
-      .planka-board-cards-list {
+      .affinite-board-cards-list {
         display: flex;
         flex-direction: column;
         gap: 8px;
         overflow-y: auto;
         flex: 1;
-        padding-right: 2px;
-        min-height: 20px;
+        padding-right: 4px;
+        min-height: 24px;
       }
-      .planka-board-card {
-        background: #ffffff;
+      .affinite-board-cards-list::-webkit-scrollbar {
+        width: 6px;
+      }
+      .affinite-board-cards-list::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
         border-radius: 3px;
-        padding: 8px 10px;
+      }
+      .affinite-board-card {
+        background: rgba(33, 38, 48, 0.85);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 8px;
+        padding: 10px 12px;
         cursor: grab;
-        box-shadow: 0 1px 0 rgba(9,30,66,.25);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         display: flex;
         flex-direction: column;
         gap: 6px;
-        transition: background 0.15s, opacity 0.15s;
+        transition: all 0.15s ease;
       }
-      .planka-board-card:active {
+      .affinite-board-card:active {
         cursor: grabbing;
       }
-      .planka-board-card:hover {
-        background: #f4f5f7;
+      .affinite-board-card:hover {
+        background: rgba(42, 48, 61, 0.95);
+        border-color: rgba(255, 255, 255, 0.18);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.4);
       }
-      .planka-board-card-title {
+      .affinite-board-card-title {
         font-size: 14px;
-        color: #172b4d;
+        color: #f1f5f9;
+        font-weight: 500;
+        line-height: 1.4;
         word-wrap: break-word;
       }
-      .planka-board-card-badge-row {
+      .affinite-board-card-badge-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 6px;
         font-size: 11px;
-        color: #5e6c84;
+        color: #94a3b8;
         align-items: center;
         margin-top: 4px;
       }
-      .planka-board-card-badge {
+      .affinite-board-card-badge {
         display: flex;
         align-items: center;
         gap: 4px;
-        padding: 2px 4px;
-        border-radius: 3px;
-        background: rgba(9, 30, 66, 0.04);
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.04);
       }
-      .planka-board-card-badge-due {
-        background: #eb5757;
-        color: #ffffff;
+      .affinite-board-card-badge-due {
+        background: rgba(239, 68, 68, 0.2);
+        color: #fca5a5;
+        border-color: rgba(239, 68, 68, 0.3);
       }
 
       /* Add column / card buttons and forms */
-      .planka-add-btn {
-        background: transparent;
-        border: none;
-        border-radius: 3px;
-        color: #5e6c84;
+      .affinite-add-btn {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px dashed rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+        color: #94a3b8;
         display: flex;
         align-items: center;
         gap: 6px;
-        font-size: 14px;
-        font-weight: 500;
+        font-size: 13px;
+        font-weight: 600;
         cursor: pointer;
-        padding: 6px 8px;
+        padding: 8px 12px;
         text-align: left;
         width: 100%;
-        transition: background 0.15s, color 0.15s;
+        transition: all 0.15s;
       }
-      .planka-add-btn:hover {
-        background: rgba(9, 30, 66, 0.08);
-        color: #172b4d;
+      .affinite-add-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.25);
+        color: #f1f5f9;
       }
-      .planka-add-column-btn {
-        background: rgba(255, 255, 255, 0.24);
-        color: #ffffff;
-        width: 272px;
-        min-width: 272px;
-        border: none;
+      .affinite-add-column-btn {
+        background: rgba(22, 26, 34, 0.6);
+        backdrop-filter: blur(12px);
+        border: 1px dashed rgba(255, 255, 255, 0.15);
+        color: #f1f5f9;
+        width: 280px;
+        min-width: 270px;
+        height: 48px;
         font-weight: 600;
+        border-radius: 12px;
       }
-      .planka-add-column-btn:hover {
-        background: rgba(255, 255, 255, 0.32);
-        color: #ffffff;
+      .affinite-add-column-btn:hover {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 255, 255, 0.3);
       }
 
-      .planka-inline-form {
+      .affinite-inline-form {
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 8px;
         width: 100%;
       }
-      .planka-inline-textarea {
+      .affinite-inline-textarea {
         width: 100%;
-        min-height: 54px;
-        max-height: 162px;
-        padding: 6px 8px;
-        border-radius: 3px;
-        border: none;
-        box-shadow: 0 1px 0 rgba(9,30,66,.25);
+        min-height: 56px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(15, 17, 21, 0.8);
         resize: none;
         font-size: 14px;
         outline: none;
-        color: #172b4d;
+        color: #f8fafc;
+        box-sizing: border-box;
       }
-      .planka-inline-input {
+      .affinite-inline-textarea:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+      }
+      .affinite-inline-input {
         width: 100%;
-        padding: 6px 8px;
-        border-radius: 3px;
-        border: 1px solid #dfe1e6;
-        background: #ffffff;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(15, 17, 21, 0.8);
         font-size: 14px;
         outline: none;
-        color: #172b4d;
+        color: #f8fafc;
+        box-sizing: border-box;
       }
-      .planka-inline-actions {
+      .affinite-inline-input:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+      }
+      .affinite-inline-actions {
         display: flex;
         align-items: center;
         gap: 8px;
       }
-      .planka-btn-submit {
-        background: #5aac44;
+      .affinite-btn-submit {
+        background: #2563eb;
         color: #ffffff;
         border: none;
-        border-radius: 3px;
-        padding: 6px 12px;
+        border-radius: 6px;
+        padding: 6px 14px;
         font-weight: 600;
-        font-size: 14px;
+        font-size: 13px;
         cursor: pointer;
-        box-shadow: 0 1px 0 rgba(9,30,66,.25);
         transition: background 0.15s;
       }
-      .planka-btn-submit:hover {
-        background: #61bd4f;
+      .affinite-btn-submit:hover {
+        background: #3b82f6;
       }
-      .planka-btn-cancel {
+      .affinite-btn-cancel {
         background: transparent;
         border: none;
         font-size: 18px;
-        color: #5e6c84;
+        color: #94a3b8;
         cursor: pointer;
         padding: 4px;
         display: flex;
@@ -488,350 +584,210 @@ export const Component = () => {
         justify-content: center;
         transition: color 0.15s;
       }
-      .planka-btn-cancel:hover {
-        color: #172b4d;
+      .affinite-btn-cancel:hover {
+        color: #f1f5f9;
       }
 
       /* Card Modal Overlay & Window */
-      .planka-modal-overlay {
+      .affinite-modal-overlay {
         position: fixed;
         top: 0;
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.6);
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
         display: flex;
         align-items: center;
         justify-content: center;
         z-index: 9999;
         overflow-y: auto;
-        padding: 24px 0;
+        padding: 24px;
       }
-      .planka-modal-window {
-        background: #f4f5f7;
-        border-radius: 4px;
-        width: 768px;
+      .affinite-modal-window {
+        background: #181b22;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        width: 740px;
         max-width: 95%;
-        max-height: 90vh;
+        max-height: 88vh;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
         position: relative;
-        margin: auto;
+        color: #f8fafc;
       }
-      .planka-modal-header {
-        padding: 16px 40px 8px 16px;
+      .affinite-modal-header {
+        padding: 20px 48px 12px 20px;
         display: flex;
         flex-direction: column;
         gap: 4px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       }
-      .planka-modal-title {
+      .affinite-modal-title {
         font-size: 20px;
-        font-weight: 600;
-        color: #172b4d;
-        border: none;
+        font-weight: 700;
+        color: #f8fafc;
+        border: 1px solid transparent;
         background: transparent;
         width: 100%;
-        padding: 4px;
-        border-radius: 3px;
-        transition: background 0.15s;
+        padding: 4px 8px;
+        border-radius: 6px;
+        transition: all 0.15s;
       }
-      .planka-modal-title:focus {
-        background: #ffffff;
-        box-shadow: inset 0 0 0 2px #0079bf;
+      .affinite-modal-title:focus {
+        background: rgba(0, 0, 0, 0.4);
+        border-color: #3b82f6;
         outline: none;
       }
-      .planka-modal-subtitle {
-        font-size: 12px;
-        color: #5e6c84;
-        padding-left: 4px;
+      .affinite-modal-subtitle {
+        font-size: 13px;
+        color: #94a3b8;
+        padding-left: 8px;
       }
-      .planka-modal-close-btn {
+      .affinite-modal-close-btn {
         position: absolute;
-        top: 16px;
-        right: 16px;
-        background: transparent;
-        border: none;
-        font-size: 22px;
+        top: 20px;
+        right: 20px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        font-size: 20px;
         cursor: pointer;
-        color: #5e6c84;
+        color: #94a3b8;
         width: 32px;
         height: 32px;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: background 0.15s, color 0.15s;
+        transition: all 0.15s;
       }
-      .planka-modal-close-btn:hover {
-        background: rgba(9, 30, 66, 0.08);
-        color: #172b4d;
+      .affinite-modal-close-btn:hover {
+        background: rgba(255, 255, 255, 0.15);
+        color: #f1f5f9;
       }
 
       /* Modal Columns grid */
-      .planka-modal-grid {
+      .affinite-modal-grid {
         display: flex;
-        padding: 0 16px 24px 16px;
-        gap: 16px;
+        padding: 20px;
+        gap: 20px;
       }
-      .planka-modal-main {
+      .affinite-modal-main {
         flex: 1;
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        gap: 24px;
       }
-      .planka-modal-sidebar {
-        width: 168px;
+      .affinite-modal-sidebar {
+        width: 180px;
         display: flex;
         flex-direction: column;
-        gap: 12px;
-        min-width: 168px;
-      }
-
-      /* Responsive Modal Layout depending on window/app size */
-      @media (max-width: 730px) {
-        .planka-modal-grid {
-          flex-direction: column;
-        }
-        .planka-modal-sidebar {
-          width: 100%;
-          min-width: 100%;
-          flex-direction: row;
-          flex-wrap: wrap;
-          gap: 16px;
-        }
-        .planka-modal-sidebar > * {
-          flex: 1 1 120px;
-        }
+        gap: 16px;
+        min-width: 180px;
       }
 
       /* Modal Sections */
-      .planka-modal-section-title {
+      .affinite-modal-section-title {
         font-size: 14px;
-        font-weight: 600;
-        color: #172b4d;
-        margin-bottom: 8px;
+        font-weight: 700;
+        color: #cbd5e1;
+        margin-bottom: 10px;
         display: flex;
         align-items: center;
         gap: 8px;
+        letter-spacing: -0.01em;
       }
-      .planka-modal-section-body {
-        padding-left: 22px;
+      .affinite-modal-section-body {
+        padding-left: 4px;
       }
-      .planka-modal-desc-input {
+      .affinite-modal-desc-input {
         width: 100%;
-        min-height: 108px;
-        background: rgba(9, 30, 66, 0.04);
-        border: none;
-        border-radius: 3px;
-        padding: 8px 12px;
-        resize: none;
+        min-height: 110px;
+        background: rgba(15, 17, 21, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        padding: 10px 14px;
+        resize: vertical;
         font-size: 14px;
         outline: none;
-        color: #172b4d;
-        transition: background 0.15s;
+        color: #f8fafc;
+        transition: all 0.15s;
+        box-sizing: border-box;
       }
-      .planka-modal-desc-input:focus {
-        background: #ffffff;
-        box-shadow: inset 0 0 0 2px #0079bf;
-      }
-
-      /* Sidebar Actions */
-      .planka-sidebar-title {
-        font-size: 11px;
-        font-weight: 600;
-        color: #5e6c84;
-        margin-bottom: 4px;
-        text-transform: uppercase;
-      }
-      .planka-sidebar-btn {
-        background: rgba(9, 30, 66, 0.04);
-        border: none;
-        border-radius: 3px;
-        color: #172b4d;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 14px;
-        font-weight: 500;
-        padding: 6px 12px;
-        width: 100%;
-        text-align: left;
-        transition: background 0.15s;
-      }
-      .planka-sidebar-btn:hover {
-        background: rgba(9, 30, 66, 0.08);
-      }
-      .planka-sidebar-btn-delete {
-        background: #eb5757;
-        color: #ffffff;
-      }
-      .planka-sidebar-btn-delete:hover {
-        background: #cf2a2a;
-      }
-
-      /* Labels Badge Grid */
-      .planka-label-pill-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 4px;
-      }
-      .planka-label-pill {
-        height: 24px;
-        border-radius: 3px;
-        cursor: pointer;
-        border: 2px solid transparent;
-        transition: border 0.15s;
-      }
-      .planka-label-pill-active {
-        border-color: #172b4d;
-      }
-      .planka-label-row {
-        transition: transform 0.15s ease, filter 0.15s ease;
-      }
-      .planka-label-row:hover {
-        filter: brightness(1.15);
-        transform: translateY(-1px);
+      .affinite-modal-desc-input:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
       }
 
       /* Checklist Styles */
-      .planka-checklist-bar-container {
+      .affinite-checklist-bar-container {
         width: 100%;
-        height: 8px;
-        background: rgba(9, 30, 66, 0.08);
-        border-radius: 4px;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 3px;
         margin-bottom: 12px;
         overflow: hidden;
       }
-      .planka-checklist-bar-fill {
+      .affinite-checklist-bar-fill {
         height: 100%;
-        background: #5aac44;
+        background: #10b981;
         transition: width 0.2s ease;
       }
-      .planka-checklist-item {
+      .affinite-checklist-item {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 4px;
-        border-radius: 3px;
+        padding: 6px 8px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.04);
         transition: background 0.15s;
       }
-      .planka-checklist-item:hover {
-        background: rgba(9, 30, 66, 0.04);
-      }
-      .planka-checklist-item-check {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        cursor: pointer;
-        font-size: 14px;
-        color: #172b4d;
-        word-wrap: break-word;
-        white-space: normal;
-        max-width: 80%;
+      .affinite-checklist-item:hover {
+        background: rgba(255, 255, 255, 0.06);
       }
 
-      /* Comment Feed */
-      .planka-comment-box {
-        background: #ffffff;
-        border-radius: 3px;
-        padding: 8px;
-        border: 1px solid #dfe1e6;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        margin-bottom: 16px;
-      }
-      .planka-comment-textarea {
-        border: none;
-        outline: none;
-        resize: none;
-        width: 100%;
-        min-height: 48px;
-        font-size: 14px;
-        color: #172b4d;
-      }
-      .planka-comment-feed {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-      .planka-comment-item {
-        display: flex;
-        gap: 10px;
-        align-items: flex-start;
-      }
-      .planka-avatar {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        background: #0079bf;
-        color: #ffffff;
-        font-weight: 700;
-        font-size: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .planka-comment-bubble {
-        flex: 1;
-        background: #ffffff;
-        border-radius: 3px;
-        border: 1px solid #dfe1e6;
-        padding: 8px 12px;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        max-width: calc(100% - 42px);
-      }
-      .planka-comment-meta {
-        display: flex;
-        justify-content: space-between;
-        font-size: 11px;
-        color: #5e6c84;
-      }
-      .planka-comment-text {
-        font-size: 14px;
-        color: #172b4d;
-        word-wrap: break-word;
-      }
-
-      /* Customize dropdown style */
-      .planka-customize-dropdown {
+      /* Customize Drawer style */
+      .affinite-customize-drawer {
         position: absolute;
-        top: 54px;
-        right: 16px;
-        width: 250px;
-        background: #ffffff;
-        border-radius: 4px;
-        box-shadow: 0 8px 16px rgba(0,0,0,0.2);
-        border: 1px solid #dfe1e6;
-        padding: 12px;
+        top: 60px;
+        right: 20px;
+        width: 280px;
+        background: rgba(20, 24, 33, 0.95);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-radius: 12px;
+        box-shadow: 0 16px 36px rgba(0,0,0,0.5);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        padding: 16px;
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 16px;
         z-index: 100;
+        color: #f8fafc;
       }
-      .planka-customize-grid {
+      .affinite-customize-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(3, 1fr);
         gap: 8px;
       }
-      .planka-customize-color-circle {
-        height: 36px;
-        border-radius: 50%;
+      .affinite-wallpaper-thumb {
+        height: 48px;
+        border-radius: 6px;
         cursor: pointer;
         border: 2px solid transparent;
-        box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1);
-        transition: border-color 0.15s;
+        background-size: cover;
+        background-position: center;
+        transition: transform 0.15s, border-color 0.15s;
       }
-      .planka-customize-color-circle:hover {
+      .affinite-wallpaper-thumb:hover {
         transform: scale(1.05);
       }
-      .planka-customize-color-circle-active {
-        border-color: #0079bf;
+      .affinite-wallpaper-thumb-active {
+        border-color: #3b82f6;
       }
     `}</style>
   );
@@ -851,11 +807,11 @@ export const Component = () => {
       <ViewTitle title="Boards" />
       <ViewIcon icon="allDocs" />
       <ViewHeader>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0 24px', height: '60px', borderBottom: '1px solid var(--affine-border-color, #e3e3e3)', background: 'var(--affine-background-primary-color, #ffffff)' }}>
-          <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--affine-text-primary-color, #172b4d)' }}>Project Boards</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0 24px', height: '60px', borderBottom: '1px solid var(--affine-border-color, rgba(255,255,255,0.08))', background: 'var(--affine-background-primary-color, #17181c)' }}>
+          <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--affine-text-primary-color, #f8fafc)' }}>Project Boards</div>
           <div style={{ display: 'flex', gap: '16px' }}>
             <div style={styles.searchBox}>
-              <SearchIcon style={{ color: 'var(--affine-text-secondary-color, #8c8c8c)', width: '16px', height: '16px' }} />
+              <SearchIcon style={{ color: 'var(--affine-text-secondary-color, #94a3b8)', width: '16px', height: '16px' }} />
               <input
                 type="text"
                 placeholder="Search boards..."
@@ -867,7 +823,7 @@ export const Component = () => {
                   outline: 'none',
                   width: '100%',
                   fontSize: '13px',
-                  color: 'var(--affine-text-primary-color, #121212)',
+                  color: 'var(--affine-text-primary-color, #f8fafc)',
                 }}
               />
             </div>
@@ -881,12 +837,12 @@ export const Component = () => {
       <ViewBody>
         <div style={styles.dashboardContainer}>
           {boardDocs.length === 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '300px', gap: '16px', textAlign: 'center' }}>
-              <NewIcon style={{ width: '48px', height: '48px', color: 'var(--affine-text-secondary-color)' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '320px', gap: '16px', textAlign: 'center' }}>
+              <NewIcon style={{ width: '48px', height: '48px', color: 'var(--affine-text-secondary-color, #94a3b8)' }} />
               <div>
-                <h3 style={{ margin: 0, fontWeight: 600, fontSize: '18px' }}>No boards found</h3>
-                <p style={{ margin: '4px 0 0 0', color: 'var(--affine-text-secondary-color)', fontSize: '14px' }}>
-                  Create your first native board to organize tasks without external databases.
+                <h3 style={{ margin: 0, fontWeight: 700, fontSize: '18px', color: '#f8fafc' }}>No boards created yet</h3>
+                <p style={{ margin: '6px 0 0 0', color: 'var(--affine-text-secondary-color, #94a3b8)', fontSize: '14px' }}>
+                  Create your first native Kanban board to organize tasks directly in AFFiNITe.
                 </p>
               </div>
               <button onClick={handleCreateBoard} style={styles.createBtn}>
@@ -896,7 +852,7 @@ export const Component = () => {
           ) : (
             <div style={styles.boardGrid}>
               {boardDocs.map((doc: DocRecord, index: number) => (
-                <BoardCard
+                <BoardCardItem
                   key={doc.id}
                   doc={doc}
                   index={index}
@@ -911,18 +867,23 @@ export const Component = () => {
   );
 };
 
-// --- BOARD DETAIL KANBAN VIEW (YJS DRIVEN) ---
+// --- BOARD DETAIL KANBAN VIEW (DARK GLASSMORPHISM) ---
 const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => void }) => {
   const docsService = useService(DocsService);
-  const [boardData, setBoardData] = useState<{ columns: any[]; cards: any[]; background?: string }>({ columns: [], cards: [], background: '#0079bf' });
+  const [boardData, setBoardData] = useState<{ columns: any[]; cards: any[]; background?: string; backgroundOverlay?: number }>({
+    columns: [],
+    cards: [],
+    background: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80',
+    backgroundOverlay: 0.35,
+  });
   const [activeCard, setActiveCard] = useState<any | null>(null);
   const [labelsExpanded, setLabelsExpanded] = useState(false);
 
-  // Customization Menu toggle
+  // Customization Drawer toggle
   const [showCustomize, setShowCustomize] = useState(false);
   const [titleInput, setTitleInput] = useState('');
   
-  // Inline input states to replace prompt() dialogs
+  // Inline input states
   const [newColTitle, setNewColTitle] = useState('');
   const [showAddCol, setShowAddCol] = useState(false);
   const [addingCardColId, setAddingCardColId] = useState<string | null>(null);
@@ -943,21 +904,21 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
     const yMap = doc.yDoc.getMap('board_data');
 
     const updateState = () => {
-      // Yjs map only stores primitive values (like JSON string).
-      // We retrieve them from JSON string, otherwise fallback to empty lists.
       const columnsStr = yMap.get('columns') as string;
       const cardsStr = yMap.get('cards') as string;
       const bg = yMap.get('background') as string;
+      const overlay = yMap.get('backgroundOverlay') as number;
+
       setBoardData({
         columns: columnsStr ? JSON.parse(columnsStr) : [],
         cards: cardsStr ? JSON.parse(cardsStr) : [],
-        background: bg || '#0079bf',
+        background: bg || 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1920&q=80',
+        backgroundOverlay: overlay !== undefined ? Number(overlay) : 0.35,
       });
     };
 
     updateState();
     
-    // Listen to changes deeply for real-time multiplayer updates
     const observer = () => {
       updateState();
     };
@@ -969,7 +930,7 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
     };
   }, [boardId, docsService]);
 
-  // Helper to commit updates back to Yjs Map (serialized as primitive string)
+  // Save changes to Yjs
   const saveToYjs = useCallback((columns: any[], cards: any[]) => {
     if (!docRef.current) return;
     const yMap = docRef.current.yDoc.getMap('board_data');
@@ -979,11 +940,12 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
     });
   }, []);
 
-  const saveBackgroundToYjs = (bgValue: string) => {
+  const saveBackgroundToYjs = (bgValue: string, overlayVal?: number) => {
     if (!docRef.current) return;
     const yMap = docRef.current.yDoc.getMap('board_data');
     docRef.current.yDoc.transact(() => {
-      yMap.set('background', bgValue);
+      if (bgValue !== undefined) yMap.set('background', bgValue);
+      if (overlayVal !== undefined) yMap.set('backgroundOverlay', overlayVal);
     });
   };
 
@@ -1044,7 +1006,6 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
     saveToYjs(updatedCols, updatedCards);
   };
 
-  // Helper to reorder columns
   const moveColumn = (index: number, direction: 'left' | 'right') => {
     const newIndex = direction === 'left' ? index - 1 : index + 1;
     if (newIndex < 0 || newIndex >= boardData.columns.length) return;
@@ -1054,374 +1015,383 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
     saveToYjs(cols, boardData.cards);
   };
 
-  // Helper to move card between columns or reorder
-  const moveCard = (card: any, direction: 'up' | 'down' | string) => {
-    const cardsInCol = boardData.cards.filter(c => c.columnId === card.columnId);
-    const index = cardsInCol.findIndex(c => c.id === card.id);
-    
-    if (direction === 'up' && index > 0) {
-      const updated = [...boardData.cards];
-      const otherCard = cardsInCol[index - 1];
-      const idxA = updated.findIndex(c => c.id === card.id);
-      const idxB = updated.findIndex(c => c.id === otherCard.id);
-      updated[idxA] = otherCard;
-      updated[idxB] = card;
-      saveToYjs(boardData.columns, updated);
-    } else if (direction === 'down' && index < cardsInCol.length - 1) {
-      const updated = [...boardData.cards];
-      const otherCard = cardsInCol[index + 1];
-      const idxA = updated.findIndex(c => c.id === card.id);
-      const idxB = updated.findIndex(c => c.id === otherCard.id);
-      updated[idxA] = otherCard;
-      updated[idxB] = card;
-      saveToYjs(boardData.columns, updated);
-    } else if (typeof direction === 'string' && direction !== 'up' && direction !== 'down') {
-      // Move to another column
-      const updatedCard = { ...card, columnId: direction };
-      handleUpdateCard(updatedCard);
-    }
-  };
+  const isUrlBackground = (boardData.background || '').startsWith('http');
 
   return (
-    <div className="planka-board-container" style={{ background: boardData.background || '#0079bf' }}>
-      <div className="planka-board-details-header">
-        <div className="planka-board-details-title-container">
-          <button onClick={onClose} className="planka-board-details-back-btn">
-            <Icons.Back />
-            Boards
+    <div
+      className="affinite-board-container"
+      style={{
+        background: isUrlBackground ? `url("${boardData.background}")` : (boardData.background || '#0f172a'),
+      }}
+    >
+      {/* Dark overlay with configurable opacity */}
+      <div
+        className="affinite-board-overlay"
+        style={{ backgroundColor: `rgba(0, 0, 0, ${boardData.backgroundOverlay ?? 0.35})` }}
+      />
+
+      <div className="affinite-board-content-wrapper">
+        <div className="affinite-board-details-header">
+          <div className="affinite-board-details-title-container">
+            <button onClick={onClose} className="affinite-board-details-back-btn">
+              <Icons.Back />
+              Boards
+            </button>
+            
+            <input
+              type="text"
+              value={titleInput}
+              onChange={e => setTitleInput(e.target.value)}
+              onBlur={handleSaveTitle}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.currentTarget.blur();
+                }
+              }}
+              className="affinite-board-details-title-input"
+              title="Click to rename board"
+            />
+          </div>
+
+          <button 
+            onClick={() => setShowCustomize(!showCustomize)} 
+            className="affinite-board-details-back-btn"
+          >
+            <Icons.Palette />
+            Customize
           </button>
-          
-          <input
-            type="text"
-            value={titleInput}
-            onChange={e => setTitleInput(e.target.value)}
-            onBlur={handleSaveTitle}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                e.currentTarget.blur();
-              }
-            }}
-            className="planka-board-details-title-input"
-            title="Click to rename board"
-          />
         </div>
 
-        <button 
-          onClick={() => setShowCustomize(!showCustomize)} 
-          className="planka-board-details-back-btn"
-          style={{ gap: '8px' }}
-        >
-          <Icons.Palette />
-          Customize
-        </button>
-      </div>
+        {/* Customize background and properties panel */}
+        {showCustomize && (
+          <div className="affinite-customize-drawer">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
+              <span style={{ fontWeight: 700, fontSize: '14px', color: '#f8fafc' }}>Wallpaper & Theme</span>
+              <button onClick={() => setShowCustomize(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#94a3b8' }}>×</button>
+            </div>
+            
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', marginBottom: '8px' }}>HD Wallpapers</div>
+              <div className="affinite-customize-grid">
+                {WALLPAPER_PRESETS.map(w => {
+                  const isActive = boardData.background === w.url;
+                  return (
+                    <div
+                      key={w.name}
+                      onClick={() => saveBackgroundToYjs(w.url)}
+                      style={{ backgroundImage: `url("${w.url}")` }}
+                      className={`affinite-wallpaper-thumb ${isActive ? 'affinite-wallpaper-thumb-active' : ''}`}
+                      title={w.name}
+                    />
+                  );
+                })}
+              </div>
+            </div>
 
-      {/* Customize background and properties panel */}
-      {showCustomize && (
-        <div className="planka-customize-dropdown">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #dfe1e6', paddingBottom: '6px' }}>
-            <span style={{ fontWeight: 600, fontSize: '14px', color: '#172b4d' }}>Customize Board</span>
-            <button onClick={() => setShowCustomize(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#5e6c84' }}>×</button>
-          </div>
-          
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#5e6c84', marginBottom: '8px' }}>Select Background</div>
-            <div className="planka-customize-grid">
-              {CUSTOMIZE_COLORS.map(c => {
-                const isActive = boardData.background === c.color;
-                return (
-                  <div
-                    key={c.name}
-                    onClick={() => saveBackgroundToYjs(c.color)}
-                    style={{ background: c.color }}
-                    className={`planka-customize-color-circle ${isActive ? 'planka-customize-color-circle-active' : ''}`}
-                    title={c.name}
-                  />
-                );
-              })}
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', marginBottom: '8px' }}>Gradient Colors</div>
+              <div className="affinite-customize-grid">
+                {COLOR_PRESETS.map(c => {
+                  const isActive = boardData.background === c.color;
+                  return (
+                    <div
+                      key={c.name}
+                      onClick={() => saveBackgroundToYjs(c.color)}
+                      style={{ background: c.color }}
+                      className={`affinite-wallpaper-thumb ${isActive ? 'affinite-wallpaper-thumb-active' : ''}`}
+                      title={c.name}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>
+                <span>Overlay Darkness</span>
+                <span style={{ color: '#3b82f6', fontWeight: 600 }}>{Math.round((boardData.backgroundOverlay ?? 0.35) * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="0.8"
+                step="0.05"
+                value={boardData.backgroundOverlay ?? 0.35}
+                onChange={e => saveBackgroundToYjs(boardData.background || '', parseFloat(e.target.value))}
+                style={{ width: '100%', accentColor: '#3b82f6' }}
+              />
             </div>
           </div>
-        </div>
-      )}
-      
-      <div className="planka-board-canvas">
-        {boardData.columns.map((col, colIdx) => {
-          const colCards = boardData.cards.filter(c => c.columnId === col.id);
-          const isAddingCard = addingCardColId === col.id;
+        )}
+        
+        <div className="affinite-board-canvas">
+          {boardData.columns.map((col, colIdx) => {
+            const colCards = boardData.cards.filter(c => c.columnId === col.id);
+            const isAddingCard = addingCardColId === col.id;
 
-          return (
-            <div 
-              key={col.id} 
-              className="planka-board-col"
-              // HTML5 Drag & Drop Column configuration
-              draggable={!draggedCardId}
-              onDragStart={(e) => {
-                e.dataTransfer.setData('text/plain', `col:${col.id}`);
-                setDraggedColId(col.id);
-              }}
-              onDragOver={(e) => {
-                if (draggedColId && draggedColId !== col.id) {
-                  e.preventDefault();
-                }
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                const dragData = e.dataTransfer.getData('text/plain');
-                if (dragData.startsWith('col:')) {
-                  const fromColId = dragData.split(':')[1];
-                  const fromIdx = boardData.columns.findIndex(c => c.id === fromColId);
-                  const toIdx = boardData.columns.findIndex(c => c.id === col.id);
-                  if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
-                    const cols = [...boardData.columns];
-                    const [temp] = cols.splice(fromIdx, 1);
-                    cols.splice(toIdx, 0, temp);
-                    saveToYjs(cols, boardData.cards);
-                  }
-                }
-                setDraggedColId(null);
-              }}
-            >
-              <div className="planka-board-col-header">
-                <span className="planka-board-col-title">{col.title}</span>
-                <div className="planka-board-col-actions">
-                  <button disabled={colIdx === 0} onClick={() => moveColumn(colIdx, 'left')} className="planka-board-col-btn">◀</button>
-                  <button disabled={colIdx === boardData.columns.length - 1} onClick={() => moveColumn(colIdx, 'right')} className="planka-board-col-btn">▶</button>
-                  <button onClick={() => handleDeleteColumn(col.id)} className="planka-board-col-btn planka-board-col-delete">×</button>
-                </div>
-              </div>
-              
+            return (
               <div 
-                className="planka-board-cards-list"
-                // HTML5 Drag & Drop Card drop zone (on list container)
+                key={col.id} 
+                className="affinite-board-col"
+                draggable={!draggedCardId}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', `col:${col.id}`);
+                  setDraggedColId(col.id);
+                }}
                 onDragOver={(e) => {
-                  if (draggedCardId) {
+                  if (draggedColId && draggedColId !== col.id) {
                     e.preventDefault();
                   }
                 }}
                 onDrop={(e) => {
                   e.preventDefault();
                   const dragData = e.dataTransfer.getData('text/plain');
-                  if (dragData.startsWith('card:')) {
-                    const fromCardId = dragData.split(':')[1];
-                    const fromCardIdx = boardData.cards.findIndex(c => c.id === fromCardId);
-                    if (fromCardIdx !== -1) {
-                      const fromCard = boardData.cards[fromCardIdx];
-                      if (fromCard.columnId !== col.id) {
-                        // Move card to this column (placed at the bottom)
-                        const updatedCards = boardData.cards.map(c => 
-                          c.id === fromCard.id ? { ...c, columnId: col.id } : c
-                        );
-                        saveToYjs(boardData.columns, updatedCards);
-                      }
+                  if (dragData.startsWith('col:')) {
+                    const fromColId = dragData.split(':')[1];
+                    const fromIdx = boardData.columns.findIndex(c => c.id === fromColId);
+                    const toIdx = boardData.columns.findIndex(c => c.id === col.id);
+                    if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
+                      const cols = [...boardData.columns];
+                      const [temp] = cols.splice(fromIdx, 1);
+                      cols.splice(toIdx, 0, temp);
+                      saveToYjs(cols, boardData.cards);
                     }
                   }
+                  setDraggedColId(null);
                 }}
               >
-                {colCards.map(card => {
-                  const checkedCount = card.checklist?.filter((item: any) => item.completed).length || 0;
-                  const totalCount = card.checklist?.length || 0;
-                  return (
-                    <div
-                      key={card.id}
-                      onClick={() => setActiveCard(card)}
-                      className="planka-board-card"
-                      // HTML5 Drag & Drop Card configuration
-                      draggable
-                      onDragStart={(e) => {
-                        e.stopPropagation();
-                        e.dataTransfer.setData('text/plain', `card:${card.id}`);
-                        setDraggedCardId(card.id);
-                      }}
-                      onDragOver={(e) => {
-                        if (draggedCardId && draggedCardId !== card.id) {
-                          e.preventDefault();
-                        }
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const dragData = e.dataTransfer.getData('text/plain');
-                        if (dragData.startsWith('card:')) {
-                          const fromCardId = dragData.split(':')[1];
-                          const fromCardIdx = boardData.cards.findIndex(c => c.id === fromCardId);
-                          if (fromCardIdx !== -1) {
-                            const fromCard = boardData.cards[fromCardIdx];
-                            if (fromCard.id !== card.id) {
-                              const updatedCards = [...boardData.cards];
-                              // Remove from old position
-                              updatedCards.splice(fromCardIdx, 1);
-                              // Find target position
-                              const targetIdx = updatedCards.findIndex(c => c.id === card.id);
-                              // Insert card in new index with updated columnId
-                              const newCard = { ...fromCard, columnId: card.columnId };
-                              updatedCards.splice(targetIdx, 0, newCard);
-                              saveToYjs(boardData.columns, updatedCards);
-                            }
-                          }
-                        }
-                        setDraggedCardId(null);
-                      }}
-                    >
-                      {card.labels?.length > 0 && (
-                        <div
-                          onClick={e => {
-                            e.stopPropagation();
-                            setLabelsExpanded(!labelsExpanded);
-                          }}
-                          style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', cursor: 'pointer', marginBottom: '4px' }}
-                        >
-                          {card.labels.map((c: string) => {
-                            const labelObj = LABELS.find(l => l.color === c);
-                            const labelName = labelObj ? labelObj.name : '';
-                            return labelsExpanded ? (
-                              <div
-                                key={c}
-                                style={{
-                                  background: c,
-                                  color: '#ffffff',
-                                  fontSize: '10px',
-                                  fontWeight: 700,
-                                  padding: '2px 6px',
-                                  borderRadius: '3px',
-                                  textShadow: '0 1px 1px rgba(0,0,0,0.25)',
-                                }}
-                              >
-                                {labelName}
-                              </div>
-                            ) : (
-                              <div key={c} style={{ width: '40px', height: '8px', borderRadius: '4px', background: c }} />
-                            );
-                          })}
-                        </div>
-                      )}
-                      <span className="planka-board-card-title">{card.title}</span>
-                      
-                      {(totalCount > 0 || card.comments?.length > 0 || card.dueDate) && (
-                        <div className="planka-board-card-badge-row">
-                          {card.dueDate && (
-                            <div className="planka-board-card-badge planka-board-card-badge-due">
-                              <Icons.Calendar />
-                              <span>{card.dueDate}</span>
-                            </div>
-                          )}
-                          {totalCount > 0 && (
-                            <div className="planka-board-card-badge">
-                              <Icons.Checklist />
-                              <span>{checkedCount}/{totalCount}</span>
-                            </div>
-                          )}
-                          {card.comments?.length > 0 && (
-                            <div className="planka-board-card-badge">
-                              <Icons.Comments />
-                              <span>{card.comments.length}</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Inline card creator to replace prompts */}
-              {isAddingCard ? (
-                <div className="planka-inline-form">
-                  <textarea
-                    placeholder="Enter a title for this card..."
-                    value={newCardTitle}
-                    onChange={e => setNewCardTitle(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleAddCard(col.id);
-                      }
-                    }}
-                    className="planka-inline-textarea"
-                    autoFocus
-                  />
-                  <div className="planka-inline-actions">
-                    <button onClick={() => handleAddCard(col.id)} className="planka-btn-submit">Add Card</button>
-                    <button onClick={() => setAddingCardColId(null)} className="planka-btn-cancel">×</button>
+                <div className="affinite-board-col-header">
+                  <span className="affinite-board-col-title">{col.title} ({colCards.length})</span>
+                  <div className="affinite-board-col-actions">
+                    <button disabled={colIdx === 0} onClick={() => moveColumn(colIdx, 'left')} className="affinite-board-col-btn">◀</button>
+                    <button disabled={colIdx === boardData.columns.length - 1} onClick={() => moveColumn(colIdx, 'right')} className="affinite-board-col-btn">▶</button>
+                    <button onClick={() => handleDeleteColumn(col.id)} className="affinite-board-col-btn affinite-board-col-delete">×</button>
                   </div>
                 </div>
-              ) : (
-                <button
-                  onClick={() => {
-                    setAddingCardColId(col.id);
-                    setNewCardTitle('');
+                
+                <div 
+                  className="affinite-board-cards-list"
+                  onDragOver={(e) => {
+                    if (draggedCardId) {
+                      e.preventDefault();
+                    }
                   }}
-                  className="planka-add-btn"
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const dragData = e.dataTransfer.getData('text/plain');
+                    if (dragData.startsWith('card:')) {
+                      const fromCardId = dragData.split(':')[1];
+                      const fromCardIdx = boardData.cards.findIndex(c => c.id === fromCardId);
+                      if (fromCardIdx !== -1) {
+                        const fromCard = boardData.cards[fromCardIdx];
+                        if (fromCard.columnId !== col.id) {
+                          const updatedCards = boardData.cards.map(c => 
+                            c.id === fromCard.id ? { ...c, columnId: col.id } : c
+                          );
+                          saveToYjs(boardData.columns, updatedCards);
+                        }
+                      }
+                    }
+                  }}
                 >
-                  + Add card
-                </button>
-              )}
-            </div>
-          );
-        })}
-        
-        {/* Add Column Button / Form */}
-        {showAddCol ? (
-          <div className="planka-board-col" style={{ height: 'auto' }}>
-            <div className="planka-inline-form">
-              <input
-                type="text"
-                placeholder="Enter list title..."
-                value={newColTitle}
-                onChange={e => setNewColTitle(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    handleAddColumn();
-                  }
-                }}
-                className="planka-inline-input"
-                autoFocus
-              />
-              <div className="planka-inline-actions">
-                <button onClick={handleAddColumn} className="planka-btn-submit">Add List</button>
-                <button onClick={() => setShowAddCol(false)} className="planka-btn-cancel">×</button>
+                  {colCards.map(card => {
+                    const checkedCount = card.checklist?.filter((item: any) => item.completed).length || 0;
+                    const totalCount = card.checklist?.length || 0;
+                    return (
+                      <div
+                        key={card.id}
+                        onClick={() => setActiveCard(card)}
+                        className="affinite-board-card"
+                        draggable
+                        onDragStart={(e) => {
+                          e.stopPropagation();
+                          e.dataTransfer.setData('text/plain', `card:${card.id}`);
+                          setDraggedCardId(card.id);
+                        }}
+                        onDragOver={(e) => {
+                          if (draggedCardId && draggedCardId !== card.id) {
+                            e.preventDefault();
+                          }
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const dragData = e.dataTransfer.getData('text/plain');
+                          if (dragData.startsWith('card:')) {
+                            const fromCardId = dragData.split(':')[1];
+                            const fromCardIdx = boardData.cards.findIndex(c => c.id === fromCardId);
+                            if (fromCardIdx !== -1) {
+                              const fromCard = boardData.cards[fromCardIdx];
+                              if (fromCard.id !== card.id) {
+                                const updatedCards = [...boardData.cards];
+                                updatedCards.splice(fromCardIdx, 1);
+                                const targetIdx = updatedCards.findIndex(c => c.id === card.id);
+                                const newCard = { ...fromCard, columnId: card.columnId };
+                                updatedCards.splice(targetIdx, 0, newCard);
+                                saveToYjs(boardData.columns, updatedCards);
+                              }
+                            }
+                          }
+                          setDraggedCardId(null);
+                        }}
+                      >
+                        {card.labels?.length > 0 && (
+                          <div
+                            onClick={e => {
+                              e.stopPropagation();
+                              setLabelsExpanded(!labelsExpanded);
+                            }}
+                            style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', cursor: 'pointer', marginBottom: '2px' }}
+                          >
+                            {card.labels.map((c: string) => {
+                              const labelObj = LABELS.find(l => l.color === c);
+                              const labelName = labelObj ? labelObj.name : '';
+                              return labelsExpanded ? (
+                                <div
+                                  key={c}
+                                  style={{
+                                    background: c,
+                                    color: '#ffffff',
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                  }}
+                                >
+                                  {labelName}
+                                </div>
+                              ) : (
+                                <div key={c} style={{ width: '36px', height: '6px', borderRadius: '3px', background: c }} />
+                              );
+                            })}
+                          </div>
+                        )}
+                        <span className="affinite-board-card-title">{card.title}</span>
+                        
+                        {(totalCount > 0 || card.comments?.length > 0 || card.dueDate) && (
+                          <div className="affinite-board-card-badge-row">
+                            {card.dueDate && (
+                              <div className="affinite-board-card-badge affinite-board-card-badge-due">
+                                <Icons.Calendar />
+                                <span>{card.dueDate}</span>
+                              </div>
+                            )}
+                            {totalCount > 0 && (
+                              <div className="affinite-board-card-badge">
+                                <Icons.Checklist />
+                                <span>{checkedCount}/{totalCount}</span>
+                              </div>
+                            )}
+                            {card.comments?.length > 0 && (
+                              <div className="affinite-board-card-badge">
+                                <Icons.Comments />
+                                <span>{card.comments.length}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Inline card creator */}
+                {isAddingCard ? (
+                  <div className="affinite-inline-form">
+                    <textarea
+                      placeholder="Enter a title for this card..."
+                      value={newCardTitle}
+                      onChange={e => setNewCardTitle(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleAddCard(col.id);
+                        }
+                      }}
+                      className="affinite-inline-textarea"
+                      autoFocus
+                    />
+                    <div className="affinite-inline-actions">
+                      <button onClick={() => handleAddCard(col.id)} className="affinite-btn-submit">Add Card</button>
+                      <button onClick={() => setAddingCardColId(null)} className="affinite-btn-cancel">×</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setAddingCardColId(col.id);
+                      setNewCardTitle('');
+                    }}
+                    className="affinite-add-btn"
+                  >
+                    + Add card
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          
+          {/* Add Column Button / Form */}
+          {showAddCol ? (
+            <div className="affinite-board-col" style={{ height: 'auto', width: '280px', minWidth: '270px' }}>
+              <div className="affinite-inline-form">
+                <input
+                  type="text"
+                  placeholder="Enter list title..."
+                  value={newColTitle}
+                  onChange={e => setNewColTitle(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      handleAddColumn();
+                    }
+                  }}
+                  className="affinite-inline-input"
+                  autoFocus
+                />
+                <div className="affinite-inline-actions">
+                  <button onClick={handleAddColumn} className="affinite-btn-submit">Add List</button>
+                  <button onClick={() => setShowAddCol(false)} className="affinite-btn-cancel">×</button>
+                </div>
               </div>
             </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowAddCol(true)}
-            className="planka-add-btn planka-add-column-btn"
-          >
-            + Add another list
-          </button>
+          ) : (
+            <button
+              onClick={() => setShowAddCol(true)}
+              className="affinite-add-btn affinite-add-column-btn"
+            >
+              + Add another list
+            </button>
+          )}
+        </div>
+
+        {/* CARD DETAILS MODAL */}
+        {activeCard && (
+          <CardModal
+            card={activeCard}
+            columns={boardData.columns}
+            onUpdate={handleUpdateCard}
+            onDelete={handleDeleteCard}
+            onClose={() => setActiveCard(null)}
+          />
         )}
       </div>
-
-      {/* --- PLANKA-LIKE CARD DETAILS MODAL --- */}
-      {activeCard && (
-        <CardModal
-          card={activeCard}
-          columns={boardData.columns}
-          onUpdate={handleUpdateCard}
-          onDelete={handleDeleteCard}
-          onClose={() => setActiveCard(null)}
-          onMove={moveCard}
-        />
-      )}
     </div>
   );
 };
 
-// --- PLANKA CARD DETAIL MODAL OVERLAY ---
+// --- CARD DETAIL MODAL (DARK GLASSMORPHISM) ---
 const CardModal = ({
   card,
   columns,
   onUpdate,
   onDelete,
   onClose,
-  onMove,
 }: {
   card: any;
   columns: any[];
   onUpdate: (card: any) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
-  onMove: (card: any, dir: string) => void;
 }) => {
   const [desc, setDesc] = useState(card.description || '');
   const [newTodo, setNewTodo] = useState('');
@@ -1478,89 +1448,98 @@ const CardModal = ({
   const totalCount = card.checklist?.length || 0;
   const progressPercent = totalCount > 0 ? Math.round((checkedCount / totalCount) * 100) : 0;
 
-  // Get current list title
   const currentList = columns.find(c => c.id === card.columnId)?.title || '';
 
   return (
-    <div className="planka-modal-overlay" onClick={onClose}>
-      <div className="planka-modal-window" onClick={e => e.stopPropagation()}>
-        {/* Close Button */}
-        <button onClick={onClose} className="planka-modal-close-btn">×</button>
+    <div className="affinite-modal-overlay" onClick={onClose}>
+      <div className="affinite-modal-window" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} className="affinite-modal-close-btn">×</button>
 
-        {/* Modal Header */}
-        <div className="planka-modal-header">
+        <div className="affinite-modal-header">
           <input
             type="text"
             value={card.title}
             onChange={e => onUpdate({ ...card, title: e.target.value })}
-            className="planka-modal-title"
+            className="affinite-modal-title"
           />
-          <div className="planka-modal-subtitle">
-            in list <span style={{ textDecoration: 'underline', fontWeight: 600 }}>{currentList}</span>
+          <div className="affinite-modal-subtitle">
+            in list <span style={{ color: '#3b82f6', fontWeight: 600 }}>{currentList}</span>
           </div>
         </div>
 
-        {/* Modal Main Grid */}
-        <div className="planka-modal-grid">
-          {/* Main Content Area */}
-          <div className="planka-modal-main">
+        <div className="affinite-modal-grid">
+          <div className="affinite-modal-main">
             
             {/* Description Section */}
             <div>
-              <div className="planka-modal-section-title">
+              <div className="affinite-modal-section-title">
                 <Icons.Checklist />
                 <span>Description</span>
               </div>
-              <div className="planka-modal-section-body">
+              <div className="affinite-modal-section-body">
                 <textarea
                   value={desc}
                   onChange={e => setDesc(e.target.value)}
                   onBlur={handleDescBlur}
                   placeholder="Add a more detailed description..."
-                  className="planka-modal-desc-input"
+                  className="affinite-modal-desc-input"
                 />
               </div>
             </div>
 
             {/* Checklist Section */}
             <div>
-              <div className="planka-modal-section-title">
+              <div className="affinite-modal-section-title">
                 <Icons.Checklist />
-                <span>Checklist</span>
+                <span>Checklist ({checkedCount}/{totalCount})</span>
               </div>
               
-              <div className="planka-modal-section-body">
+              <div className="affinite-modal-section-body">
                 {totalCount > 0 && (
-                  <div className="planka-checklist-bar-container">
-                    <div className="planka-checklist-bar-fill" style={{ width: `${progressPercent}%` }} />
+                  <div className="affinite-checklist-bar-container">
+                    <div className="affinite-checklist-bar-fill" style={{ width: `${progressPercent}%` }} />
                   </div>
                 )}
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
                   {(card.checklist || []).map((todo: any) => (
-                    <div key={todo.id} className="planka-checklist-item">
-                      <label className="planka-checklist-item-check">
+                    <div key={todo.id} className="affinite-checklist-item">
+                      <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '10px', cursor: 'pointer', flex: 1, minWidth: 0 }}>
                         <input
                           type="checkbox"
                           checked={todo.completed}
                           onChange={() => toggleTodo(todo.id)}
-                          style={{ width: '16px', height: '16px' }}
+                          style={{ width: '16px', height: '16px', accentColor: '#10b981', flexShrink: 0, cursor: 'pointer' }}
                         />
-                        <span style={{ textDecoration: todo.completed ? 'line-through' : 'none', opacity: todo.completed ? 0.6 : 1 }}>
+                        <span style={{ textDecoration: todo.completed ? 'line-through' : 'none', opacity: todo.completed ? 0.5 : 1, overflowWrap: 'break-word', wordBreak: 'break-word', minWidth: 0, fontSize: '13px', color: '#f1f5f9', textAlign: 'left' }}>
                           {todo.title}
                         </span>
                       </label>
                       <button
                         onClick={() => handleDeleteTodo(todo.id)}
-                        style={{ background: 'transparent', border: 'none', color: '#eb5757', cursor: 'pointer', fontSize: '12px' }}
+                        title="Delete item"
+                        style={{
+                          background: 'rgba(239, 68, 68, 0.1)',
+                          border: 'none',
+                          color: '#ef4444',
+                          cursor: 'pointer',
+                          borderRadius: '6px',
+                          padding: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          marginLeft: '12px',
+                          transition: 'all 0.15s',
+                        }}
                       >
-                        Delete
+                        <Icons.Trash />
                       </button>
                     </div>
                   ))}
                 </div>
 
-                <div className="planka-inline-actions">
+                <div className="affinite-inline-actions">
                   <input
                     type="text"
                     placeholder="Add an item..."
@@ -1571,136 +1550,103 @@ const CardModal = ({
                         handleAddTodo();
                       }
                     }}
-                    className="planka-inline-input"
-                    style={{ flex: 1, padding: '4px 8px' }}
+                    className="affinite-inline-input"
+                    style={{ flex: 1, padding: '6px 10px' }}
                   />
-                  <button onClick={handleAddTodo} className="planka-btn-submit" style={{ padding: '4px 12px', fontSize: '12px' }}>Add</button>
+                  <button onClick={handleAddTodo} className="affinite-btn-submit" style={{ padding: '6px 14px', fontSize: '12px' }}>Add</button>
                 </div>
               </div>
             </div>
 
-            {/* Comments/Activity Section */}
+            {/* Comments / Activity */}
             <div>
-              <div className="planka-modal-section-title">
+              <div className="affinite-modal-section-title">
                 <Icons.Comments />
-                <span>Activity / Comments</span>
+                <span>Comments & Activity</span>
               </div>
               
-              <div className="planka-modal-section-body">
-                <div className="planka-comment-box">
+              <div className="affinite-modal-section-body">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
                   <textarea
                     placeholder="Write a comment..."
                     value={newComment}
                     onChange={e => setNewComment(e.target.value)}
-                    className="planka-comment-textarea"
+                    className="affinite-inline-textarea"
+                    style={{ minHeight: '48px' }}
                   />
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <button onClick={handleAddComment} className="planka-btn-submit">Save</button>
+                    <button onClick={handleAddComment} className="affinite-btn-submit">Save Comment</button>
                   </div>
                 </div>
 
-                <div className="planka-comment-feed">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {(card.comments || []).map((comm: any) => (
-                    <div key={comm.id} className="planka-comment-item">
-                      <div className="planka-avatar">
-                        {comm.author.substring(0, 1).toUpperCase()}
+                    <div key={comm.id} style={{ background: 'rgba(255,255,255,0.03)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>
+                        <span style={{ fontWeight: 600, color: '#3b82f6' }}>{comm.author}</span>
+                        <span>{new Date(comm.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
-                      <div className="planka-comment-bubble">
-                        <div className="planka-comment-meta">
-                          <span style={{ fontWeight: 600 }}>{comm.author}</span>
-                          <span>{new Date(comm.createdAt).toLocaleString()}</span>
-                        </div>
-                        <div className="planka-comment-text">{comm.text}</div>
-                      </div>
+                      <div style={{ fontSize: '14px', color: '#f1f5f9' }}>{comm.text}</div>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
+
           </div>
 
-          {/* Sidebar Actions Area */}
-          <div className="planka-modal-sidebar">
-            <div className="planka-sidebar-title">Add to Card</div>
-            
-            {/* Color Labels Panel */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <span className="planka-sidebar-title">Labels</span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {/* Modal Sidebar */}
+          <div className="affinite-modal-sidebar">
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>Labels</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {LABELS.map(l => {
-                  const isSelected = card.labels?.includes(l.color);
+                  const isSelected = (card.labels || []).includes(l.color);
                   return (
                     <div
                       key={l.color}
                       onClick={() => toggleLabel(l.color)}
                       style={{
                         background: l.color,
-                        color: '#ffffff',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        padding: '6px 12px',
-                        borderRadius: '3px',
+                        width: '42px',
+                        height: '24px',
+                        borderRadius: '6px',
                         cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-                        transition: 'transform 0.1s ease, filter 0.15s ease',
-                        textShadow: '0 1px 1px rgba(0,0,0,0.3)',
+                        border: isSelected ? '2px solid #ffffff' : '2px solid transparent',
+                        boxShadow: isSelected ? '0 0 8px ' + l.color : 'none',
+                        transition: 'all 0.15s',
                       }}
-                      className="planka-label-row"
-                    >
-                      <span>{l.name}</span>
-                      {isSelected && <span style={{ fontWeight: 700 }}>✓</span>}
-                    </div>
+                      title={l.name}
+                    />
                   );
                 })}
               </div>
             </div>
 
-            {/* Date Selection Panel */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
-              <span style={{ fontSize: '12px', fontWeight: 600, color: '#5e6c84' }}>Due Date</span>
-              <input
-                type="date"
-                value={card.dueDate || ''}
-                onChange={e => onUpdate({ ...card, dueDate: e.target.value })}
-                className="planka-inline-input"
-                style={{ padding: '4px 6px', fontSize: '12px' }}
-              />
-            </div>
-
-            <div className="planka-sidebar-title" style={{ marginTop: '16px' }}>Actions</div>
-
-            {/* Move to another column */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <span style={{ fontSize: '11px', color: '#5e6c84' }}>Move to list</span>
-              <select
-                value={card.columnId}
-                onChange={e => onMove(card, e.target.value)}
-                className="planka-inline-input"
-                style={{ padding: '4px', fontSize: '12px' }}
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>Actions</div>
+              <button
+                onClick={() => onDelete(card.id)}
+                style={{
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  color: '#fca5a5',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  width: '100%',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  textAlign: 'left',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
               >
-                {columns.map(col => (
-                  <option key={col.id} value={col.id}>{col.title}</option>
-                ))}
-              </select>
+                <Icons.Trash />
+                Delete Card
+              </button>
             </div>
-
-            {/* Reorder vertical position */}
-            <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
-              <button onClick={() => onMove(card, 'up')} className="planka-sidebar-btn" style={{ justifyContent: 'center', fontSize: '12px' }}>▲ Up</button>
-              <button onClick={() => onMove(card, 'down')} className="planka-sidebar-btn" style={{ justifyContent: 'center', fontSize: '12px' }}>▼ Down</button>
-            </div>
-
-            {/* Delete Card Button */}
-            <button
-              onClick={() => onDelete(card.id)}
-              className="planka-sidebar-btn planka-sidebar-btn-delete"
-              style={{ marginTop: '24px', justifyContent: 'center', fontWeight: 600 }}
-            >
-              Delete Card
-            </button>
           </div>
         </div>
       </div>
@@ -1708,41 +1654,40 @@ const CardModal = ({
   );
 };
 
-const styles = {
+const styles: Record<string, React.CSSProperties> = {
+  dashboardContainer: {
+    padding: '24px',
+    height: '100%',
+    overflowY: 'auto',
+    background: 'var(--affine-background-primary-color, #17181c)',
+  },
+  boardGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+    gap: '20px',
+  },
   searchBox: {
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
-    background: 'var(--affine-background-secondary-color, #f4f5f7)',
-    border: '1px solid var(--affine-border-color, #e3e3e3)',
+    background: 'var(--affine-background-secondary-color, rgba(255,255,255,0.06))',
+    padding: '6px 12px',
     borderRadius: '8px',
-    padding: '0 12px',
-    height: '36px',
-    width: '200px',
+    border: '1px solid var(--affine-border-color, rgba(255,255,255,0.08))',
+    width: '240px',
   },
   createBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    background: 'var(--affine-brand-color, #0079bf)',
+    background: '#2563eb',
     color: '#ffffff',
     border: 'none',
     borderRadius: '8px',
-    padding: '0 16px',
+    padding: '8px 16px',
     fontWeight: 600,
     fontSize: '13px',
     cursor: 'pointer',
-    height: '36px',
-  },
-  dashboardContainer: {
-    padding: '24px',
-    height: '100%',
-    overflowY: 'auto' as const,
-    background: 'var(--affine-background-primary-color, #ffffff)',
-  },
-  boardGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-    gap: '16px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    transition: 'background 0.15s',
   },
 };

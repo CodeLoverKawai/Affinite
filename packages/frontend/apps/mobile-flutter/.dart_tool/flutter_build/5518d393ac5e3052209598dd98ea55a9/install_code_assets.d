@@ -1,0 +1,1 @@
+ /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/.dart_tool/flutter_build/5518d393ac5e3052209598dd98ea55a9/native_assets.json: 

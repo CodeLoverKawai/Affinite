@@ -1,0 +1,11 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/cmake_install.cmake",
+		"/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/flutter/cmake_install.cmake",
+		"/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/runner/cmake_install.cmake",
+		"/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/plugins/jni/cmake_install.cmake",
+		"/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/mobile-flutter/build/linux/x64/release/plugins/jni/shared/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
