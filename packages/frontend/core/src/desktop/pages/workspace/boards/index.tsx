@@ -114,29 +114,37 @@ const BoardCardItem = ({ doc, index, onClick }: { doc: DocRecord; index: number;
   useEffect(() => {
     const { doc: openedDoc, release } = docsService.open(doc.id);
     const yMap = openedDoc.yDoc.getMap('board_data');
-    const bg = yMap.get('background') as string;
-    if (bg) {
-      setBoardBg(bg);
-    }
+
+    const updateBg = () => {
+      const bg = yMap.get('background') as string;
+      if (bg) {
+        setBoardBg(bg);
+      }
+    };
+
+    updateBg();
+    yMap.observeDeep(updateBg);
+
     return () => {
+      yMap.unobserveDeep(updateBg);
       release();
     };
   }, [doc.id, docsService]);
 
   const defaultGradient = BOARD_GRADIENTS[index % BOARD_GRADIENTS.length];
   const isImage = boardBg && (boardBg.startsWith('http') || boardBg.startsWith('data:'));
-  const bgStyle = isImage ? `url("${boardBg}")` : (boardBg || defaultGradient);
+  const backgroundStyle = isImage
+    ? `url("${boardBg}") center/cover no-repeat`
+    : (boardBg || defaultGradient);
 
   return (
     <div
       onClick={onClick}
       className="affinite-board-item-card"
       style={{
-        backgroundImage: isImage ? bgStyle : undefined,
-        background: !isImage ? bgStyle : undefined,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
+        background: backgroundStyle,
         position: 'relative',
+        overflow: 'hidden',
       }}
     >
       {/* Dark overlay to keep board titles readable */}
