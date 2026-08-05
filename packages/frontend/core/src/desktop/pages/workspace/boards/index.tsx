@@ -362,7 +362,13 @@ export const Component = () => {
         box-shadow: 0 8px 24px rgba(0,0,0,0.3);
         padding: 12px;
         gap: 10px;
-        transition: all 0.2s ease;
+        transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease, opacity 0.2s ease, border-color 0.2s ease;
+      }
+      .affinite-board-col-dragging {
+        opacity: 0.45;
+        transform: scale(0.97) rotate(0.8deg);
+        box-shadow: 0 16px 36px rgba(0,0,0,0.5);
+        border-color: rgba(59, 130, 246, 0.5);
       }
       .affinite-board-col-header {
         display: flex;
@@ -379,7 +385,7 @@ export const Component = () => {
         font-size: 14px;
         color: #f1f5f9;
         word-wrap: break-word;
-        max-width: 190px;
+        max-width: 210px;
         letter-spacing: -0.01em;
       }
       .affinite-board-col-actions {
@@ -390,12 +396,12 @@ export const Component = () => {
       .affinite-board-col-btn {
         background: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.06);
-        font-size: 11px;
+        font-size: 14px;
         cursor: pointer;
-        padding: 4px 6px;
+        padding: 4px 8px;
         border-radius: 6px;
         color: #94a3b8;
-        transition: all 0.15s;
+        transition: all 0.15s ease;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -440,7 +446,13 @@ export const Component = () => {
         display: flex;
         flex-direction: column;
         gap: 6px;
-        transition: all 0.15s ease;
+        transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s ease, opacity 0.2s ease, border-color 0.2s ease;
+      }
+      .affinite-board-card-dragging {
+        opacity: 0.35;
+        transform: scale(0.96);
+        border-color: #3b82f6;
+        box-shadow: 0 8px 24px rgba(59,130,246,0.3);
       }
       .affinite-board-card:active {
         cursor: grabbing;
@@ -448,6 +460,19 @@ export const Component = () => {
       .affinite-board-card:hover {
         background: rgba(42, 48, 61, 0.95);
         border-color: rgba(255, 255, 255, 0.18);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+      }
+      .affinite-label-pill {
+        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        display: inline-flex;
+        align-items: center;
+        cursor: pointer;
+      }
+      .affinite-label-pill:hover {
+        transform: scale(1.06);
+        filter: brightness(1.15);
+      }
         transform: translateY(-2px);
         box-shadow: 0 6px 20px rgba(0,0,0,0.4);
       }
@@ -1137,7 +1162,7 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
             return (
               <div 
                 key={col.id} 
-                className="affinite-board-col"
+                className={`affinite-board-col ${draggedColId === col.id ? 'affinite-board-col-dragging' : ''}`}
                 draggable={!draggedCardId}
                 onDragStart={(e) => {
                   e.dataTransfer.setData('text/plain', `col:${col.id}`);
@@ -1166,11 +1191,9 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
                 }}
               >
                 <div className="affinite-board-col-header">
-                  <span className="affinite-board-col-title">{col.title} ({colCards.length})</span>
+                  <span className="affinite-board-col-title">{col.title}</span>
                   <div className="affinite-board-col-actions">
-                    <button disabled={colIdx === 0} onClick={() => moveColumn(colIdx, 'left')} className="affinite-board-col-btn">◀</button>
-                    <button disabled={colIdx === boardData.columns.length - 1} onClick={() => moveColumn(colIdx, 'right')} className="affinite-board-col-btn">▶</button>
-                    <button onClick={() => handleDeleteColumn(col.id)} className="affinite-board-col-btn affinite-board-col-delete">×</button>
+                    <button onClick={() => handleDeleteColumn(col.id)} className="affinite-board-col-btn affinite-board-col-delete" title="Delete list">×</button>
                   </div>
                 </div>
                 
@@ -1206,7 +1229,7 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
                       <div
                         key={card.id}
                         onClick={() => setActiveCard(card)}
-                        className="affinite-board-card"
+                        className={`affinite-board-card ${draggedCardId === card.id ? 'affinite-board-card-dragging' : ''}`}
                         draggable
                         onDragStart={(e) => {
                           e.stopPropagation();
@@ -1254,6 +1277,7 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
                               return labelsExpanded ? (
                                 <div
                                   key={c}
+                                  className="affinite-label-pill"
                                   style={{
                                     background: c,
                                     color: '#ffffff',
@@ -1266,7 +1290,7 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
                                   {labelName}
                                 </div>
                               ) : (
-                                <div key={c} style={{ width: '36px', height: '6px', borderRadius: '3px', background: c }} />
+                                <div key={c} className="affinite-label-pill" style={{ width: '36px', height: '6px', borderRadius: '3px', background: c }} />
                               );
                             })}
                           </div>
