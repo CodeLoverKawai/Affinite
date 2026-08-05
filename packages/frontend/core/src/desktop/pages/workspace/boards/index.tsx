@@ -107,32 +107,60 @@ const LABELS = [
 ];
 
 const BoardCardItem = ({ doc, index, onClick }: { doc: DocRecord; index: number; onClick: () => void }) => {
+  const docsService = useService(DocsService);
   const title = useLiveData(doc.title$);
-  const bgGradient = BOARD_GRADIENTS[index % BOARD_GRADIENTS.length];
-  
+  const [boardBg, setBoardBg] = useState<string>('');
+
+  useEffect(() => {
+    const { doc: openedDoc, release } = docsService.open(doc.id);
+    const yMap = openedDoc.yDoc.getMap('board_data');
+    const bg = yMap.get('background') as string;
+    if (bg) {
+      setBoardBg(bg);
+    }
+    return () => {
+      release();
+    };
+  }, [doc.id, docsService]);
+
+  const defaultGradient = BOARD_GRADIENTS[index % BOARD_GRADIENTS.length];
+  const isImage = boardBg && (boardBg.startsWith('http') || boardBg.startsWith('data:'));
+  const bgStyle = isImage ? `url("${boardBg}")` : (boardBg || defaultGradient);
+
   return (
     <div
       onClick={onClick}
       className="affinite-board-item-card"
-      style={{ background: bgGradient }}
+      style={{
+        backgroundImage: isImage ? bgStyle : undefined,
+        background: !isImage ? bgStyle : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        position: 'relative',
+      }}
     >
-      <span className="affinite-board-item-title">
-        {title || 'Untitled Board'}
-      </span>
-      <div className="affinite-board-item-footer">
-        <span className="affinite-board-item-badge">Native Board</span>
-        <button
-          onClick={e => {
-            e.stopPropagation();
-            if (confirm('Delete this board?')) {
-              doc.moveToTrash();
-            }
-          }}
-          className="affinite-board-item-delete"
-          title="Delete board"
-        >
-          <Icons.Trash />
-        </button>
+      {/* Dark overlay to keep board titles readable */}
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(15,23,42,0.35), rgba(15,23,42,0.85))', borderRadius: '12px', zIndex: 1 }} />
+      
+      <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
+        <span className="affinite-board-item-title">
+          {title || 'Untitled Board'}
+        </span>
+        <div className="affinite-board-item-footer">
+          <span className="affinite-board-item-badge">Native Board</span>
+          <button
+            onClick={e => {
+              e.stopPropagation();
+              if (confirm('Delete this board?')) {
+                doc.moveToTrash();
+              }
+            }}
+            className="affinite-board-item-delete"
+            title="Delete board"
+          >
+            <Icons.Trash />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -912,6 +940,7 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
   // Customization Drawer toggle
   const [showCustomize, setShowCustomize] = useState(false);
   const [titleInput, setTitleInput] = useState('');
+  const [customUrlInput, setCustomUrlInput] = useState('');
   
   // Inline input states
   const [newColTitle, setNewColTitle] = useState('');
@@ -1036,22 +1065,14 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
     saveToYjs(updatedCols, updatedCards);
   };
 
-  const moveColumn = (index: number, direction: 'left' | 'right') => {
-    const newIndex = direction === 'left' ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= boardData.columns.length) return;
-    const cols = [...boardData.columns];
-    const [temp] = cols.splice(index, 1);
-    cols.splice(newIndex, 0, temp);
-    saveToYjs(cols, boardData.cards);
-  };
-
-  const isUrlBackground = (boardData.background || '').startsWith('http');
+  const isUrlBackground = (boardData.background || '').startsWith('http') || (boardData.background || '').startsWith('data:');
 
   return (
     <div
       className="affinite-board-container"
       style={{
-        background: isUrlBackground ? `url("${boardData.background}")` : (boardData.background || '#0f172a'),
+        backgroundImage: isUrlBackground ? `url("${boardData.background}")` : undefined,
+        background: !isUrlBackground ? (boardData.background || '#0f172a') : undefined,
       }}
     >
       {/* Dark overlay with configurable opacity */}
@@ -1098,6 +1119,46 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
               <span style={{ fontWeight: 700, fontSize: '14px', color: '#f8fafc' }}>Wallpaper & Theme</span>
               <button onClick={() => setShowCustomize(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#94a3b8' }}>×</button>
+            </div>
+
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', marginBottom: '6px' }}>Custom Image (URL or Local File)</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <input
+                  type="text"
+                  placeholder="Paste image URL (https://...)"
+                  value={customUrlInput}
+                  onChange={e => setCustomUrlInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && customUrlInput.trim()) {
+                      saveBackgroundToYjs(customUrlInput.trim());
+                      setCustomUrlInput('');
+                    }
+                  }}
+                  className="affinite-inline-input"
+                  style={{ fontSize: '12px', padding: '6px 8px' }}
+                />
+                <label className="affinite-btn-submit" style={{ fontSize: '11px', padding: '6px 10px', cursor: 'pointer', textAlign: 'center', display: 'block' }}>
+                  📁 Upload Local Image
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (evt) => {
+                          if (evt.target?.result) {
+                            saveBackgroundToYjs(evt.target.result as string);
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
             </div>
             
             <div>
@@ -1154,8 +1215,15 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
           </div>
         )}
         
-        <div className="affinite-board-canvas">
-          {boardData.columns.map((col, colIdx) => {
+        <div
+          className="affinite-board-canvas"
+          onWheel={(e) => {
+            if (e.deltaY !== 0) {
+              e.currentTarget.scrollLeft += e.deltaY * 1.2;
+            }
+          }}
+        >
+          {boardData.columns.map((col) => {
             const colCards = boardData.cards.filter(c => c.columnId === col.id);
             const isAddingCard = addingCardColId === col.id;
 
@@ -1168,6 +1236,7 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
                   e.dataTransfer.setData('text/plain', `col:${col.id}`);
                   setDraggedColId(col.id);
                 }}
+                onDragEnd={() => setDraggedColId(null)}
                 onDragOver={(e) => {
                   if (draggedColId && draggedColId !== col.id) {
                     e.preventDefault();
@@ -1236,6 +1305,7 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
                           e.dataTransfer.setData('text/plain', `card:${card.id}`);
                           setDraggedCardId(card.id);
                         }}
+                        onDragEnd={() => setDraggedCardId(null)}
                         onDragOver={(e) => {
                           if (draggedCardId && draggedCardId !== card.id) {
                             e.preventDefault();
