@@ -75,7 +75,7 @@ export const AboutAffine = () => {
         <a
           className={styles.link}
           rel="noreferrer"
-          href="https://affine.pro"
+          href="https://github.com/CodeLoverKawai/Affinite"
           target="_blank"
         >
           {t['com.affine.aboutAFFiNE.contact.website']()}
@@ -84,7 +84,7 @@ export const AboutAffine = () => {
         <a
           className={styles.link}
           rel="noreferrer"
-          href="https://affine.pro/redirect/discord"
+          href="https://github.com/CodeLoverKawai/Affinite"
           target="_blank"
         >
           {t['com.affine.aboutAFFiNE.contact.community']()}
@@ -113,7 +113,7 @@ export const AboutAffine = () => {
         <a
           className={styles.link}
           rel="noreferrer"
-          href="https://affine.pro/privacy"
+          href="https://github.com/CodeLoverKawai/Affinite"
           target="_blank"
         >
           {t['com.affine.aboutAFFiNE.legal.privacy']()}
@@ -122,7 +122,7 @@ export const AboutAffine = () => {
         <a
           className={styles.link}
           rel="noreferrer"
-          href="https://affine.pro/terms"
+          href="https://github.com/CodeLoverKawai/Affinite"
           target="_blank"
         >
           {t['com.affine.aboutAFFiNE.legal.tos']()}
