@@ -10,7 +10,7 @@ export const BUILD_IN_SERVERS: (ServerMetadata & { config: ServerConfig })[] = [
   {
     id: 'affine-cloud',
     baseUrl: BUILD_CONFIG.isNative
-      ? 'https://notas.lab-kairos.dedyn.io'
+      ? 'http://localhost:5320'
       : location.origin,
     config: {
       serverName: 'AFFiNITe Selfhost',
