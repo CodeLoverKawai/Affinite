@@ -33,6 +33,7 @@ import {
   updateCopilotSessionMutation,
 } from '@affine/graphql';
 import { getCurrentStore } from '@toeverything/infra';
+import { loadAISettings } from '../../../desktop/dialogs/setting/account-setting/ai-model-selector';
 
 import {
   GeneralNetworkError,
@@ -442,6 +443,8 @@ export class CopilotClient {
     return { files, docs };
   }
 
+import { loadAISettings } from '../../../desktop/dialogs/setting/account-setting/ai-model-selector';
+
   async chatText({
     sessionId,
     messageId,
@@ -457,11 +460,13 @@ export class CopilotClient {
     toolsConfig?: AIToolsConfig;
     signal?: AbortSignal;
   }) {
+    const aiSettings = loadAISettings();
+    const effectiveModelId = modelId || aiSettings.modelId;
     let url = `/api/copilot/chat/${sessionId}`;
     const queryString = this.paramsToQueryString({
       messageId,
       reasoning,
-      modelId,
+      modelId: effectiveModelId,
       toolsConfig,
     });
     if (queryString) {
@@ -488,11 +493,13 @@ export class CopilotClient {
     },
     endpoint = Endpoint.Stream
   ) {
+    const aiSettings = loadAISettings();
+    const effectiveModelId = modelId || aiSettings.modelId;
     let url = `/api/copilot/chat/${sessionId}/${endpoint}`;
     const queryString = this.paramsToQueryString({
       messageId,
       reasoning,
-      modelId,
+      modelId: effectiveModelId,
       toolsConfig,
     });
     if (queryString) {

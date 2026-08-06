@@ -12,6 +12,7 @@ import { useLiveData, useService } from '@toeverything/infra';
 import { cssVar } from '@toeverything/theme';
 import { useCallback, useEffect } from 'react';
 
+import { AIModelSelector } from './ai-model-selector';
 import { AIResume, AISubscribe } from '../general-setting/plans/ai/actions';
 import type { SettingState } from '../types';
 import * as styles from './storage-progress.css';
@@ -91,51 +92,54 @@ export const AIUsagePanel = ({
   const color = percent > 80 ? cssVar('errorColor') : cssVar('processingColor');
 
   return (
-    <SettingRow
-      spreadCol={aiSubscription ? true : false}
-      desc={
-        aiSubscription
-          ? t['com.affine.payment.ai.usage-description-purchased']()
-          : ''
-      }
-      name={t['com.affine.payment.ai.usage-title']()}
-    >
-      {copilotActionLimit === 'unlimited' ? (
-        hasPaymentFeature && aiSubscription?.canceledAt ? (
-          <AIResume />
+    <>
+      <SettingRow
+        spreadCol={aiSubscription ? true : false}
+        desc={
+          aiSubscription
+            ? t['com.affine.payment.ai.usage-description-purchased']()
+            : ''
+        }
+        name={t['com.affine.payment.ai.usage-title']()}
+      >
+        {copilotActionLimit === 'unlimited' ? (
+          hasPaymentFeature && aiSubscription?.canceledAt ? (
+            <AIResume />
+          ) : (
+            <Button onClick={openBilling}>
+              {t['com.affine.payment.ai.usage.change-button-label']()}
+            </Button>
+          )
         ) : (
-          <Button onClick={openBilling}>
-            {t['com.affine.payment.ai.usage.change-button-label']()}
-          </Button>
-        )
-      ) : (
-        <div className={styles.storageProgressContainer}>
-          <div className={styles.storageProgressWrapper}>
-            <div className="storage-progress-desc">
-              <span>{t['com.affine.payment.ai.usage.used-caption']()}</span>
-              <span>
-                {t['com.affine.payment.ai.usage.used-detail']({
-                  used: copilotActionUsed.toString(),
-                  limit: copilotActionLimit.toString(),
-                })}
-              </span>
+          <div className={styles.storageProgressContainer}>
+            <div className={styles.storageProgressWrapper}>
+              <div className="storage-progress-desc">
+                <span>{t['com.affine.payment.ai.usage.used-caption']()}</span>
+                <span>
+                  {t['com.affine.payment.ai.usage.used-detail']({
+                    used: copilotActionUsed.toString(),
+                    limit: copilotActionLimit.toString(),
+                  })}
+                </span>
+              </div>
+
+              <div className="storage-progress-bar-wrapper">
+                <div
+                  className={styles.storageProgressBar}
+                  style={{ width: `${percent}%`, backgroundColor: color }}
+                ></div>
+              </div>
             </div>
 
-            <div className="storage-progress-bar-wrapper">
-              <div
-                className={styles.storageProgressBar}
-                style={{ width: `${percent}%`, backgroundColor: color }}
-              ></div>
-            </div>
+            {hasPaymentFeature && (
+              <AISubscribe variant="primary">
+                {t['com.affine.payment.ai.usage.purchase-button-label']()}
+              </AISubscribe>
+            )}
           </div>
-
-          {hasPaymentFeature && (
-            <AISubscribe variant="primary">
-              {t['com.affine.payment.ai.usage.purchase-button-label']()}
-            </AISubscribe>
-          )}
-        </div>
-      )}
-    </SettingRow>
+        )}
+      </SettingRow>
+      <AIModelSelector />
+    </>
   );
 };
