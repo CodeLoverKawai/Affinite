@@ -443,8 +443,6 @@ export class CopilotClient {
     return { files, docs };
   }
 
-import { loadAISettings } from '../../../desktop/dialogs/setting/account-setting/ai-model-selector';
-
   async chatText({
     sessionId,
     messageId,
