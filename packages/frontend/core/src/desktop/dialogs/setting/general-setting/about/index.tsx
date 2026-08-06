@@ -1,55 +1,25 @@
-import { Switch } from '@affine/component';
 import {
   SettingHeader,
   SettingRow,
   SettingWrapper,
 } from '@affine/component/setting-components';
-import { useAppUpdater } from '@affine/core/components/hooks/use-app-updater';
 import { UrlService } from '@affine/core/modules/url';
 import { appIconMap, appNames } from '@affine/core/utils/channel';
 import { useI18n } from '@affine/i18n';
-import { ArrowRightSmallIcon, OpenInNewIcon } from '@blocksuite/icons/rc';
+import { OpenInNewIcon } from '@blocksuite/icons/rc';
 import { useServices } from '@toeverything/infra';
-import { useCallback } from 'react';
 
-import { useAppSettingHelper } from '../../../../../components/hooks/affine/use-app-setting-helper';
 import { relatedLinks } from './config';
 import * as styles from './style.css';
-import { UpdateCheckSection } from './update-check-section';
 
 export const AboutAffine = () => {
   const t = useI18n();
-  const { appSettings, updateSettings } = useAppSettingHelper();
-  const { toggleAutoCheck, toggleAutoDownload } = useAppUpdater();
   const channel = BUILD_CONFIG.appBuildType;
   const appIcon = appIconMap[channel];
   const appName = appNames[channel];
   const { urlService } = useServices({
     UrlService,
   });
-
-  const onSwitchAutoCheck = useCallback(
-    (checked: boolean) => {
-      toggleAutoCheck(checked);
-      updateSettings('autoCheckUpdate', checked);
-    },
-    [toggleAutoCheck, updateSettings]
-  );
-
-  const onSwitchAutoDownload = useCallback(
-    (checked: boolean) => {
-      toggleAutoDownload(checked);
-      updateSettings('autoDownloadUpdate', checked);
-    },
-    [toggleAutoDownload, updateSettings]
-  );
-
-  const onSwitchTelemetry = useCallback(
-    (checked: boolean) => {
-      updateSettings('enableTelemetry', checked);
-    },
-    [updateSettings]
-  );
 
   return (
     <>
