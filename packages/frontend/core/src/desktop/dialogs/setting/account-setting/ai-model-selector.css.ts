@@ -50,7 +50,7 @@ export const providerBtn = style({
     },
     '&[data-active="true"]': {
       borderColor: cssVar('brandColor'),
-      backgroundColor: cssVar('hoverBackground'),
+      backgroundColor: cssVar('hoverColor'),
       color: cssVar('brandColor'),
       fontWeight: 600,
     },
