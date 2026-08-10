@@ -2,6 +2,16 @@
 
 All notable changes to **AFFiNITe** will be documented in this file.
 
+## [v0.27.1] - 2026-08-10
+
+### Bug Fixes & Improvements
+- **Mouse Wheel Scroll Propagation Fix**:
+  - Fixed vertical mouse wheel scrolling on Kanban card lists and columns in Desktop (AppImage) and Web (Docker) modes, keeping vertical list scrolling contained within columns without shifting the outer board canvas horizontally.
+  - Resolved `onWheel` event leakage across BlockSuite Data-Views (Kanban and Table views).
+- **Multi-Platform Release & Docker Image**:
+  - Built and updated Android APK (`AFFINITE-release.apk`).
+  - Built and pushed updated Docker Server Image (`rousseaukairos/affinite:latest` and `rousseaukairos/affinite:v0.27.1`) to Docker Hub.
+
 ## [v0.27.0] - 2026-08-05
 
 ### Features & Enhancements

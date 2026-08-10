@@ -460,6 +460,7 @@ export const Component = () => {
         flex-direction: column;
         gap: 8px;
         overflow-y: auto;
+        overscroll-behavior-y: contain;
         flex: 1;
         padding-right: 4px;
         min-height: 24px;
@@ -1226,6 +1227,10 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
         <div
           className="affinite-board-canvas"
           onWheel={(e) => {
+            const target = e.target as HTMLElement | null;
+            if (target && target.closest('.affinite-board-cards-list, .affinite-board-card-modal, [data-scrollable="true"]')) {
+              return;
+            }
             if (e.deltaY !== 0) {
               e.currentTarget.scrollLeft += e.deltaY * 1.2;
             }
@@ -1276,6 +1281,9 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
                 
                 <div 
                   className="affinite-board-cards-list"
+                  onWheel={(e) => {
+                    e.stopPropagation();
+                  }}
                   onDragOver={(e) => {
                     if (draggedCardId) {
                       e.preventDefault();

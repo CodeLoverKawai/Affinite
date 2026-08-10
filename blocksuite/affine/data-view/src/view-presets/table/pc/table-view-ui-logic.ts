@@ -96,9 +96,6 @@ export class TableViewUILogic extends DataViewUILogicBase<
     }
     const ele = event.currentTarget;
     if (ele instanceof HTMLElement) {
-      if (ele.scrollWidth === ele.clientWidth) {
-        return;
-      }
       event.stopPropagation();
     }
   };
