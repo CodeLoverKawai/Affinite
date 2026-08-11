@@ -180,7 +180,18 @@ export const Component = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const allDocs = useLiveData(docsService.list.docs$);
   
-  const boardId = searchParams.get('boardId');
+  const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null);
+  const boardId = selectedBoardId || searchParams.get('boardId');
+
+  const handleOpenBoard = useCallback((id: string) => {
+    setSelectedBoardId(id);
+    setSearchParams({ boardId: id });
+  }, [setSearchParams]);
+
+  const handleCloseBoard = useCallback(() => {
+    setSelectedBoardId(null);
+    setSearchParams({});
+  }, [setSearchParams]);
 
   // Filter doc records representing Boards
   const boardDocs = allDocs.filter((doc: DocRecord) => {
@@ -200,6 +211,7 @@ export const Component = () => {
     docRecord.setCustomProperty('isBoard', 'true');
 
     // Automatically navigate to this board in detail view
+    setSelectedBoardId(docRecord.id);
     setSearchParams({ boardId: docRecord.id });
   }, [boardDocs.length, docsService, setSearchParams]);
 
@@ -859,12 +871,94 @@ export const Component = () => {
     `}</style>
   );
 
+  const isMobile = BUILD_CONFIG.isMobileEdition;
+
   if (boardId) {
+    if (isMobile) {
+      return (
+        <div style={{ height: '100vh', width: '100vw', overflow: 'hidden', position: 'relative' }}>
+          {styleBlock}
+          <BoardDetail boardId={boardId} onClose={handleCloseBoard} />
+        </div>
+      );
+    }
     return (
       <>
         {styleBlock}
-        <BoardDetail boardId={boardId} onClose={() => setSearchParams({})} />
+        <ViewHeader>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0 24px', height: '48px', borderBottom: '1px solid var(--affine-border-color, rgba(255,255,255,0.08))', background: 'var(--affine-background-primary-color, #17181c)' }}>
+            <button onClick={handleCloseBoard} style={{ background: 'transparent', border: 'none', color: 'var(--affine-text-secondary-color, #94a3b8)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+              ← Back to Boards
+            </button>
+          </div>
+        </ViewHeader>
+        <ViewBody>
+          <BoardDetail boardId={boardId} onClose={handleCloseBoard} />
+        </ViewBody>
       </>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {styleBlock}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 16px', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid var(--affine-border-color, rgba(255,255,255,0.08))', background: 'var(--affine-background-primary-color, #17181c)' }}>
+          <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--affine-text-primary-color, #f8fafc)' }}>Project Boards</div>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ ...styles.searchBox, width: '160px' }}>
+              <SearchIcon style={{ color: 'var(--affine-text-secondary-color, #94a3b8)', width: '16px', height: '16px' }} />
+              <input
+                type="text"
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  outline: 'none',
+                  width: '100%',
+                  fontSize: '13px',
+                  color: 'var(--affine-text-primary-color, #f8fafc)',
+                }}
+              />
+            </div>
+            <button onClick={handleCreateBoard} style={styles.createBtn}>
+              <PlusIcon style={{ width: '14px', height: '14px' }} />
+              Create
+            </button>
+          </div>
+        </div>
+        <div style={{ flex: 1, overflow: 'auto' }}>
+          <div style={styles.dashboardContainer}>
+            {boardDocs.length === 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '320px', gap: '16px', textAlign: 'center' }}>
+                <NewIcon style={{ width: '48px', height: '48px', color: 'var(--affine-text-secondary-color, #94a3b8)' }} />
+                <div>
+                  <h3 style={{ margin: 0, fontWeight: 700, fontSize: '18px', color: '#f8fafc' }}>No boards created yet</h3>
+                  <p style={{ margin: '6px 0 0 0', color: 'var(--affine-text-secondary-color, #94a3b8)', fontSize: '14px' }}>
+                    Create your first native Kanban board to organize tasks directly in AFFiNITe.
+                  </p>
+                </div>
+                <button onClick={handleCreateBoard} style={styles.createBtn}>
+                  Create First Board
+                </button>
+              </div>
+            ) : (
+              <div style={styles.boardGrid}>
+                {boardDocs.map((doc: DocRecord, index: number) => (
+                  <BoardCardItem
+                    key={doc.id}
+                    doc={doc}
+                    index={index}
+                    onClick={() => handleOpenBoard(doc.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -923,7 +1017,7 @@ export const Component = () => {
                   key={doc.id}
                   doc={doc}
                   index={index}
-                  onClick={() => setSearchParams({ boardId: doc.id })}
+                  onClick={() => handleOpenBoard(doc.id)}
                 />
               ))}
             </div>
