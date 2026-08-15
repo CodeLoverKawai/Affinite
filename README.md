@@ -1,197 +1,175 @@
 <div align="center">
 
-<h1 style="border-bottom: none">
+<img src="packages/frontend/apps/electron/resources/icons/icon_stable_512x512.png" width="128" height="128" alt="AFFiNITe Logo" style="border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);" />
+
+<h1 style="border-bottom: none; margin-top: 16px;">
     <b>AFFiNITe</b><br />
-    Local-First Knowledge & Kanban Workspace
-    <br>
+    <span>Local-First Knowledge, Canvas & Project Boards Workspace</span>
 </h1>
+
 <p align="center">
-  A privacy-focused, local-first, open-source workspace featuring high-performance Kanban boards and hyper-fused document editing.
+  <b>El espacio de trabajo autónomo, privado y de alto rendimiento que fusiona documentos en bloques, pizarras infinitas y tableros Kanban nativos con sincronización CRDT y modelos de IA locales.</b>
 </p>
 
-> [!NOTE]
-> **Fork & Independence Notice**:
-> AFFiNITe is currently built as a fork of [AFFiNE](https://github.com/toeverything/AFFiNE). While we leverage its foundational architecture, our explicit roadmap is to **decouple from upstream as quickly as possible**, evolving into a fully standalone, independent product ecosystem tailored for high-speed workflows, native Flutter clients, and customized Kanban engines.
+<p align="center">
+  <img src="https://img.shields.io/badge/version-0.27.1-blue.svg?style=flat-square" alt="Version" />
+  <img src="https://img.shields.io/badge/license-MIT-green.svg?style=flat-square" alt="License" />
+  <img src="https://img.shields.io/badge/platform-Linux%20%7C%20Android%20%7C%20Web%20%7C%20Docker-orange.svg?style=flat-square" alt="Platform" />
+  <img src="https://img.shields.io/badge/local--first-CRDT%20%2B%20SQLite-purple.svg?style=flat-square" alt="Local First" />
+  <img src="https://img.shields.io/badge/AI-Ollama%20%2B%20MCP-black.svg?style=flat-square" alt="AI Engine" />
+</p>
 
 </div>
 
-<br />
+---
 
-## What is AFFiNITe
+## 🌟 ¿Qué es AFFiNITe?
 
-**AFFiNITe** is an open-source, local-first workspace for knowledge management, documentation, and Planka-inspired Kanban board management.
+**AFFiNITe** es un ecosistema de productividad y gestión del conocimiento de nueva generación diseñado bajo la filosofía **Local-First**. Tus datos residen primero en tu disco duro (SQLite local y memoria CRDT) garantizando velocidad instantánea, soberanía absoluta de datos y funcionamiento sin conexión a internet.
 
-## Roadmap & Decoupling Strategy
+AFFiNITe combina en una sola aplicación fluida:
+1. **Editor Hiper-Fusionado**: Documentos modulares en bloques que se transforman en pizarras infinitas (*Edgeless Canvas*) con un solo clic.
+2. **Tableros de Proyectos Nativos (`/boards`)**: Sistema Kanban con estética glassmórfica, fondos dinámicos y persistencia directa en el workspace sin requerir bases de datos o servicios externos.
+3. **Inteligencia Artificial Local & Privada**: Conexión nativa con **Ollama** (`host.docker.internal:11434`) y **Model Context Protocol (MCP)**, permitiendo consultar LLMs locales sin enviar información confidencial a servidores de terceros.
+4. **Suite Completa de PDF**: Visor WebAssembly de alto desempeño (PDFium) y motor de exportación vectorial con soporte para tablas de datos, fórmulas LaTeX y resiliencia 100% offline.
 
-- **Phase 1 (Current)**: Custom Planka-native board view integration, zero-error monorepo linting, and hybrid mobile/desktop architecture.
-- **Phase 2 (In Progress)**: Core engine refactoring to progressively decouple from upstream AFFiNE dependencies.
-- **Phase 3 (Upcoming)**: Fully autonomous storage, custom syncing protocols, and independent native UI framework.
+---
 
-## Features
+## 🚀 Características Principales
 
+### 📋 1. Tableros de Proyectos Nativos (*Project Boards*)
+- **Kanban Integrado sin Contenedores**: Tableros organizados en listas, tarjetas con fechas límite, etiquetas y estados directamente almacenados en el árbol CRDT/Yjs.
+- **Estética Glassmórfica & Fondos Dinámicos**: Selector visual de fondos de pantalla con transparencias, desenfoques en tiempo real y soporte responsivo móvil/escritorio.
+- **Interacción Fluida**: Arrastrar y soltar (*drag & drop*) de tarjetas y columnas con soporte táctil optimizado.
 
-**A true canvas for blocks in any form. Docs and whiteboard are now fully merged.**
+### 📝 2. Canvas & Editor de Documentos Multimodal
+- **Bloques Vivos**: Párrafos, encabezados, listas jerárquicas, llamadas destacadas (*callouts*), código con resaltado de sintaxis, fórmulas LaTeX y tablas de bases de datos.
+- **Pizarra Infinita (Edgeless Mode)**: Dibuja, conecta notas con conectores inteligentes, inserta marcos, formas vectoriales e imágenes en un lienzo infinito.
+- **Exportación Versátil**: Exporta tus notas y pizarras a PDF estructurado, Markdown, HTML o imágenes PNG de alta resolución.
 
-- Many editor apps claim to be a canvas for productivity, but AFFiNE is one of the very few which allows you to put any building block on an edgeless canvas -- rich text, sticky notes, any embedded web pages, multi-view databases, linked pages, shapes and even slides. We have it all.
+### 🤖 3. Ecosistema de IA Híbrida (Local + Cloud + MCP)
+- **Ollama Nativo**: Compatible de fábrica con cualquier modelo de código abierto (`llama3`, `qwen`, `mistral`, `deepseek-r1`) corriendo en tu máquina o servidor local.
+- **Model Context Protocol (MCP)**: Conecta herramientas del sistema de archivos, terminales y agentes inteligentes mediante el protocolo estándar MCP.
+- **Soporte Multi-Proveedor**: Conmutación transparente hacia proveedores de nube (OpenAI, Anthropic Claude, Google Gemini).
 
-**Multimodal AI partner ready to kick in any work**
+### ⚡ 4. Núcleo Nativo de Alto Desempeño
+- **Motor CRDT en Rust (`y-octo`)**: Resolución determinista y sin bloqueo de conflictos de edición en tiempo real.
+- **Gestión de Memoria con `jemalloc`**: Optimización de fragmentación de memoria en V8 y bindings nativos en Linux y Docker.
+- **Móvil Ultrarrápido**: Reducción de latencia de carga en Android mediante fast-path *Offline-First* y particionado inteligente de paquetes.
 
-- Write up professional work report? Turn an outline into expressive and presentable slides? Summary an article into a well-structured mindmap? Sorting your job plan and backlog for tasks? Or... draw and code prototype apps and web pages directly all with one prompt? With you, [AFFiNE AI](https://affine.pro/ai) pushes your creativity to the edge of your imagination, just like [Canvas AI](https://affine.pro/blog/best-canvas-ai) to generate mind map for brainstorming.
+---
 
-**Local-first & Real-time collaborative**
+## 🏛️ Arquitectura del Sistema
 
-- We love the idea of local-first that you always own your data on your disk, in spite of the cloud. Furthermore, AFFiNE supports real-time sync and collaborations on web and cross-platform clients.
+```mermaid
+flowchart TB
+    subgraph Clients["Frontend & Clientes Multiplataforma"]
+        Desktop["AFFiNITe Desktop (Electron 39)<br/>• Linux AppImage / Windows / macOS<br/>• Native Glassmorphic Boards (/boards)<br/>• Rust Native Modules (NAPI-RS)"]
+        MobileApp["AFFiNITe Mobile (Capacitor 7 / Android)<br/>• Redimensionamiento reactivo de teclado<br/>• Persistencia SQLite Nativa"]
+        FlutterApp["AFFiNITe Flutter (Nativo)<br/>• BLoC + FFI + SQLite3 Embebido<br/>• Canvas Edgeless & Markdown"]
+        WebClient["AFFiNITe Web / SPA<br/>• React 19 + Admin Dashboard<br/>• SWR & GraphQL"]
+    end
 
-**Self-host & Shape your own AFFiNE**
+    subgraph NativeRust["Capa Nativa en Rust (High Performance)"]
+        YOcto["y-octo (Motor CRDT Propio)"]
+        NBStore["nbstore / sqlite_v1 (Doc & Blob Store)"]
+        ServerNative["server-native (Tokenizers, PDF/Docx Parsers)"]
+    end
 
-- You have the freedom to manage, self-host, fork and build your own AFFiNE. Plugin community and third-party blocks are coming soon. More tractions on [Blocksuite](https://blocksuite.io). Check there to learn how to [self-host AFFiNE](https://docs.affine.pro/self-host-affine).
+    subgraph Backend["AFFiNITe Cloud Server (NestJS 11 + Docker)"]
+        GraphQL["GraphQL Gateway (Apollo Server)"]
+        SocketIO["Socket.IO Sync (Redis Adapter)"]
+        CopilotModule["Copilot & Agentic AI (MCP + Ollama)"]
+        QueueService["BullMQ Job Processing (Persistente)"]
+    end
 
-## Acknowledgement
+    subgraph Persistencia["Persistencia & IA"]
+        Postgres[("PostgreSQL 15<br/>+ pgvector")]
+        Redis[("Redis 7<br/>AOF Persistente")]
+        SQLiteLocal[("SQLite Local<br/>(Local-First)")]
+        OllamaLocal["Ollama Local AI<br/>(host:11434)"]
+    end
 
-“We shape our tools and thereafter our tools shape us”. A lot of pioneers have inspired us along the way, e.g.:
+    Desktop --> NativeRust
+    Desktop --> SQLiteLocal
+    Desktop -.-> GraphQL
+    MobileApp --> SQLiteLocal
+    MobileApp -.-> GraphQL
+    FlutterApp --> SQLiteLocal
+    FlutterApp -.-> OllamaLocal
 
-- Quip & Notion with their great concept of “everything is a block”
-- Trello with their Kanban
-- Airtable & Miro with their no-code programmable datasheets
-- Miro & Whimiscal with their edgeless visual whiteboard
-- Remote & Capacities with their object-based tag system
+    GraphQL --> Postgres
+    GraphQL --> CopilotModule
+    SocketIO --> Redis
+    SocketIO --> YOcto
+    QueueService --> Redis
+    CopilotModule --> OllamaLocal
+    Backend --> ServerNative
+```
 
-There is a large overlap of their atomic “building blocks” between these apps. They are not open source, nor do they have a plugin system like Vscode for contributors to customize. We want to have something that contains all the features we love and also goes one step even further.
+---
 
-Thanks for checking us out, we appreciate your interest and sincerely hope that AFFiNE resonates with you! 🎵 Checking https://affine.pro/ for more details ions.
+## 🐳 Despliegue con Docker Compose (Self-Hosted)
 
-## Contributing
+Para levantar tu propia instancia de sincronización en la nube con soporte de PostgreSQL, Redis persistente y Ollama:
 
-| Bug Reports                                                                                                                                         | Feature Requests                                                                                                                                               | Questions/Discussions                                                         | AFFiNE Community                                                  |
-| --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| [Create a bug report](https://github.com/toeverything/AFFiNE/issues/new?assignees=&labels=bug%2Cproduct-review&template=BUG-REPORT.yml&title=TITLE) | [Submit a feature request](https://github.com/toeverything/AFFiNE/issues/new?assignees=&labels=feat%2Cproduct-review&template=FEATURE-REQUEST.yml&title=TITLE) | [Check GitHub Discussion](https://github.com/toeverything/AFFiNE/discussions) | [Visit the AFFiNE's Discord](https://affine.pro/redirect/discord) |
-| Something isn't working as expected                                                                                                                 | An idea for a new feature, or improvements                                                                                                                     | Discuss and ask questions                                                     | A place to ask, learn and engage with others                      |
+```bash
+# 1. Clonar el repositorio
+git clone https://github.com/CodeLoverKawai/Affinite.git
+cd Affinite
 
-Calling all developers, testers, tech writers and more! Contributions of all types are more than welcome, you can read more in [docs/types-of-contributions.md](docs/types-of-contributions.md). If you are interested in contributing code, read our [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) and feel free to check out our GitHub issues to get stuck in to show us what you’re made of.
+# 2. Iniciar el stack completo
+docker compose up -d
+```
 
-**Before you start contributing, please make sure you have read and accepted our [Contributor License Agreement]. To indicate your agreement, simply edit this file and submit a pull request.**
+El servidor estará disponible de inmediato en **`http://localhost:5320`**.
 
-For **bug reports**, **feature requests** and other **suggestions** you can also [create a new issue](https://github.com/toeverything/AFFiNE/issues/new/choose) and choose the most appropriate template for your feedback.
+> [!TIP]
+> Si tienes **Ollama** instalado en tu máquina host, el contenedor se conectará automáticamente a través de `host.docker.internal:11434` sin configuración adicional.
 
-For **translation** and **language support** you can visit our [Discord](https://affine.pro/redirect/discord).
+---
 
-If you have questions, you are welcome to contact us. One of the best places to get more info and learn more is in the [Discord](https://affine.pro/redirect/discord) where you can engage with other like-minded individuals.
+## 📦 Compilación de Artefactos de Distribución
 
-## Templates
+AFFiNITe incluye pipelines de empaquetado directo en la raíz del proyecto:
 
-AFFiNE now provides pre-built [templates](https://affine.pro/templates) from our team. Following are the Top 10 most popular templates among AFFiNE users,if you want to contribute, you can contribute your own template so other people can use it too.
+| Artefacto | Comando de Compilación | Salida Generada |
+|---|---|---|
+| **Linux AppImage** | `./build-appimage.sh stable` | `packages/frontend/apps/electron/out/AFFiNITe-linux-x86_64.AppImage` |
+| **Android APK** | `./build-apk.sh` | `packages/frontend/apps/android/App/app/build/outputs/apk/stable/release/AFFINITE-release.apk` |
+| **Servidor Docker** | `./build-docker.sh [--no-push]` | Imagen `rousseaukairos/affinite:latest` |
+| **Release Automatizado** | `./run_release.sh` | Orquesta versionado, builds y publicación en GitHub Releases |
 
-- [vision board template](https://affine.pro/templates/category-vision-board-template)
-- [one pager template](https://affine.pro/templates/category-one-pager-template-free)
-- [sample lesson plan math template](https://affine.pro/templates/sample-lesson-plan-math-template)
-- [grr lesson plan template free](https://affine.pro/templates/grr-lesson-plan-template-free)
-- [free editable lesson plan template for pre k](https://affine.pro/templates/free-editable-lesson-plan-template-for-pre-k)
-- [high note collection planners](https://affine.pro/templates/high-note-collection-planners)
-- [digital planner](https://affine.pro/templates/category-digital-planner)
-- [ADHD Planner](https://affine.pro/templates/adhd-planner)
-- [Reading Log](https://affine.pro/templates/reading-log)
-- [Cornell Notes Template](https://affine.pro/templates/category-cornell-notes-template)
+---
 
-## Blog
+## 🛠️ Desarrollo Local
 
-Welcome to the AFFiNE blog section! Here, you’ll find the latest insights, tips, and guides on how to maximize your experience with AFFiNE and AFFiNE AI, the leading Canvas AI tool for flexible note-taking and creative organization.
+### Requisitos Previos
+- **Node.js**: `>=20 <23.0.0` (Recomendado Node 22 LTS)
+- **Yarn**: `v4.12.0` (Berry)
+- **Rust**: Edición 2024 (Toolchain estable con `cargo`)
+- **Docker**: (Opcional, para levantar base de datos de desarrollo)
 
-- [vision board template](https://affine.pro/blog/8-free-printable-vision-board-templates-examples-2023)
-- [ai homework helper](https://affine.pro/blog/ai-homework-helper)
-- [vision board maker](https://affine.pro/blog/vision-board-maker)
-- [itinerary template](https://affine.pro/blog/free-customized-travel-itinerary-planner-templates)
-- [one pager template](https://affine.pro/blog/top-12-one-pager-examples-how-to-create-your-own)
-- [cornell notes template](https://affine.pro/blog/the-cornell-notes-template-and-system-learning-tips)
-- [swot chart template](https://affine.pro/blog/top-10-free-editable-swot-analysis-template-examples)
-- [apps like luna task](https://affine.pro/blog/apps-like-luna-task)
-- [note taking ai from rough notes to mind map](https://affine.pro/blog/dynamic-AI-notes)
-- [canvas ai](https://affine.pro/blog/best-canvas-ai)
-- [one pager](https://affine.pro/blog/top-12-one-pager-examples-how-to-create-your-own)
-- [SOP Template](https://affine.pro/blog/how-to-write-sop-step-by-step-guide-5-best-free-tools-templates)
-- [Chore Chart](https://affine.pro/blog/10-best-free-chore-chart-templates-kids-adults)
+```bash
+# 1. Instalar dependencias del monorepo
+yarn
 
-## Ecosystem
+# 2. Inicializar entorno y extensiones
+yarn affine init
 
-| Name                                             |                            |                                                                                                                                         |
-| ------------------------------------------------ | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| [@affine/component](packages/frontend/component) | AFFiNE Component Resources | ![](https://img.shields.io/codecov/c/github/toeverything/affine?style=flat-square)                                                      |
-| [@toeverything/theme](packages/common/theme)     | AFFiNE theme               | [![](https://img.shields.io/npm/dm/@toeverything/theme?style=flat-square&color=eee)](https://www.npmjs.com/package/@toeverything/theme) |
+# 3. Iniciar el servidor de desarrollo
+yarn dev
+```
 
-## Upstreams
+---
 
-We would also like to give thanks to open-source projects that make AFFiNE possible:
+## 🔒 Privacidad y Soberanía de Datos
 
-- [Blocksuite](https://github.com/toeverything/BlockSuite) - 💠 BlockSuite is the open-source collaborative editor project behind AFFiNE.
-- [y-octo](https://github.com/y-crdt/y-octo) - 🐙 y-octo is a native, high-performance, thread-safe YJS CRDT implementation, serving as the core engine enabling the AFFiNE Client/Server to achieve "local-first" functionality.
-- [OctoBase](https://github.com/toeverything/OctoBase) - 🐙 OctoBase is the open-source database behind AFFiNE, local-first, yet collaborative. A light-weight, scalable, data engine written in Rust.
+- **Cero Telemetría Forzada**: Sentry y los servicios de seguimiento upstream han sido desactivados.
+- **Sin Dependencia de Cuentas Propietarias**: Puedes utilizar el 100% de las funciones de tableros, edición, canvas e inteligencia artificial de forma totalmente desconectada o auto-alojada.
 
-- [yjs](https://github.com/yjs/yjs) - Fundamental support of CRDTs for our implementation on state management and data sync on web.
-- [electron](https://github.com/electron/electron) - Build cross-platform desktop apps with JavaScript, HTML, and CSS.
-- [React](https://github.com/facebook/react) - The library for web and native user interfaces.
-- [napi-rs](https://github.com/napi-rs/napi-rs) - A framework for building compiled Node.js add-ons in Rust via Node-API.
-- [Jotai](https://github.com/pmndrs/jotai) - Primitive and flexible state management for React.
-- [async-call-rpc](https://github.com/Jack-Works/async-call-rpc) - A lightweight JSON RPC client & server.
-- [Vite](https://github.com/vitejs/vite) - Next generation frontend tooling.
-- Other upstream [dependencies](https://github.com/toeverything/AFFiNE/network/dependencies).
+---
 
-Thanks a lot to the community for providing such powerful and simple libraries, so that we can focus more on the implementation of the product logic, and we hope that in the future our projects will also provide a more easy-to-use knowledge base for everyone.
-
-## Contributors
-
-We would like to express our gratitude to all the individuals who have already contributed to AFFiNE! If you have any AFFiNE-related project, documentation, tool or template, please feel free to contribute it by submitting a pull request to our curated list on GitHub: [awesome-affine](https://github.com/toeverything/awesome-affine).
-
-<a href="https://github.com/toeverything/affine/graphs/contributors">
-  <img alt="contributors" src="https://opencollective.com/affine/contributors.svg?width=890&button=false" />
-</a>
-
-## Self-Host
-
-Begin with Docker to deploy your own feature-rich, unrestricted version of AFFiNE. Our team is diligently updating to the latest version. For more information on how to self-host AFFiNE, please refer to our [documentation](https://docs.affine.pro/self-host-affine).
-
-[![Run on Sealos](https://sealos.io/Deploy-on-Sealos.svg)](https://sealos.io/products/app-store/affine)
-
-[![Run on ClawCloud](https://raw.githubusercontent.com/ClawCloud/Run-Template/refs/heads/main/Run-on-ClawCloud.svg)](https://template.run.claw.cloud/?openapp=system-fastdeploy%3FtemplateName%3Daffine)
-
-## Feature Request
-
-For feature requests, please see [discussions](https://github.com/toeverything/AFFiNE/discussions/categories/ideas).
-
-## Building
-
-### Codespaces
-
-From the GitHub repo main page, click the green "Code" button and select "Create codespace on master". This will open a new Codespace with the (supposedly auto-forked
-AFFiNE repo cloned, built, and ready to go).
-
-### Local
-
-See [BUILDING.md] for instructions on how to build AFFiNE from source code.
-
-## Contributing
-
-We welcome contributions from everyone.
-See [docs/contributing/tutorial.md](./docs/contributing/tutorial.md) for details.
-
-## License
-
-### Editions
-
-- AFFiNE Community Edition (CE) is the current available version, it's free for self-host under the MIT license.
-
-- AFFiNE Enterprise Edition (EE) is yet to be published, it will have more advanced features and enterprise-oriented offerings, including but not exclusive to rebranding and SSO, advanced admin and audit, etc., you may refer to https://affine.pro/pricing for more information
-
-See [LICENSE] for details.
-
-[all-contributors-badge]: https://img.shields.io/github/contributors/toeverything/AFFiNE
-[license]: ./LICENSE
-[building.md]: ./docs/BUILDING.md
-[update page]: https://affine.pro/blog?tag=Release%20Note
-[jobs available]: ./docs/jobs.md
-[latest packages]: https://github.com/toeverything/AFFiNE/pkgs/container/affine-self-hosted
-[contributor license agreement]: https://github.com/toeverything/affine/edit/canary/.github/CLA.md
-[stars-icon]: https://img.shields.io/github/stars/toeverything/AFFiNE.svg?style=flat&logo=github&colorB=red&label=stars
-[codecov]: https://codecov.io/gh/toeverything/affine/branch/canary/graphs/badge.svg?branch=canary
-[node-version-icon]: https://img.shields.io/badge/node-%3E=18.16.1-success
-[typescript-version-icon]: https://img.shields.io/github/package-json/dependency-version/toeverything/affine/dev/typescript
-[react-version-icon]: https://img.shields.io/github/package-json/dependency-version/toeverything/AFFiNE/react?filename=packages%2Ffrontend%2Fcore%2Fpackage.json&color=rgb(97%2C228%2C251)
-[blocksuite-icon]: https://img.shields.io/github/package-json/dependency-version/toeverything/AFFiNE/@blocksuite/store?color=6880ff&filename=packages%2Ffrontend%2Fcore%2Fpackage.json&label=blocksuite
+<div align="center">
+  <sub>Construido con pasión por el equipo de desarrollo de <b>AFFiNITe</b>. Licenciado bajo MIT.</sub>
+</div>

@@ -24,13 +24,15 @@ fi
 
 echo "Updating version in package.json files to: $NEW_VERSION..."
 
-# Write new version to all three package.json files
+# Write new version to all relevant package.json files and pubspec.yaml
 node -e "
   const fs = require('fs');
   const files = [
     'package.json',
     'packages/frontend/core/package.json',
-    'packages/frontend/apps/electron/package.json'
+    'packages/frontend/apps/electron/package.json',
+    'packages/frontend/apps/android/package.json',
+    'packages/backend/server/package.json'
   ];
   for (const file of files) {
     if (fs.existsSync(file)) {
@@ -39,6 +41,13 @@ node -e "
       fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
       console.log('  Updated: ' + file);
     }
+  }
+  const flutterPubspec = 'packages/frontend/apps/mobile-flutter/pubspec.yaml';
+  if (fs.existsSync(flutterPubspec)) {
+    let content = fs.readFileSync(flutterPubspec, 'utf8');
+    content = content.replace(/^version:\s*.*$/m, 'version: $NEW_VERSION+1');
+    fs.writeFileSync(flutterPubspec, content, 'utf8');
+    console.log('  Updated: ' + flutterPubspec);
   }
 "
 
