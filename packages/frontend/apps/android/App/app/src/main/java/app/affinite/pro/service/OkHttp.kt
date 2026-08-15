@@ -1,6 +1,6 @@
 package app.affinite.pro.service
 
-import app.affinite.pro.AFFiNEApp
+import app.affinite.pro.AffiniteApp
 import app.affinite.pro.CapacitorConfig
 import app.affinite.pro.utils.dataStore
 import app.affinite.pro.utils.set
@@ -62,15 +62,15 @@ object CookieStore {
         _cookies[host] = cookies
         MainScope().launch(Dispatchers.IO) {
             cookies.find { it.name == AFFINE_SESSION }?.let {
-                AFFiNEApp.context().dataStore.set(host + AFFINE_SESSION, it.toString())
+                AffiniteApp.context().dataStore.set(host + AFFINE_SESSION, it.toString())
             }
             cookies.find { it.name == AFFINE_USER_ID }?.let {
                 Timber.d("Update user id [${it.value}]")
-                AFFiNEApp.context().dataStore.set(host + AFFINE_USER_ID, it.toString())
+                AffiniteApp.context().dataStore.set(host + AFFINE_USER_ID, it.toString())
                 Firebase.crashlytics.setUserId(it.value)
             }
             cookies.find { it.name == AFFINE_CSRF_TOKEN }?.let {
-                AFFiNEApp.context().dataStore.set(host + AFFINE_CSRF_TOKEN, it.toString())
+                AffiniteApp.context().dataStore.set(host + AFFINE_CSRF_TOKEN, it.toString())
             }
         }
     }

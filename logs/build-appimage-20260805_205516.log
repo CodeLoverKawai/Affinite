@@ -1,0 +1,179 @@
+📝 Log file: logs/build-appimage-20260805_205516.log
+=== Building AFFiNITe AppImage (stable) ===
+[1/5] Compiling Electron build assets...
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[@affine/electron] yarn node ./scripts/build-layers.ts
+(node:184981) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Build layers done
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[@affine/electron] yarn node ./scripts/generate-assets.ts
+(node:185403) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+build with following variables {
+  repoRootDir: '/home/rousseau/Documents/GitHub/Affinite',
+  electronRootDir: '/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron',
+  publicDistDir: '/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron/resources',
+  affineSrcDir: '/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron-renderer',
+  affineSrcOutDir: '/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron-renderer/dist',
+  publicAffineOutDir: '/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron/resources/web-static',
+  releaseVersionEnv: ''
+}
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[bundle] Packing package @affine/electron-renderer with rspack...
+[bundle] Cleaning old output...
+Building [@affine/electron-renderer] for [stable] channel in [production] mode.
+Entry points: index: /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron-renderer/src/app/index.tsx, shell: /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron-renderer/src/shell/index.tsx, popup: /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron-renderer/src/popup/index.tsx, backgroundWorker: /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron-renderer/src/background-worker/index.ts
+Output path: /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron-renderer/dist
+Config: {
+  "debug": false,
+  "distribution": "desktop",
+  "isDesktopEdition": true,
+  "isMobileEdition": false,
+  "isElectron": true,
+  "isWeb": false,
+  "isMobileWeb": false,
+  "isIOS": false,
+  "isAndroid": false,
+  "isNative": true,
+  "isAdmin": false,
+  "appBuildType": "stable",
+  "appVersion": "0.26.3",
+  "editorVersion": "0.26.3",
+  "githubUrl": "https://github.com/toeverything/AFFiNE",
+  "changelogUrl": "https://affine.pro/what-is-new",
+  "downloadUrl": "https://affine.pro/download",
+  "pricingUrl": "https://affine.pro/pricing",
+  "discordUrl": "https://affine.pro/redirect/discord",
+  "requestLicenseUrl": "https://affine.pro/redirect/license",
+  "imageProxyUrl": "/api/worker/image-proxy",
+  "linkPreviewUrl": "/api/worker/link-preview",
+  "CAPTCHA_SITE_KEY": "",
+  "SENTRY_DSN": ""
+}
+./packages/frontend/apps/electron-renderer/src/app/index.tsx:
+  ERROR in ./packages/frontend/core/src/blocksuite/ai/provider/copilot-client.ts
+    × Module build failed (from ./node_modules/swc-loader/src/index.js):
+    ╰─▶   × Error:   x Unexpected token `{`. Expected * for generator, private key, identifier or async
+          │      ,-[/home/rousseau/Documents/GitHub/Affinite/packages/frontend/core/src/blocksuite/ai/provider/copilot-client.ts:446:1]
+          │  443 |     return { files, docs };
+          │  444 |   }
+          │  445 |
+          │  446 | import { loadAISettings } from '../../../desktop/dialogs/setting/account-setting/ai-model-selector';
+          │      :        ^
+          │  447 |
+          │  448 |   async chatText({
+          │  449 |     sessionId,
+          │      `----
+          │
+          │
+          │ Caused by:
+          │     Syntax Error
+        
+   @ ./packages/frontend/core/src/blocksuite/ai/provider/index.ts
+   @ ./packages/frontend/core/src/blocksuite/ai/index.ts
+   @ ./packages/frontend/core/src/components/providers/workspace-side-effects.tsx
+   @ ./packages/frontend/core/src/desktop/pages/workspace/layouts/workspace-layout.tsx
+   @ ./packages/frontend/core/src/desktop/pages/workspace/index.tsx
+   @ ./packages/frontend/core/src/desktop/router.tsx
+   @ ./packages/frontend/apps/electron-renderer/src/app/app.tsx
+   @ ./packages/frontend/apps/electron-renderer/src/app/index.tsx
+
+  349 ERRORS in child compilations (Use 'stats.children: true' resp. '--stats-children' for more details)
+  /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron-renderer/src/app/index.tsx compiled with 350 errors
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+[@affine/electron] yarn node ./scripts/build-layers.ts
+(node:192143) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+Build layers done
+(node:185623) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[2/5] Running manual-package script...
+=== AFFiNE Manual Packager ===
+BUILD_TYPE: stable
+PRODUCT_NAME: AFFiNITe-stable
+OUT_DIR: /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron/out/stable/AFFiNITe-stable-linux-x64
+
+[1/6] Cleaning output directory...
+[2/6] Extracting Electron v39.2.7...
+  Electron extracted: 284M
+[3/6] Renaming electron binary to AFFiNITe-stable...
+[4/6] Copying application files...
+  Copied dist: 38M
+[5/6] Copying node_modules (this may take a while)...
+  node_modules linked/copied
+[6/6] Copying extra resources...
+
+=== Package complete ===
+Output: /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron/out/stable/AFFiNITe-stable-linux-x64
+Size: 358M
+
+To create AppImage, run:
+  npx @electron/asar pack /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron/out/stable/AFFiNITe-stable-linux-x64/resources/app /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron/out/stable/AFFiNITe-stable-linux-x64/resources/app.asar
+  rm -rf /home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron/out/stable/AFFiNITe-stable-linux-x64/resources/app
+  # Then use appimagetool
+[3/5] Packing ASAR archive...
+npm notice run @affine/monorepo@0.26.3 npx
+npm notice run 'asar' pack packages/frontend/apps/electron/out/stable/AFFiNITe-stable-linux-x64/resources/app packages/frontend/apps/electron/out/stable/AFFiNITe-stable-linux-x64/resources/app.asar
+[4/5] Rebuilding AppDir structure...
+[5/5] Generating AppImage...
+appimagetool, continuous build (git version 8c8c91f), build 295 built on 2025-12-04 17:56:36 UTC
+Using architecture x86_64
+/tmp/AFFiNITe-stable.AppDir should be packaged as packages/frontend/apps/electron/out/AFFiNITe-linux-x86_64.AppImage
+Deleting pre-existing .DirIcon
+Creating .DirIcon symlink based on information from desktop file
+WARNING: AppStream upstream metadata is missing, please consider creating it
+         in usr/share/metainfo/affinite.appdata.xml
+         Please see https://www.freedesktop.org/software/appstream/docs/chap-Quickstart.html#sect-Quickstart-DesktopApps
+         for more information or use the generator at
+         https://docs.appimage.org/packaging-guide/optional/appstream.html#using-the-appstream-generator
+Generating squashfs...
+Downloading runtime file from https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64
+Downloaded runtime binary of size 944632
+Parallel mksquashfs: Using 16 processors
+Creating 4.0 filesystem on packages/frontend/apps/electron/out/AFFiNITe-linux-x86_64.AppImage, block size 131072.
+[====================================/                         ] 1700/2850  59%[=============================================================\] 2850/2850 100%
+
+Exportable Squashfs 4.0 filesystem, zstd compressed, data block size 131072
+	compressed data, compressed metadata, compressed fragments,
+	compressed xattrs, compressed ids
+	duplicates are removed
+Filesystem size 123792.30 Kbytes (120.89 Mbytes)
+	34.45% of uncompressed filesystem size (359382.85 Kbytes)
+Inode table size 8226 bytes (8.03 Kbytes)
+	57.38% of uncompressed inode table size (14336 bytes)
+Directory table size 912 bytes (0.89 Kbytes)
+	53.36% of uncompressed directory table size (1709 bytes)
+Number of duplicate files found 1
+Number of inodes 93
+Number of files 81
+Number of fragments 3
+Number of symbolic links 1
+Number of device nodes 0
+Number of fifo nodes 0
+Number of socket nodes 0
+Number of directories 11
+Number of hard-links 0
+Number of ids (unique uids + gids) 1
+Number of uids 1
+	root (0)
+Number of gids 1
+	root (0)
+Embedding ELF...
+Marking the AppImage as executable...
+Embedding MD5 digest
+Success
+
+Please consider submitting your AppImage to AppImageHub, the crowd-sourced
+central directory of available AppImages, by opening a pull request
+at https://github.com/AppImage/appimage.github.io
+=== AppImage build complete! ===
+Output: packages/frontend/apps/electron/out/AFFiNITe-linux-x86_64.AppImage

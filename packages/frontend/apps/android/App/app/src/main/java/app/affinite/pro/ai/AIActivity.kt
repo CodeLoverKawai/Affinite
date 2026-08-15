@@ -42,7 +42,7 @@ import app.affinite.pro.ai.chat.ChatViewModel
 import app.affinite.pro.ai.chat.ui.ChatAppBar
 import app.affinite.pro.ai.chat.ui.Message
 import app.affinite.pro.ai.chat.ui.UserInput
-import app.affinite.pro.theme.AFFiNETheme
+import app.affinite.pro.theme.AffiniteTheme
 import app.affinite.pro.theme.ThemeMode
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -66,7 +66,7 @@ class AIActivity : AppCompatActivity() {
             val scrollState = rememberLazyListState()
             val topBarState = rememberTopAppBarState()
             val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(topBarState)
-            AFFiNETheme(mode = ThemeMode.Dark) {
+            AffiniteTheme(mode = ThemeMode.Dark) {
                 Scaffold(
                     topBar = {
                         ChatAppBar(
@@ -79,7 +79,7 @@ class AIActivity : AppCompatActivity() {
                         .exclude(WindowInsets.navigationBars)
                         .exclude(WindowInsets.ime),
                     modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-                    containerColor = AFFiNETheme.colors.backgroundPrimary,
+                    containerColor = AffiniteTheme.colors.backgroundPrimary,
                 ) { paddingValues ->
                     val messageUiState by viewModel.messagesUiState.collectAsStateWithLifecycle()
                     val sendBtnEnable by viewModel.sendBtnUiState.collectAsStateWithLifecycle()

@@ -11,7 +11,7 @@ import { PageHeader } from '@affine/core/mobile/components';
 import { useGlobalEvent } from '@affine/core/mobile/hooks/use-global-events';
 import { AIButtonService } from '@affine/core/modules/ai-button';
 import { ServerService } from '@affine/core/modules/cloud';
-import { DocService } from '@affine/core/modules/doc';
+import { DocService, DocsService } from '@affine/core/modules/doc';
 import { DocDisplayMetaService } from '@affine/core/modules/doc-display-meta';
 import { EditorService } from '@affine/core/modules/editor';
 import { FeatureFlagService } from '@affine/core/modules/feature-flag';
@@ -48,6 +48,7 @@ import { PageHeaderShareButton } from './page-header-share-button';
 
 const DetailPageImpl = () => {
   const {
+    workbenchService,
     editorService,
     docService,
     workspaceService,
@@ -64,11 +65,23 @@ const DetailPageImpl = () => {
     FeatureFlagService,
     AIButtonService,
   });
+  const workbench = workbenchService.workbench;
   const editor = editorService.editor;
   const workspace = workspaceService.workspace;
   const docCollection = workspace.docCollection;
   const globalContext = globalContextService.globalContext;
   const doc = docService.doc;
+
+  const docsService = useService(DocsService);
+  const docRecord = docsService.list.doc$(doc.id).value;
+  const properties = useLiveData(docRecord?.properties$);
+  const isBoard = properties ? properties['custom:isBoard'] === 'true' : false;
+
+  useEffect(() => {
+    if (isBoard) {
+      workbench.open(`/boards?boardId=${doc.id}`, { replaceHistory: true, at: 'active' });
+    }
+  }, [isBoard, doc.id, workbench]);
 
   const mode = useLiveData(editor.mode$);
 

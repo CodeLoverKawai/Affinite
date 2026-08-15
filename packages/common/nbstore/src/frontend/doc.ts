@@ -2,6 +2,7 @@ import { groupBy } from 'lodash-es';
 import { nanoid } from 'nanoid';
 import {
   combineLatest,
+  distinctUntilChanged,
   filter,
   first,
   lastValueFrom,
@@ -170,7 +171,17 @@ export class DocFrontend {
 
   docState$(docId: string): Observable<DocFrontendDocState> {
     return this._docState$(docId).pipe(
-      throttleTime(1000, undefined, {
+      distinctUntilChanged(
+        (a, b) =>
+          a.ready === b.ready &&
+          a.loaded === b.loaded &&
+          a.synced === b.synced &&
+          a.syncing === b.syncing &&
+          a.updating === b.updating &&
+          a.syncRetrying === b.syncRetrying &&
+          a.syncErrorMessage === b.syncErrorMessage
+      ),
+      throttleTime(BUILD_CONFIG.isNative ? 50 : 100, undefined, {
         trailing: true,
         leading: true,
       })

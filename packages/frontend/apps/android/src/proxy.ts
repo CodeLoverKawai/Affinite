@@ -1,9 +1,26 @@
+import type { IDBPDatabase } from 'idb';
 import { openDB } from 'idb';
 
 /**
  * the below code includes the custom fetch and xmlhttprequest implementation for ios webview.
  * should be included in the entry file of the app or webworker.
  */
+const tokenMemoryCache = new Map<string, string | null>();
+let dbPromise: Promise<IDBPDatabase> | null = null;
+
+function getDB() {
+  if (!dbPromise) {
+    dbPromise = openDB('affine-token', 1, {
+      upgrade(db) {
+        if (!db.objectStoreNames.contains('tokens')) {
+          db.createObjectStore('tokens', { keyPath: 'endpoint' });
+        }
+      },
+    });
+  }
+  return dbPromise;
+}
+
 const rawFetch = globalThis.fetch;
 globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const request = new Request(input, init);
@@ -40,26 +57,23 @@ globalThis.XMLHttpRequest = class extends rawXMLHttpRequest {
 export async function readEndpointToken(
   endpoint: string
 ): Promise<string | null> {
-  const idb = await openDB('affine-token', 1, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains('tokens')) {
-        db.createObjectStore('tokens', { keyPath: 'endpoint' });
-      }
-    },
-  });
+  if (tokenMemoryCache.has(endpoint)) {
+    return tokenMemoryCache.get(endpoint) ?? null;
+  }
 
-  const token = await idb.get('tokens', endpoint);
-  return token ? token.token : null;
+  try {
+    const idb = await getDB();
+    const token = await idb.get('tokens', endpoint);
+    const result = token ? token.token : null;
+    tokenMemoryCache.set(endpoint, result);
+    return result;
+  } catch {
+    return null;
+  }
 }
 
 export async function writeEndpointToken(endpoint: string, token: string) {
-  const db = await openDB('affine-token', 1, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains('tokens')) {
-        db.createObjectStore('tokens', { keyPath: 'endpoint' });
-      }
-    },
-  });
-
+  tokenMemoryCache.set(endpoint, token);
+  const db = await getDB();
   await db.put('tokens', { endpoint, token });
 }

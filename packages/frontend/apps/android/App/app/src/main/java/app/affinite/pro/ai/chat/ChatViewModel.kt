@@ -3,7 +3,7 @@ package app.affinite.pro.ai.chat
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import app.affinite.pro.AFFiNEApp
+import app.affinite.pro.AffiniteApp
 import app.affinite.pro.service.GraphQLService
 import app.affinite.pro.service.SSEService
 import app.affinite.pro.service.WebService
@@ -74,7 +74,7 @@ class ChatViewModel @Inject constructor(
                 message = message,
             ).getOrElse {
                 Timber.e(it, "Send message fail.")
-                Toast.makeText(AFFiNEApp.context(), "Loading.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(AffiniteApp.context(), "Loading.", Toast.LENGTH_SHORT).show()
                 return@launch
             }
             Timber.i("Send message: $messageId")

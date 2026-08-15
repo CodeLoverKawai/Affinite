@@ -1,0 +1,35 @@
+# Git and CI
+.git
+.github
+.husky
+
+# Logs and debug artifacts
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Rust target and native build artifacts
+target/
+*.AppImage
+packages/frontend/apps/android/App/app/build
+packages/frontend/apps/electron/out
+packages/frontend/apps/electron/dist
+packages/frontend/apps/ios
+packages/frontend/apps/mobile-flutter/build
+
+# Documentation, specs and tests
+docs/
+tests/
+coverage/
+*.md
+!package.json
+
+# Cache and temporary folders
+.yarn/cache
+.yarn/install-state.gz
+.turbo
+.swc
+.vscode
+.idea

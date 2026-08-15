@@ -15,7 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.vectordrawable.graphics.drawable.VectorDrawableCompat
 import app.affinite.pro.ai.AIActivity
 import app.affinite.pro.plugin.AIButtonPlugin
-import app.affinite.pro.plugin.AFFiNEThemePlugin
+import app.affinite.pro.plugin.AffiniteThemePlugin
 import app.affinite.pro.plugin.AuthPlugin
 import app.affinite.pro.plugin.HashCashPlugin
 import app.affinite.pro.plugin.NbStorePlugin
@@ -32,7 +32,7 @@ import javax.inject.Inject
 
 
 @AndroidEntryPoint
-class MainActivity : BridgeActivity(), AIButtonPlugin.Callback, AFFiNEThemePlugin.Callback,
+class MainActivity : BridgeActivity(), AIButtonPlugin.Callback, AffiniteThemePlugin.Callback,
     View.OnClickListener {
 
     @Inject
@@ -47,7 +47,7 @@ class MainActivity : BridgeActivity(), AIButtonPlugin.Callback, AFFiNEThemePlugi
     init {
         registerPlugins(
             listOf(
-                AFFiNEThemePlugin::class.java,
+                AffiniteThemePlugin::class.java,
                 AIButtonPlugin::class.java,
                 AuthPlugin::class.java,
                 HashCashPlugin::class.java,
@@ -69,7 +69,7 @@ class MainActivity : BridgeActivity(), AIButtonPlugin.Callback, AFFiNEThemePlugi
                 VectorDrawableCompat.create(resources, R.drawable.ic_ai, theme)?.apply {
                     DrawableCompat.setTint(
                         this,
-                        ContextCompat.getColor(context, R.color.affine_primary)
+                        ContextCompat.getColor(context, R.color.affinite_primary)
                     )
                 })
             setOnClickListener(this@MainActivity)

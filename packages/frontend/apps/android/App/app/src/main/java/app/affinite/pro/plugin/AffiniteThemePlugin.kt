@@ -7,8 +7,8 @@ import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import timber.log.Timber
 
-@CapacitorPlugin(name = "AffineTheme")
-class AFFiNEThemePlugin : Plugin() {
+@CapacitorPlugin(name = "AffiniteTheme")
+class AffiniteThemePlugin : Plugin() {
 
     interface Callback {
         fun onThemeChanged(darkMode: Boolean)

@@ -5,7 +5,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 @Immutable
-data class AFFiNEColorScheme(
+data class AffiniteColorScheme(
     val textPrimary: Color,
     val textSecondary: Color,
     val textDisable: Color,
@@ -28,55 +28,55 @@ data class AFFiNEColorScheme(
     val divider: Color,
 )
 
-val affineLightScheme = AFFiNEColorScheme(
-    textPrimary = AFFiNEColorTokens.Grey900,
-    textSecondary = AFFiNEColorTokens.Grey600,
-    textDisable = AFFiNEColorTokens.Grey400,
-    textEmphasis = AFFiNEColorTokens.AFFiNE600,
-    backgroundPrimary = AFFiNEColorTokens.BaseWhite,
-    backgroundSecondary = AFFiNEColorTokens.Grey100,
-    backgroundOverlayPanel = AFFiNEColorTokens.Grey50,
-    backgroundTertiary = AFFiNEColorTokens.Grey300,
-    backgroundCodeBlock = AFFiNEColorTokens.Grey50,
-    backgroundModal = AFFiNEColorTokens.TransparentBlack700,
-    backgroundSuccess = AFFiNEColorTokens.Emerald50,
-    backgroundError = AFFiNEColorTokens.Rose50,
-    backgroundWarning = AFFiNEColorTokens.Orange25,
-    backgroundProgressing = AFFiNEColorTokens.Indigo50,
-    iconPrimary = AFFiNEColorTokens.Grey600,
-    iconSecondary = AFFiNEColorTokens.Grey400,
-    iconTertiary = AFFiNEColorTokens.Grey300,
-    iconDisable = AFFiNEColorTokens.Grey400,
-    iconActivated = AFFiNEColorTokens.AFFiNE600,
-    divider = AFFiNEColorTokens.TransparentGrey400,
+val affiniteLightScheme = AffiniteColorScheme(
+    textPrimary = AffiniteColorTokens.Grey900,
+    textSecondary = AffiniteColorTokens.Grey600,
+    textDisable = AffiniteColorTokens.Grey400,
+    textEmphasis = AffiniteColorTokens.Affinite600,
+    backgroundPrimary = AffiniteColorTokens.BaseWhite,
+    backgroundSecondary = AffiniteColorTokens.Grey100,
+    backgroundOverlayPanel = AffiniteColorTokens.Grey50,
+    backgroundTertiary = AffiniteColorTokens.Grey300,
+    backgroundCodeBlock = AffiniteColorTokens.Grey50,
+    backgroundModal = AffiniteColorTokens.TransparentBlack700,
+    backgroundSuccess = AffiniteColorTokens.Emerald50,
+    backgroundError = AffiniteColorTokens.Rose50,
+    backgroundWarning = AffiniteColorTokens.Orange25,
+    backgroundProgressing = AffiniteColorTokens.Indigo50,
+    iconPrimary = AffiniteColorTokens.Grey600,
+    iconSecondary = AffiniteColorTokens.Grey400,
+    iconTertiary = AffiniteColorTokens.Grey300,
+    iconDisable = AffiniteColorTokens.Grey400,
+    iconActivated = AffiniteColorTokens.Affinite600,
+    divider = AffiniteColorTokens.TransparentGrey400,
 )
 
-val affineDarkScheme = AFFiNEColorScheme(
-    textPrimary = AFFiNEColorTokens.Grey200,
-    textSecondary = AFFiNEColorTokens.Grey500,
-    textDisable = AFFiNEColorTokens.Grey700,
-    textEmphasis = AFFiNEColorTokens.AFFiNE500,
-    backgroundPrimary = AFFiNEColorTokens.Grey950,
-    backgroundSecondary = AFFiNEColorTokens.Grey900,
-    backgroundOverlayPanel = AFFiNEColorTokens.Grey900,
-    backgroundTertiary = AFFiNEColorTokens.Grey700,
-    backgroundCodeBlock = AFFiNEColorTokens.Grey900,
-    backgroundModal = AFFiNEColorTokens.TransparentBlack400,
-    backgroundSuccess = AFFiNEColorTokens.Emerald950,
-    backgroundError = AFFiNEColorTokens.Rose950,
-    backgroundWarning = AFFiNEColorTokens.Orange950,
-    backgroundProgressing = AFFiNEColorTokens.Indigo950,
-    iconPrimary = AFFiNEColorTokens.Grey100,
-    iconSecondary = AFFiNEColorTokens.Grey300,
-    iconTertiary = AFFiNEColorTokens.Grey700,
-    iconDisable = AFFiNEColorTokens.Grey800,
-    iconActivated = AFFiNEColorTokens.AFFiNE600,
-    divider = AFFiNEColorTokens.TransparentGrey300,
+val affiniteDarkScheme = AffiniteColorScheme(
+    textPrimary = AffiniteColorTokens.Grey200,
+    textSecondary = AffiniteColorTokens.Grey500,
+    textDisable = AffiniteColorTokens.Grey700,
+    textEmphasis = AffiniteColorTokens.Affinite500,
+    backgroundPrimary = AffiniteColorTokens.Grey950,
+    backgroundSecondary = AffiniteColorTokens.Grey900,
+    backgroundOverlayPanel = AffiniteColorTokens.Grey900,
+    backgroundTertiary = AffiniteColorTokens.Grey700,
+    backgroundCodeBlock = AffiniteColorTokens.Grey900,
+    backgroundModal = AffiniteColorTokens.TransparentBlack400,
+    backgroundSuccess = AffiniteColorTokens.Emerald950,
+    backgroundError = AffiniteColorTokens.Rose950,
+    backgroundWarning = AffiniteColorTokens.Orange950,
+    backgroundProgressing = AffiniteColorTokens.Indigo950,
+    iconPrimary = AffiniteColorTokens.Grey100,
+    iconSecondary = AffiniteColorTokens.Grey300,
+    iconTertiary = AffiniteColorTokens.Grey700,
+    iconDisable = AffiniteColorTokens.Grey800,
+    iconActivated = AffiniteColorTokens.Affinite600,
+    divider = AffiniteColorTokens.TransparentGrey300,
 )
 
-val LocalAFFiNEColors = staticCompositionLocalOf { affineLightScheme }
+val LocalAffiniteColors = staticCompositionLocalOf { affiniteLightScheme }
 
-object AFFiNEColorTokens {
+object AffiniteColorTokens {
     val BaseWhite = Color(0XFFFFFFFF)
     val BaseBlack = Color(0XFF000000)
 
@@ -210,18 +210,18 @@ object AFFiNEColorTokens {
     val Blue900 = Color(0XFF1C70A5)
     val Blue950 = Color(0XFF004B7B)
     
-    val AFFiNE25 = Color(0XFFE2F4FF)
-    val AFFiNE50 = Color(0XFFCAE9FF)
-    val AFFiNE100 = Color(0XFF8FD1FF)
-    val AFFiNE200 = Color(0XFF79C8FF)
-    val AFFiNE300 = Color(0XFF5EBCFF)
-    val AFFiNE400 = Color(0XFF49B1FA)
-    val AFFiNE500 = Color(0XFF29A2FA)
-    val AFFiNE600 = Color(0XFF1D96EB)
-    val AFFiNE700 = Color(0XFF158ADE)
-    val AFFiNE800 = Color(0XFF035F9F)
-    val AFFiNE900 = Color(0XFF003C67)
-    val AFFiNE950 = Color(0XFF002742)
+    val Affinite25 = Color(0XFFE2F4FF)
+    val Affinite50 = Color(0XFFCAE9FF)
+    val Affinite100 = Color(0XFF8FD1FF)
+    val Affinite200 = Color(0XFF79C8FF)
+    val Affinite300 = Color(0XFF5EBCFF)
+    val Affinite400 = Color(0XFF49B1FA)
+    val Affinite500 = Color(0XFF29A2FA)
+    val Affinite600 = Color(0XFF1D96EB)
+    val Affinite700 = Color(0XFF158ADE)
+    val Affinite800 = Color(0XFF035F9F)
+    val Affinite900 = Color(0XFF003C67)
+    val Affinite950 = Color(0XFF002742)
     
     val Indigo25 = Color(0XFFF5F7FF)
     val Indigo50 = Color(0XFFEEF2FF)

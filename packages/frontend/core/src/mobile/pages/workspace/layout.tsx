@@ -31,6 +31,7 @@ import { map } from 'rxjs';
 
 import { AppFallback } from '../../components/app-fallback';
 import { WorkspaceDialogs } from '../../dialogs';
+import { prewarmWorkspaceDocs } from '../../utils/workspace-prewarmer';
 
 // TODO(@forehalo): reuse the global context with [core/electron]
 declare global {
@@ -122,6 +123,12 @@ export const WorkspaceLayout = ({
     [workspace]
   );
   const isRootDocReady = useLiveData(rootDocReady$) ?? false;
+
+  useEffect(() => {
+    if (workspace && isRootDocReady) {
+      prewarmWorkspaceDocs(workspace);
+    }
+  }, [isRootDocReady, workspace]);
 
   if (!workspace) {
     return null; // skip this, workspace will be set in layout effect

@@ -20,9 +20,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.affinite.pro.R
 import app.affinite.pro.ai.chat.ChatMessage
-import app.affinite.pro.components.AFFiNEIcon
+import app.affinite.pro.components.AffiniteIcon
 import app.affinite.pro.components.Markdown
-import app.affinite.pro.theme.AFFiNETheme
+import app.affinite.pro.theme.AffiniteTheme
 import kotlinx.datetime.Clock
 
 @Composable
@@ -43,17 +43,17 @@ fun Message(message: ChatMessage) {
             .padding(8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            AFFiNEIcon(
+            AffiniteIcon(
                 R.drawable.ic_ai,
-                tint = AFFiNETheme.colors.iconActivated
+                tint = AffiniteTheme.colors.iconActivated
             )
             Spacer(Modifier.width(6.dp))
             Text(
                 text = when (message.role) {
                     ChatMessage.Role.User -> "You"
-                    ChatMessage.Role.AI -> "Affine AI"
+                    ChatMessage.Role.AI -> "Affinite AI"
                 },
-                color = AFFiNETheme.colors.textPrimary,
+                color = AffiniteTheme.colors.textPrimary,
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
             )

@@ -46,6 +46,20 @@ export const productionCacheGroups = {
     priority: 200,
     enforce: true,
   },
+  blocksuiteIcons: {
+    name: `npm-blocksuite-icons`,
+    test: testPackageName(
+      /[\\/](node_modules[\\/]@blocksuite[\\/]icons|packages[\\/]frontend[\\/]icons)[\\/]/
+    ),
+    priority: 205,
+    enforce: true,
+  },
+  affineComponent: {
+    name: `affine-component`,
+    test: testPackageName(/[\\/]packages[\\/]frontend[\\/]component[\\/]/),
+    priority: 195,
+    enforce: true,
+  },
   react: {
     name: `npm-react`,
     test: testPackageName(

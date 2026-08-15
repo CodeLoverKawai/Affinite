@@ -13,9 +13,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.affinite.pro.R
-import app.affinite.pro.components.AFFiNEAppBar
-import app.affinite.pro.components.AFFiNEDropMenu
-import app.affinite.pro.components.AFFiNEIcon
+import app.affinite.pro.components.AffiniteAppBar
+import app.affinite.pro.components.AffiniteDropMenu
+import app.affinite.pro.components.AffiniteIcon
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,7 +26,7 @@ fun ChatAppBar(
     onClearHistory: () -> Unit = { },
     onSaveAsChatBlock: () -> Unit = { },
 ) {
-    AFFiNEAppBar(
+    AffiniteAppBar(
         modifier = modifier,
         scrollBehavior = scrollBehavior,
         onNavIconPressed = onBackClick,
@@ -38,21 +38,21 @@ fun ChatAppBar(
             }
         },
         actions = {
-            AFFiNEDropMenu(
+            AffiniteDropMenu(
                 R.drawable.ic_more_horizontal,
                 modifier = Modifier.size(44.dp),
                 menuItems = {
                     DropdownMenuItem(
                         text = { Text("Clear history") },
                         trailingIcon = {
-                            AFFiNEIcon(R.drawable.ic_broom)
+                            AffiniteIcon(R.drawable.ic_broom)
                         },
                         onClick = onClearHistory,
                     )
                     DropdownMenuItem(
                         text = { Text("Save as chat block") },
                         trailingIcon = {
-                            AFFiNEIcon(R.drawable.ic_bubble)
+                            AffiniteIcon(R.drawable.ic_bubble)
                         },
                         onClick = onSaveAsChatBlock,
                     )

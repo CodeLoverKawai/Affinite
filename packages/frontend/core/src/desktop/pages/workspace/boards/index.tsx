@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useLiveData, useService } from '@toeverything/infra';
 
 import { DocsService } from '../../../../modules/doc';
-import { DocRecord } from '../../../../modules/doc/entities/record';
+import type { DocRecord } from '../../../../modules/doc/entities/record';
 import {
   ViewBody,
   ViewHeader,

@@ -24,11 +24,11 @@ object AuthInitializer {
                 MainScope().launch(Dispatchers.IO) {
                     try {
                         val server = bridge.getCurrentServerBaseUrl().toHttpUrl()
-                        val sessionCookieStr = AFFiNEApp.context().dataStore
+                        val sessionCookieStr = AffiniteApp.context().dataStore
                             .get(server.host + CookieStore.AFFINE_SESSION)
-                        val userIdCookieStr = AFFiNEApp.context().dataStore
+                        val userIdCookieStr = AffiniteApp.context().dataStore
                             .get(server.host + CookieStore.AFFINE_USER_ID)
-                        val csrfCookieStr = AFFiNEApp.context().dataStore
+                        val csrfCookieStr = AffiniteApp.context().dataStore
                             .get(server.host + CookieStore.AFFINE_CSRF_TOKEN)
                         if (sessionCookieStr.isEmpty() || userIdCookieStr.isEmpty() || csrfCookieStr.isEmpty()) {
                             Timber.i("[init] user has not signed in yet.")

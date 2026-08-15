@@ -3,7 +3,7 @@ package app.affinite.pro
 import android.annotation.SuppressLint
 import android.app.Application
 import android.content.Context
-import app.affinite.pro.utils.logger.AffineDebugTree
+import app.affinite.pro.utils.logger.AffiniteDebugTree
 import app.affinite.pro.utils.logger.CrashlyticsTree
 import app.affinite.pro.utils.logger.FileTree
 import com.google.firebase.crashlytics.ktx.crashlytics
@@ -13,14 +13,14 @@ import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 
 @HiltAndroidApp
-class AFFiNEApp : Application() {
+class AffiniteApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
         _context = applicationContext
         // init logger
         if (BuildConfig.DEBUG) {
-            Timber.plant(AffineDebugTree())
+            Timber.plant(AffiniteDebugTree())
         } else {
             Timber.plant(CrashlyticsTree(), FileTree(applicationContext))
         }

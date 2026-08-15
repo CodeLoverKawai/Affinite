@@ -1,14 +1,12 @@
-version: '3.8'
-
 services:
   affine-db:
     image: postgres:15-alpine
     container_name: Affine-DB
     restart: unless-stopped
     environment:
-      - POSTGRES_USER=${DB_USER:-affine_user}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-affine_pass}
-      - POSTGRES_DB=${DB_NAME:-affine_db}
+      POSTGRES_USER: ${DB_USER:-affine_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-affine_pass}
+      POSTGRES_DB: ${DB_NAME:-affine_db}
     volumes:
       - ${DB_DATA_VOLUME:-./data/db}:/var/lib/postgresql/data
     healthcheck:
@@ -19,12 +17,19 @@ services:
     deploy:
       resources:
         limits:
-          memory: 456M
+          memory: 512M
+        reservations:
+          memory: 256M
+    networks:
+      - affinite_network
 
   affine-redis:
     image: redis:7-alpine
     container_name: Affine-Redis
     restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ${REDIS_DATA_VOLUME:-./data/redis}:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -34,6 +39,10 @@ services:
       resources:
         limits:
           memory: 256M
+        reservations:
+          memory: 64M
+    networks:
+      - affinite_network
 
   affine:
     image: rousseaukairos/affinite:latest
@@ -41,18 +50,18 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - AFFINE_CONFIG_PATH=/root/.affine/config
+      - AFFINE_CONFIG_PATH=/home/node/.affine/config
       - DATABASE_URL=postgresql://${DB_USER:-affine_user}:${DB_PASSWORD:-affine_pass}@affine-db:5432/${DB_NAME:-affine_db}
       - REDIS_SERVER_HOST=affine-redis
       - REDIS_SERVER_PORT=6379
       - AFFINE_SERVER_PORT=5320
       - AFFINE_SERVER_EXTERNAL_URL=${AFFINE_EXTERNAL_URL:-http://localhost:5320}
-      # Local Ollama connection configuration (points to the host system Ollama service)
+      # Local Ollama connection configuration (points to host machine Ollama)
       - COPILOT_OPENAI_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434/v1}
       - COPILOT_OPENAI_API_KEY=${OLLAMA_API_KEY:-ollama}
     volumes:
-      - ${AFFINE_STORAGE_VOLUME:-./data/storage}:/root/.affine/storage
-      - ${AFFINE_CONFIG_VOLUME:-./data/config}:/root/.affine/config
+      - ${AFFINE_STORAGE_VOLUME:-./data/storage}:/home/node/.affine/storage
+      - ${AFFINE_CONFIG_VOLUME:-./data/config}:/home/node/.affine/config
     ports:
       - "${AFFINE_PORT_BINDING:-127.0.0.1:5320}:5320"
     extra_hosts:
@@ -63,8 +72,17 @@ services:
       resources:
         limits:
           memory: 1536M
+        reservations:
+          memory: 512M
     depends_on:
       affine-db:
         condition: service_healthy
       affine-redis:
         condition: service_healthy
+    networks:
+      - affinite_network
+
+networks:
+  affinite_network:
+    name: affinite_network
+    driver: bridge

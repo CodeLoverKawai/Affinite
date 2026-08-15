@@ -44,11 +44,17 @@ const rules = [
  * Return the error tip if the server version is not meet the requirement
  */
 export const useSelfhostLoginVersionGuard = (server: Server) => {
-  const serverVersion =
-    useLiveData(server.config$.selector(c => c.version)) ?? '0.0.0';
+  const serverVersion = useLiveData(
+    server.config$.selector(c => c?.version)
+  );
+
+  if (!serverVersion || serverVersion === '0.0.0') {
+    return null;
+  }
 
   for (const rule of rules) {
-    if (semver.lt(serverVersion, rule.min)) {
+    const parsed = semver.valid(semver.coerce(serverVersion));
+    if (parsed && semver.lt(parsed, rule.min)) {
       return rule.tip(serverVersion, rule.min);
     }
   }

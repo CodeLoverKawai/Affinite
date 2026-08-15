@@ -6,30 +6,30 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 
-object AFFiNETheme {
-    val colors: AFFiNEColorScheme
+object AffiniteTheme {
+    val colors: AffiniteColorScheme
         @ReadOnlyComposable
         @Composable
-        get() = LocalAFFiNEColors.current
+        get() = LocalAffiniteColors.current
 
-    val typography: AFFiNETypography
+    val typography: AffiniteTypography
         @ReadOnlyComposable
         @Composable
-        get() = LocalAFFiNETypography.current
+        get() = LocalAffiniteTypography.current
 }
 
 @Composable
-fun AFFiNETheme(
+fun AffiniteTheme(
     mode: ThemeMode = ThemeMode.System,
     content: @Composable () -> Unit
 ) {
     val colors = when (mode) {
-        ThemeMode.Light -> affineLightScheme
-        ThemeMode.Dark -> affineDarkScheme
-        ThemeMode.System -> if (isSystemInDarkTheme()) affineDarkScheme else affineLightScheme
+        ThemeMode.Light -> affiniteLightScheme
+        ThemeMode.Dark -> affiniteDarkScheme
+        ThemeMode.System -> if (isSystemInDarkTheme()) affiniteDarkScheme else affiniteLightScheme
     }
 
-    CompositionLocalProvider(LocalAFFiNEColors provides colors) {
+    CompositionLocalProvider(LocalAffiniteColors provides colors) {
         MaterialTheme {
             content()
         }

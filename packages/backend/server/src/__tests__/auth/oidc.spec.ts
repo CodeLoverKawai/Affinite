@@ -113,8 +113,7 @@ test('should issue auth code and exchange it for tokens', async t => {
   t.assert(tokenRes.body.id_token, 'ID token should be issued');
 
   // Verify ID Token contents
-  const jwksRes = await app.GET('/oauth/jwks').expect(HttpStatus.OK);
-  const publicKeyPem = `-----BEGIN PUBLIC KEY-----\n${jwksRes.body.keys[0].n}\n-----END PUBLIC KEY-----`;
+  const _jwksRes = await app.GET('/oauth/jwks').expect(HttpStatus.OK);
   
   // Since we sign using RS256, we can verify it using jsonwebtoken verify
   // But because we use a mock generated RSA key pair, let's verify decoding works

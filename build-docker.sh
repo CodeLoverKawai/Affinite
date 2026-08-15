@@ -7,11 +7,19 @@ LOG_FILE="logs/$(basename "$0" .sh)-$(date +%Y%m%d_%H%M%S).log"
 exec > >(tee -i "$LOG_FILE") 2>&1
 echo "📝 Log file: $LOG_FILE"
 
-# Script to build and push the custom AFFiNITe Docker Server Image to Docker Hub
-# Run from the project root: ./build-docker.sh
+DOCKER_USER="${DOCKER_USER:-rousseaukairos}"
+IMAGE_NAME="${IMAGE_NAME:-affinite}"
+PUSH_IMAGE=true
 
-DOCKER_USER="rousseaukairos"
-IMAGE_NAME="affinite"
+# Parse flags
+for arg in "$@"; do
+  case $arg in
+    --no-push)
+      PUSH_IMAGE=false
+      shift
+      ;;
+  esac
+done
 
 echo "=== Building AFFiNITe Server Docker Image ==="
 
@@ -19,15 +27,25 @@ echo "=== Building AFFiNITe Server Docker Image ==="
 VERSION=$(node -p "require('./packages/frontend/core/package.json').version")
 echo "Detected Version: $VERSION"
 
-# Step 2: Build Server Native module inside a Bookworm container to match target GLIBC
+# Step 2: Build Server Native module with cached Cargo & Rustup toolchain
 echo ""
-echo "--- [1/5] Building @affine/server-native Rust module in Bookworm container ---"
-docker run --rm -v "$(pwd)":/workspace -w /workspace node:22-bookworm-slim sh -c "
-  apt-get update && apt-get install -y curl build-essential libssl-dev pkg-config &&
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y &&
-  export PATH=\"\$HOME/.cargo/bin:\$PATH\" &&
-  corepack enable &&
-  yarn workspace @affine/server-native build
+echo "--- [1/5] Building @affine/server-native Rust module in cached Bookworm container ---"
+docker volume create affinite_cargo_cache >/dev/null 2>&1 || true
+docker volume create affinite_rustup_cache >/dev/null 2>&1 || true
+
+docker run --rm \
+  -v "$(pwd)":/workspace \
+  -v affinite_cargo_cache:/root/.cargo \
+  -v affinite_rustup_cache:/root/.rustup \
+  -w /workspace node:22-bookworm-slim sh -c "
+    if ! command -v cargo &> /dev/null; then
+      apt-get update && apt-get install -y --no-install-recommends curl build-essential libssl-dev pkg-config ca-certificates &&
+      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable &&
+      rm -rf /var/lib/apt/lists/*;
+    fi &&
+    export PATH=\"\$HOME/.cargo/bin:\$PATH\" &&
+    corepack enable &&
+    yarn workspace @affine/server-native build
 "
 
 # Ensure architecture links exist for Rspack resolver
@@ -49,27 +67,33 @@ BUILD_TYPE=stable PUBLIC_PATH="/" yarn affine @affine/web build
 BUILD_TYPE=stable PUBLIC_PATH="/" yarn affine @affine/admin build
 BUILD_TYPE=stable PUBLIC_PATH="/" yarn affine @affine/mobile build
 
-# Step 5: Build Docker Image
+# Step 5: Build Docker Image with BuildKit
 echo ""
 echo "--- [4/5] Building Docker image '$DOCKER_USER/$IMAGE_NAME' ---"
+export DOCKER_BUILDKIT=1
 docker build -f .github/deployment/node/Dockerfile \
   -t "$DOCKER_USER/$IMAGE_NAME:latest" \
   -t "$DOCKER_USER/$IMAGE_NAME:v$VERSION" .
 
-# Explicitly tag the latest image to prevent BuildKit tag omission
-docker tag "$DOCKER_USER/$IMAGE_NAME:v$VERSION" "$DOCKER_USER/$IMAGE_NAME:latest"
+# Step 6: Push Docker Image conditionally
+if [ "$PUSH_IMAGE" = true ]; then
+  echo ""
+  echo "--- [5/5] Pushing Docker image to Docker Hub ---"
+  echo "Pushing $DOCKER_USER/$IMAGE_NAME:latest..."
+  docker push "$DOCKER_USER/$IMAGE_NAME:latest"
 
-# Step 6: Push Docker Image to Docker Hub
-echo ""
-echo "--- [5/5] Pushing Docker image to Docker Hub ---"
-echo "Pushing $DOCKER_USER/$IMAGE_NAME:latest..."
-docker push "$DOCKER_USER/$IMAGE_NAME:latest"
+  echo "Pushing $DOCKER_USER/$IMAGE_NAME:v$VERSION..."
+  docker push "$DOCKER_USER/$IMAGE_NAME:v$VERSION"
 
-echo "Pushing $DOCKER_USER/$IMAGE_NAME:v$VERSION..."
-docker push "$DOCKER_USER/$IMAGE_NAME:v$VERSION"
-
-echo ""
-echo "=== Docker build & push complete! ==="
-echo "Images pushed successfully to Docker Hub:"
-echo "  - $DOCKER_USER/$IMAGE_NAME:latest"
-echo "  - $DOCKER_USER/$IMAGE_NAME:v$VERSION"
+  echo ""
+  echo "=== Docker build & push complete! ==="
+  echo "Images pushed successfully to Docker Hub:"
+  echo "  - $DOCKER_USER/$IMAGE_NAME:latest"
+  echo "  - $DOCKER_USER/$IMAGE_NAME:v$VERSION"
+else
+  echo ""
+  echo "=== Docker build complete (Push skipped via --no-push) ==="
+  echo "Local Images ready:"
+  echo "  - $DOCKER_USER/$IMAGE_NAME:latest"
+  echo "  - $DOCKER_USER/$IMAGE_NAME:v$VERSION"
+fi

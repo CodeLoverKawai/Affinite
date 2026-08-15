@@ -43,8 +43,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import app.affinite.pro.R
-import app.affinite.pro.components.AFFiNEIconButton
-import app.affinite.pro.theme.AFFiNETheme
+import app.affinite.pro.components.AffiniteIconButton
+import app.affinite.pro.theme.AffiniteTheme
 import app.affinite.pro.theme.ThemeMode
 
 enum class InputSelector {
@@ -56,7 +56,7 @@ enum class InputSelector {
 @Preview
 @Composable
 fun UserInputPreview() {
-    AFFiNETheme(ThemeMode.Dark) {
+    AffiniteTheme(ThemeMode.Dark) {
         UserInput(onMessageSent = {})
     }
 }
@@ -92,7 +92,7 @@ fun UserInput(
         tonalElevation = 2.dp,
         shadowElevation = 2.dp,
         shape = RoundedCornerShape(16.dp, 16.dp, 0.dp, 0.dp),
-        color = AFFiNETheme.colors.backgroundOverlayPanel,
+        color = AffiniteTheme.colors.backgroundOverlayPanel,
     ) {
         Column(modifier = modifier) {
             UserInputText(
@@ -138,14 +138,14 @@ private fun UserInputSelector(
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        AFFiNEIconButton(
+        AffiniteIconButton(
             R.drawable.ic_camera,
             onClick = { onSelectorChange(InputSelector.CAMERA) },
         )
 
         Spacer(modifier = Modifier.width(14.dp))
 
-        AFFiNEIconButton(
+        AffiniteIconButton(
             R.drawable.ic_image,
             onClick = { onSelectorChange(InputSelector.PICTURE) },
         )
@@ -153,7 +153,7 @@ private fun UserInputSelector(
         Spacer(modifier = Modifier.weight(1f))
 
         // Send button
-        AFFiNEIconButton(
+        AffiniteIconButton(
             R.drawable.ic_send,
             enabled = sendMessageEnabled,
             onClick = onMessageSent,
@@ -212,7 +212,7 @@ private fun BoxScope.UserInputTextField(
     modifier: Modifier = Modifier
 ) {
     var lastFocusState by remember { mutableStateOf(false) }
-    val color = AFFiNETheme.colors.textPrimary
+    val color = AffiniteTheme.colors.textPrimary
     BasicTextField(
         value = textFieldValue,
         onValueChange = { onTextChanged(it) },

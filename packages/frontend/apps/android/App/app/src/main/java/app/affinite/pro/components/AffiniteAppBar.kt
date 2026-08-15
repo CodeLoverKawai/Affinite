@@ -20,12 +20,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import app.affinite.pro.R
-import app.affinite.pro.theme.AFFiNETheme
+import app.affinite.pro.theme.AffiniteTheme
 import app.affinite.pro.theme.ThemeMode
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AFFiNEAppBar(
+fun AffiniteAppBar(
     modifier: Modifier = Modifier,
     scrollBehavior: TopAppBarScrollBehavior? = null,
     onNavIconPressed: () -> Unit = { },
@@ -38,11 +38,11 @@ fun AFFiNEAppBar(
         title = title,
         scrollBehavior = scrollBehavior,
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors().copy(
-            containerColor = AFFiNETheme.colors.backgroundPrimary,
-            titleContentColor = AFFiNETheme.colors.textPrimary,
+            containerColor = AffiniteTheme.colors.backgroundPrimary,
+            titleContentColor = AffiniteTheme.colors.textPrimary,
         ),
         navigationIcon = {
-            AFFiNEIconButton(
+            AffiniteIconButton(
                 R.drawable.ic_close,
                 modifier = Modifier.size(44.dp),
                 onClick = onNavIconPressed
@@ -52,14 +52,14 @@ fun AFFiNEAppBar(
 }
 
 @Composable
-fun AFFiNEDropMenu(
+fun AffiniteDropMenu(
     @DrawableRes resId: Int,
     modifier: Modifier,
     menuItems: @Composable ColumnScope.() -> Unit = {}
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        AFFiNEIconButton(
+        AffiniteIconButton(
             resId,
             modifier = modifier,
             onClick = { expanded = !expanded },
@@ -76,12 +76,12 @@ fun AFFiNEDropMenu(
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
-fun AffineAppBarPreviewLight() {
-    AFFiNETheme(mode = ThemeMode.Light) {
-        AFFiNEAppBar(
+fun AffiniteAppBarPreviewLight() {
+    AffiniteTheme(mode = ThemeMode.Light) {
+        AffiniteAppBar(
             title = { Text("Preview!") },
             actions = {
-                AFFiNEDropMenu(R.drawable.ic_more_horizontal, Modifier.size(44.dp))
+                AffiniteDropMenu(R.drawable.ic_more_horizontal, Modifier.size(44.dp))
             },
         )
     }
@@ -90,12 +90,12 @@ fun AffineAppBarPreviewLight() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
-fun AffineAppBarPreviewDark() {
-    AFFiNETheme(mode = ThemeMode.Dark) {
-        AFFiNEAppBar(
+fun AffiniteAppBarPreviewDark() {
+    AffiniteTheme(mode = ThemeMode.Dark) {
+        AffiniteAppBar(
             title = { Text("Preview!") },
             actions = {
-                AFFiNEDropMenu(R.drawable.ic_more_horizontal, Modifier.size(44.dp))
+                AffiniteDropMenu(R.drawable.ic_more_horizontal, Modifier.size(44.dp))
             },
         )
     }

@@ -20,7 +20,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.affinite.pro.R
-import app.affinite.pro.theme.AFFiNETheme
+import app.affinite.pro.theme.AffiniteTheme
 import app.affinite.pro.theme.ThemeMode
 import com.halilibo.richtext.commonmark.Markdown
 import com.halilibo.richtext.ui.BasicRichText
@@ -34,6 +34,7 @@ import com.halilibo.richtext.ui.RichTextThemeProvider
 import com.halilibo.richtext.ui.TableStyle
 import com.halilibo.richtext.ui.UnorderedMarkers
 import com.halilibo.richtext.ui.string.RichTextStringStyle
+import app.affinite.pro.components.AffiniteIcon
 
 private val LocalMarkdownTextStyle = staticCompositionLocalOf {
     TextStyle(
@@ -49,13 +50,13 @@ fun Markdown(
     markdown: String,
 ) {
     RichTextThemeProvider(
-        contentColorProvider = { AFFiNETheme.colors.textPrimary },
+        contentColorProvider = { AffiniteTheme.colors.textPrimary },
         textStyleProvider = { LocalMarkdownTextStyle.current },
         textStyleBackProvider = { textStyle, content ->
             CompositionLocalProvider(LocalMarkdownTextStyle provides textStyle, content)
         }
     ) {
-        val dividerColor = AFFiNETheme.colors.divider
+        val dividerColor = AffiniteTheme.colors.divider
         BasicRichText(
             modifier = modifier,
             style = RichTextStyle(
@@ -68,13 +69,13 @@ fun Markdown(
                     color = { dividerColor },
                 ),
                 codeBlockStyle = CodeBlockStyle(
-                    textStyle = AFFiNETheme.typography.body.copy(
+                    textStyle = AffiniteTheme.typography.body.copy(
                         fontSize = 14.sp, fontFamily = FontFamily.Monospace
                     ),
                     modifier = Modifier
                         .fillMaxWidth(1f)
                         .background(
-                            color = AFFiNETheme.colors.backgroundCodeBlock,
+                            color = AffiniteTheme.colors.backgroundCodeBlock,
                             shape = RoundedCornerShape(8.dp),
                         ),
                     padding = 16.sp,
@@ -83,15 +84,15 @@ fun Markdown(
                 tableStyle = TableStyle(borderColor = dividerColor, borderStrokeWidth = 2.dp.value),
                 stringStyle = RichTextStringStyle(
                     linkStyle = TextLinkStyles(
-                        SpanStyle(color = AFFiNETheme.colors.textEmphasis),
-                        SpanStyle(color = AFFiNETheme.colors.textEmphasis),
-                        SpanStyle(color = AFFiNETheme.colors.textEmphasis),
-                        SpanStyle(color = AFFiNETheme.colors.textEmphasis),
+                        SpanStyle(color = AffiniteTheme.colors.textEmphasis),
+                        SpanStyle(color = AffiniteTheme.colors.textEmphasis),
+                        SpanStyle(color = AffiniteTheme.colors.textEmphasis),
+                        SpanStyle(color = AffiniteTheme.colors.textEmphasis),
                     ),
                     codeStyle = SpanStyle(
                         fontSize = 13.sp,
                         baselineShift = BaselineShift(0.08f),
-                        background = AFFiNETheme.colors.backgroundCodeBlock,
+                        background = AffiniteTheme.colors.backgroundCodeBlock,
                     )
                 )
             ),
@@ -134,8 +135,8 @@ private val listStyle = ListStyle(orderedMarkers = {
             modifier = Modifier
                 .width(24.dp)
                 .padding(start = 4.dp),
-            style = AFFiNETheme.typography.body,
-            color = AFFiNETheme.colors.textEmphasis,
+            style = AffiniteTheme.typography.body,
+            color = AffiniteTheme.colors.textEmphasis,
         )
     }
 }, unorderedMarkers = {
@@ -146,19 +147,19 @@ private val listStyle = ListStyle(orderedMarkers = {
         R.drawable.ic_bulleted_list_04,
     )
     UnorderedMarkers { level ->
-        AFFiNEIcon(markers[level % markers.size], tint = AFFiNETheme.colors.textEmphasis)
+        AffiniteIcon(markers[level % markers.size], tint = AffiniteTheme.colors.textEmphasis)
     }
 })
 
 @Preview
 @Composable
 fun MarkdownPreview() {
-    AFFiNETheme(mode = ThemeMode.Dark) {
+    AffiniteTheme(mode = ThemeMode.Dark) {
         Markdown(
             markdown = """
         
         
-        当然可以，大熊！下面是一个包含**所有常用 Markdown 格式**的示例内容，您可以直接复制到 AFFiNE 或其他支持 Markdown 的编辑器中体验效果：
+        当然可以，大熊！下面是一个包含**所有常用 Markdown 格式**的示例内容，您可以 directly 复制到 Affinite 或其他 support Markdown 的编辑器中:
         
         ---
         
@@ -201,17 +202,17 @@ fun MarkdownPreview() {
         ```kotlin
         // 这是一个 Kotlin 代码块
         fun main() {
-            println(\"Hello, Markdown!\")
+            println("Hello, Markdown!")
         }
         ```
         
         ---
         
-        ![示例图片](https://affine.pro/_next/static/media/logo.1e7b6b7e.svg)
+        ![示例图片](https://affinite.pro/_next/static/media/logo.1e7b6b7e.svg)
         
         ---
         
-        [这是一个链接，点我访问 AFFiNE 官网](https://affine.pro)
+        [Link to Affinite Website](https://affinite.pro)
         
         ---
         

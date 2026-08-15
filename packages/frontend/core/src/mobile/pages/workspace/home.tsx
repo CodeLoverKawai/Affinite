@@ -2,6 +2,7 @@ import { SafeArea, useThemeColorV2 } from '@affine/component';
 
 import { AppTabs } from '../../components';
 import {
+  NavigationPanelBoards,
   NavigationPanelCollections,
   NavigationPanelFavorites,
   NavigationPanelOrganize,
@@ -26,6 +27,7 @@ export const Component = () => {
           }}
         >
           <NavigationPanelFavorites />
+          <NavigationPanelBoards />
           <NavigationPanelOrganize />
           <NavigationPanelCollections />
           <NavigationPanelTags />

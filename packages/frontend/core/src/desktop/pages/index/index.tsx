@@ -91,6 +91,19 @@ export const Component = ({
       return;
     }
 
+    const lastId = localStorage.getItem('last_workspace_id');
+    const hasLocalTarget =
+      list.length > 0 &&
+      (list.find(w => w.id === lastId) ?? (BUILD_CONFIG.isNative ? list[0] : null));
+
+    // Offline-First / Native instant launch: if we already have a workspace available and not explicitly requesting cloud init,
+    // navigate immediately without blocking on remote cloud revalidation (listIsLoading).
+    if (hasLocalTarget && searchParams.get('initCloud') !== 'true') {
+      const openWorkspace = list.find(w => w.id === lastId) ?? list[0];
+      openPage(openWorkspace.id, defaultIndexRoute, RouteLogic.REPLACE);
+      return;
+    }
+
     if (listIsLoading) {
       return;
     }
@@ -122,8 +135,6 @@ export const Component = ({
         return;
       }
       // open last workspace
-      const lastId = localStorage.getItem('last_workspace_id');
-
       const openWorkspace = list.find(w => w.id === lastId) ?? list[0];
       openPage(openWorkspace.id, defaultIndexRoute, RouteLogic.REPLACE);
     }

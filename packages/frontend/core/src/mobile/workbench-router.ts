@@ -48,6 +48,10 @@ export const workbenchRoutes = [
     Component: Journals,
   },
   {
+    path: '/boards',
+    lazy: () => import('../desktop/pages/workspace/boards/index'),
+  },
+  {
     path: '/trash',
     lazy: () => import('./pages/workspace/trash'),
   },

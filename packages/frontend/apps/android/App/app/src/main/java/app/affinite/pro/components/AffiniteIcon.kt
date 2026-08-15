@@ -12,13 +12,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import app.affinite.pro.theme.AFFiNETheme
+import app.affinite.pro.theme.AffiniteTheme
 
 @Composable
-fun AFFiNEIcon(
+fun AffiniteIcon(
     @DrawableRes resId: Int,
     modifier: Modifier = Modifier,
-    tint: Color = AFFiNETheme.colors.iconPrimary,
+    tint: Color = AffiniteTheme.colors.iconPrimary,
     contentDescription: String? = null,
 ) {
     Icon(
@@ -30,18 +30,18 @@ fun AFFiNEIcon(
 }
 
 @Composable
-fun AFFiNEIconButton(
+fun AffiniteIconButton(
     @DrawableRes resId: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     colors: IconButtonColors = IconButtonDefaults.iconButtonColors().copy(
-        contentColor = AFFiNETheme.colors.iconPrimary,
-        disabledContentColor = AFFiNETheme.colors.iconDisable,
+        contentColor = AffiniteTheme.colors.iconPrimary,
+        disabledContentColor = AffiniteTheme.colors.iconDisable,
     ),
     interactionSource: MutableInteractionSource? = null,
 ) {
     IconButton(onClick, modifier.size(24.dp), enabled, colors, interactionSource) {
-        AFFiNEIcon(resId)
+        AffiniteIcon(resId)
     }
 }

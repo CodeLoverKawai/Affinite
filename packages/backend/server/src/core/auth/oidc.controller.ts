@@ -133,9 +133,9 @@ export class OidcController {
     @Res() res: Response
   ) {
     let clientId = req.body.client_id;
-    let clientSecret = req.body.client_secret;
+    let _clientSecret = req.body.client_secret;
     const code = req.body.code;
-    const redirectUri = req.body.redirect_uri;
+    const _redirectUri = req.body.redirect_uri;
 
     // Parse basic auth if body doesn't contain credentials
     if (!clientId && req.headers.authorization) {
@@ -144,7 +144,7 @@ export class OidcController {
         const credentials = Buffer.from(authHeader.substring(6), 'base64').toString('ascii');
         const parts = credentials.split(':');
         clientId = parts[0];
-        clientSecret = parts[1];
+        _clientSecret = parts[1];
       }
     }
 
@@ -206,7 +206,7 @@ export class OidcController {
         expires_in: 3600,
         id_token,
       });
-    } catch (err) {
+    } catch {
       return res.status(HttpStatus.BAD_REQUEST).json({ error: 'invalid_grant', error_description: 'Code verification failed' });
     }
   }
@@ -241,7 +241,7 @@ export class OidcController {
         name,
         username: dbUser.name || email.split('@')[0],
       });
-    } catch (err) {
+    } catch {
       return res.status(HttpStatus.UNAUTHORIZED).json({ error: 'invalid_token' });
     }
   }
