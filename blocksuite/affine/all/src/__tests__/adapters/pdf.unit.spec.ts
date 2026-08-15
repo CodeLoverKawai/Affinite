@@ -1614,5 +1614,52 @@ describe('snapshot to pdf', () => {
       expect(todoItem).toBeDefined();
       expect(todoItem.table.body[0][0].svg).toContain('svg');
     });
+
+    test('database rendering with columns and cells', async () => {
+      const blockSnapshot = createBaseSnapshot([
+        {
+          type: 'block',
+          id: 'block:database',
+          flavour: 'affine:database',
+          props: {
+            title: {
+              '$blocksuite:internal:text$': true,
+              delta: [{ insert: 'Tasks Database' }],
+            },
+            columns: [
+              { id: 'col1', name: 'Task Name', type: 'title' },
+              { id: 'col2', name: 'Status', type: 'select' },
+            ],
+            cells: {
+              row1: {
+                col1: { value: 'Fix PDF export' },
+                col2: { value: 'Done' },
+              },
+            },
+          },
+          children: [],
+        },
+      ]);
+
+      const pdfAdapter = new PdfAdapter(createJob(), provider);
+      const definition = await pdfAdapter.getDocDefinition(
+        [blockSnapshot],
+        undefined
+      );
+
+      const content = definition.content as any[];
+      const titleItem = content.find(
+        (item: any) => item.text && item.text === 'Tasks Database'
+      );
+      expect(titleItem).toBeDefined();
+
+      const tableItem = content.find((item: any) => item.table);
+      expect(tableItem).toBeDefined();
+      expect(tableItem.table.body.length).toBe(2);
+      expect(tableItem.table.body[0][0].text).toBe('Task Name');
+      expect(tableItem.table.body[0][1].text).toBe('Status');
+      expect(tableItem.table.body[1][0].text).toBe('Fix PDF export');
+      expect(tableItem.table.body[1][1].text).toBe('Done');
+    });
   });
 });

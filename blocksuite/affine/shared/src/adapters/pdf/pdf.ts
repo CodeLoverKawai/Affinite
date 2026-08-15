@@ -631,16 +631,109 @@ export class PdfAdapter extends BaseAdapter<PdfAdapterFile> {
       content.push({
         text: titleText,
         bold: true,
-        margin: [0, 5, 0, 2],
+        fontSize: 14,
+        margin: [0, 8, 0, 4],
       });
     }
 
-    content.push({
-      text: '[Data View - Not exported]',
-      italics: true,
-      color: PDF_COLORS.textDisabled,
-      margin: [0, 2, 0, 5],
-    });
+    const columns = (props.columns || []) as Array<{
+      id: string;
+      name?: string;
+      type?: string;
+    }>;
+    const cells = (props.cells || {}) as Record<string, Record<string, any>>;
+
+    if (columns.length > 0) {
+      const headerRow: Content[] = columns.map(col => ({
+        text: col.name || 'Column',
+        bold: true,
+        fillColor: '#f3f4f6',
+        color: PDF_COLORS.text,
+        fontSize: 10,
+        margin: [2, 2, 2, 2],
+      }));
+
+      const rowIds = Object.keys(cells);
+      const dataRows: Content[][] = [];
+
+      for (const rowId of rowIds) {
+        const rowCells = cells[rowId] || {};
+        const rowData: Content[] = [];
+
+        for (const col of columns) {
+          const cellObj = rowCells[col.id];
+          let cellStr = '';
+
+          if (cellObj !== undefined && cellObj !== null) {
+            if (
+              typeof cellObj === 'string' ||
+              typeof cellObj === 'number' ||
+              typeof cellObj === 'boolean'
+            ) {
+              cellStr = String(cellObj);
+            } else if (cellObj.value !== undefined && cellObj.value !== null) {
+              if (Array.isArray(cellObj.value)) {
+                cellStr = cellObj.value
+                  .map((v: any) =>
+                    typeof v === 'object'
+                      ? (v.value ?? v.text ?? JSON.stringify(v))
+                      : String(v)
+                  )
+                  .join(', ');
+              } else if (
+                typeof cellObj.value === 'object' &&
+                cellObj.value.delta
+              ) {
+                cellStr = textContentToString(
+                  extractTextWithInline({ text: cellObj.value }, this.configs)
+                );
+              } else {
+                cellStr = String(cellObj.value);
+              }
+            } else if (cellObj.text?.delta) {
+              cellStr = textContentToString(
+                extractTextWithInline({ text: cellObj.text }, this.configs)
+              );
+            }
+          }
+
+          rowData.push({
+            text: cellStr,
+            fontSize: 9,
+            margin: [2, 2, 2, 2],
+          });
+        }
+        dataRows.push(rowData);
+      }
+
+      if (dataRows.length === 0) {
+        dataRows.push(
+          columns.map(() => ({ text: '', fontSize: 9, margin: [2, 2, 2, 2] }))
+        );
+      }
+
+      content.push({
+        table: {
+          headerRows: 1,
+          widths: Array.from({ length: columns.length }, () => '*'),
+          body: [headerRow, ...dataRows],
+        },
+        margin: [0, 4, 0, 8],
+        layout: {
+          hLineWidth: (i: number, node: any) => {
+            if (i === 0 || i === 1 || i === node.table.body.length) return 1;
+            return 0.5;
+          },
+          vLineWidth: () => 0.5,
+          hLineColor: () => PDF_COLORS.border,
+          vLineColor: () => PDF_COLORS.border,
+          paddingLeft: () => 4,
+          paddingRight: () => 4,
+          paddingTop: () => 4,
+          paddingBottom: () => 4,
+        },
+      });
+    }
 
     return content;
   }
@@ -995,9 +1088,33 @@ export class PdfAdapter extends BaseAdapter<PdfAdapterFile> {
     return new Promise((resolve, reject) => {
       try {
         const pdfDocGenerator = pdfMake.createPdf(docDefinition);
-        pdfDocGenerator.getBlob(blob => resolve(blob));
+        pdfDocGenerator.getBlob(blob => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            try {
+              const fallbackDef: TDocumentDefinitions = {
+                ...docDefinition,
+                defaultStyle: { fontSize: 12, lineHeight: 1.5 },
+              };
+              const fallbackGenerator = pdfMake.createPdf(fallbackDef);
+              fallbackGenerator.getBlob(b => resolve(b));
+            } catch (e) {
+              reject(e);
+            }
+          }
+        });
       } catch (error) {
-        reject(error);
+        try {
+          const fallbackDef: TDocumentDefinitions = {
+            ...docDefinition,
+            defaultStyle: { fontSize: 12, lineHeight: 1.5 },
+          };
+          const fallbackGenerator = pdfMake.createPdf(fallbackDef);
+          fallbackGenerator.getBlob(blob => resolve(blob));
+        } catch {
+          reject(error);
+        }
       }
     });
   }
