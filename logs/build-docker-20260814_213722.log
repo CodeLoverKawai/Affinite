@@ -1,0 +1,13 @@
+📝 Log file: logs/build-docker-20260814_213722.log
+=== Building AFFiNITe Server Docker Image ===
+Detected Version: 0.27.1
+
+--- [1/5] Building @affine/server-native Rust module in cached Bookworm container ---
+Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]
+Get:2 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
+Get:3 http://deb.debian.org/debian-security bookworm-security InRelease [34.8 kB]
+Get:4 http://deb.debian.org/debian bookworm/main amd64 Packages [8790 kB]
+Get:5 http://deb.debian.org/debian bookworm-updates/main amd64 Packages [6924 B]
+Get:6 http://deb.debian.org/debian-security bookworm-security/main amd64 Packages [333 kB]
+Fetched 9372 kB in 1s (7700 kB/s)
+Reading package lists...
