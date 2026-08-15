@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import type { CapacitorConfig } from '@capacitor/cli';
+import { KeyboardResize } from '@capacitor/keyboard';
 
 const packageJson = JSON.parse(
   readFileSync(resolve(__dirname, './package.json'), 'utf-8')
@@ -31,6 +32,10 @@ const config: CapacitorConfig & AppConfig = {
     cleartext: true,
   },
   plugins: {
+    Keyboard: {
+      resize: KeyboardResize.Body,
+      resizeOnFullScreen: true,
+    },
     CapacitorHttp: {
       enabled: false,
     },

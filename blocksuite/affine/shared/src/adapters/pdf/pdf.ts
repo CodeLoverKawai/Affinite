@@ -1027,20 +1027,40 @@ export class PdfAdapter extends BaseAdapter<PdfAdapterFile> {
     title: string | undefined,
     content: Content[]
   ): TDocumentDefinitions {
+    // Filter trailing empty lines/blocks to prevent accidental blank trailing pages
+    const cleanedContent = [...content];
+    while (cleanedContent.length > 0) {
+      const last = cleanedContent[cleanedContent.length - 1];
+      if (typeof last === 'string' && last.trim() === '') {
+        cleanedContent.pop();
+      } else if (
+        typeof last === 'object' &&
+        last !== null &&
+        'text' in last &&
+        typeof (last as any).text === 'string' &&
+        (last as any).text.trim() === ''
+      ) {
+        cleanedContent.pop();
+      } else {
+        break;
+      }
+    }
+
     const docContent =
       title === undefined
-        ? content
+        ? cleanedContent
         : [
             {
               text: title || 'Untitled',
               style: 'title',
-              margin: [0, 0, 0, 20],
+              margin: [0, 0, 0, 14],
             } as ContentText,
-            ...content,
+            ...cleanedContent,
           ];
 
     return {
       content: docContent,
+      pageMargins: [36, 36, 36, 36],
       styles: {
         title: {
           fontSize: 24,
