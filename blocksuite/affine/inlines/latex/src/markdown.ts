@@ -10,11 +10,14 @@ export const LatexExtension = InlineMarkdownExtension<AffineTextAttributes>({
   name: 'latex',
 
   pattern:
-    /(?:\$\$)(?<content>[^$]+)(?:\$\$)\s$|(?<blockPrefix>\$\$\$\$)\s$|(?<inlinePrefix>\$\$)\s$/g,
+    /(?<blockPrefix>\$\$\$\$)\s$|(?:\$\$)(?<doubleContent>[^$]+)(?:\$\$)\s$|(?<inlinePrefix>\$\$)\s$|(?<!\$)(?:\$)(?<singleContent>[^\s$\n](?:[^$\n]*?[^\s$\n])?)(?:\$)\s$/g,
   action: ({ inlineEditor, prefixText, inlineRange, pattern, undoManager }) => {
     const match = pattern.exec(prefixText);
     if (!match || !match.groups) return;
-    const content = match.groups['content'];
+    const doubleContent = match.groups['doubleContent'];
+    const singleContent = match.groups['singleContent'];
+    const content = doubleContent ?? singleContent;
+    const delimiterLen = doubleContent ? 2 : singleContent ? 1 : 0;
     const inlinePrefix = match.groups['inlinePrefix'];
     const blockPrefix = match.groups['blockPrefix'];
 
@@ -137,10 +140,11 @@ export const LatexExtension = InlineMarkdownExtension<AffineTextAttributes>({
 
     undoManager.stopCapturing();
 
-    const startIndex = inlineRange.index - 1 - 2 - content.length - 2;
+    const startIndex =
+      inlineRange.index - 1 - delimiterLen - content.length - delimiterLen;
     inlineEditor.deleteText({
       index: startIndex,
-      length: 2 + content.length + 2 + 1,
+      length: delimiterLen + content.length + delimiterLen + 1,
     });
     inlineEditor.insertText(
       {
