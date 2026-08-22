@@ -52,18 +52,52 @@ if [ -d "${APP_DIR}/resources" ]; then
   cp -r "${APP_DIR}/resources" "${RESOURCES_APP}/"
 fi
 
-# Step 5: Copy node_modules (hoisted from monorepo root)
-echo "[5/6] Copying node_modules (this may take a while)..."
-MONOREPO_ROOT="/home/rousseau/Documents/GitHub/Affinite"
+# Step 5: Copy node_modules (production runtime dependencies)
+echo "[5/6] Copying runtime node_modules..."
+TARGET_NODE_MODULES="${RESOURCES_APP}/node_modules"
+node -e '
+const fs = require("fs");
+const path = require("path");
 
-if [ -d "${APP_DIR}/node_modules" ] && [ ! -L "${APP_DIR}/node_modules" ]; then
-  # Use local node_modules if it exists and is not a symlink
-  cp -r "${APP_DIR}/node_modules" "${RESOURCES_APP}/"
-else
-  # Symlink to monorepo node_modules
-  ln -sf "${MONOREPO_ROOT}/node_modules" "${RESOURCES_APP}/node_modules"
-fi
-echo "  node_modules linked/copied"
+const rootNodeModules = path.resolve("./node_modules");
+const targetNodeModules = path.resolve(process.argv[1]);
+const electronPkg = require("./packages/frontend/apps/electron/package.json");
+const visited = new Set();
+
+function collectDeps(pkgName) {
+  if (visited.has(pkgName)) return;
+  visited.add(pkgName);
+
+  const pkgJsonPath = path.join(rootNodeModules, pkgName, "package.json");
+  if (!fs.existsSync(pkgJsonPath)) return;
+  try {
+    const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
+    const deps = Object.keys(pkg.dependencies || {});
+    for (const dep of deps) {
+      collectDeps(dep);
+    }
+  } catch (e) {}
+}
+
+for (const dep of Object.keys(electronPkg.dependencies || {})) {
+  collectDeps(dep);
+}
+collectDeps("semver");
+collectDeps("electron-updater");
+collectDeps("yjs");
+collectDeps("lib0");
+
+fs.mkdirSync(targetNodeModules, { recursive: true });
+
+for (const pkg of visited) {
+  const src = path.join(rootNodeModules, pkg);
+  const dest = path.join(targetNodeModules, pkg);
+  if (fs.existsSync(src)) {
+    fs.cpSync(src, dest, { recursive: true, dereference: true });
+  }
+}
+console.log("Successfully copied", visited.size, "runtime dependencies to", targetNodeModules);
+' "${TARGET_NODE_MODULES}"
 
 # Step 6: Copy extra resources
 echo "[6/6] Copying extra resources..."

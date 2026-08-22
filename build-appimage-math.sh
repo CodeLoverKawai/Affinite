@@ -51,8 +51,51 @@ if [ -d "${APP_DIR}/resources" ]; then
   cp -r "${APP_DIR}/resources" "${RESOURCES_APP}/"
 fi
 
-MONOREPO_ROOT="$(pwd)"
-ln -sf "${MONOREPO_ROOT}/node_modules" "${RESOURCES_APP}/node_modules"
+# Step 2.5: Copy runtime production node_modules (dereferenced, no broken symlinks)
+echo "[2.5/5] Bundling runtime dependencies into package..."
+node -e '
+const fs = require("fs");
+const path = require("path");
+
+const rootNodeModules = path.resolve("./node_modules");
+const targetNodeModules = path.resolve(process.argv[1]);
+const electronPkg = require("./packages/frontend/apps/electron/package.json");
+const visited = new Set();
+
+function collectDeps(pkgName) {
+  if (visited.has(pkgName)) return;
+  visited.add(pkgName);
+
+  const pkgJsonPath = path.join(rootNodeModules, pkgName, "package.json");
+  if (!fs.existsSync(pkgJsonPath)) return;
+  try {
+    const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf8"));
+    const deps = Object.keys(pkg.dependencies || {});
+    for (const dep of deps) {
+      collectDeps(dep);
+    }
+  } catch (e) {}
+}
+
+for (const dep of Object.keys(electronPkg.dependencies || {})) {
+  collectDeps(dep);
+}
+collectDeps("semver");
+collectDeps("electron-updater");
+collectDeps("yjs");
+collectDeps("lib0");
+
+fs.mkdirSync(targetNodeModules, { recursive: true });
+
+for (const pkg of visited) {
+  const src = path.join(rootNodeModules, pkg);
+  const dest = path.join(targetNodeModules, pkg);
+  if (fs.existsSync(src)) {
+    fs.cpSync(src, dest, { recursive: true, dereference: true });
+  }
+}
+console.log("Successfully copied", visited.size, "runtime dependencies to", targetNodeModules);
+' "${RESOURCES_APP}/node_modules"
 
 if [ -f "${APP_DIR}/resources/app-update.yml" ]; then
   cp "${APP_DIR}/resources/app-update.yml" "${OUT_DIR}/resources/"
