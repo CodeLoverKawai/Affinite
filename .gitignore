@@ -95,5 +95,6 @@ storageState.json
 
 # Binaries & logs
 *.AppImage
+*.apk
 /logs/
 
