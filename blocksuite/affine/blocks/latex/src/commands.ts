@@ -14,12 +14,14 @@ export const insertLatexBlockCommand: Command<
     place?: 'after' | 'before';
     removeEmptyLine?: boolean;
     selectedModels?: BlockModel[];
+    initialMode?: 'visual' | 'code';
   },
   {
     insertedLatexBlockId: Promise<string>;
   }
 > = (ctx, next) => {
-  const { selectedModels, latex, place, removeEmptyLine, std } = ctx;
+  const { selectedModels, latex, place, removeEmptyLine, initialMode, std } =
+    ctx;
   if (!selectedModels?.length) return;
 
   const targetModel =
@@ -51,7 +53,7 @@ export const insertLatexBlockCommand: Command<
         const blockComponent = std.view.getBlock(result[0]);
         if (blockComponent instanceof LatexBlockComponent) {
           await blockComponent.updateComplete;
-          blockComponent.toggleEditor();
+          blockComponent.toggleEditor(initialMode ?? 'code');
 
           const mode = std.get(DocModeProvider).getEditorMode() ?? 'page';
           const ifEdgelessText = blockComponent.closest('affine-edgeless-text');

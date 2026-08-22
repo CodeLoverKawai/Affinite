@@ -172,7 +172,7 @@ export class LatexBlockComponent extends CaptionedBlockComponent<LatexBlockModel
     });
   }
 
-  toggleEditor() {
+  toggleEditor(initialMode: 'visual' | 'code' = 'code') {
     const katexContainer = this._katexContainer;
     if (!katexContainer) return;
 
@@ -186,6 +186,7 @@ export class LatexBlockComponent extends CaptionedBlockComponent<LatexBlockModel
         .std=${this.std}
         .latexSignal=${this.model.props.latex$}
         .abortController=${this._editorAbortController}
+        .initialMode=${initialMode}
       ></latex-editor-menu>`,
       container: this.host,
       computePosition: {

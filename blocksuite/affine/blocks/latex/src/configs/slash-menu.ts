@@ -58,5 +58,39 @@ export const latexSlashMenuConfig: SlashMenuConfig = {
           .run();
       },
     },
+    {
+      name: 'Graphical equation',
+      description: 'Create an equation visually with categorized templates.',
+      icon: TeXIcon(),
+      tooltip: {
+        figure: LatexTooltip(
+          'Visual formula builder with palettes & classic formulas.',
+          String.raw`x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}`,
+          true
+        ),
+        caption: 'Graphical equation',
+      },
+      searchAlias: [
+        'graphicalEquation',
+        'greq',
+        'visualEquation',
+        'vmath',
+        'formulaBuilder',
+        'mathVisual',
+        'ecuacionGrafica',
+      ],
+      group: '4_Content & Media@11',
+      action: ({ std }) => {
+        std.command
+          .chain()
+          .pipe(getSelectedModelsCommand)
+          .pipe(insertLatexBlockCommand, {
+            place: 'after',
+            removeEmptyLine: true,
+            initialMode: 'visual',
+          })
+          .run();
+      },
+    },
   ],
 };
