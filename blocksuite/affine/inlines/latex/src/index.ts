@@ -10,6 +10,10 @@ export {
   KATEX_SCIENTIFIC_MACROS,
   safeRenderKatex,
   type SafeRenderResult,
+  safeRenderKatexToString,
+  type SafeRenderToStringResult,
 } from '@blocksuite/affine-block-latex';
+export * from './latex-node/visual-palette-data';
 
 declare type _GLOBAL_ = typeof RichTextEffects | typeof RemarkMath;
+

@@ -40,6 +40,13 @@ export interface SafeRenderResult {
   rawError?: Error;
 }
 
+export interface SafeRenderToStringResult {
+  success: boolean;
+  html?: string;
+  error?: string;
+  rawError?: Error;
+}
+
 export function safeRenderKatex(
   latex: string,
   container: HTMLElement,
@@ -66,3 +73,30 @@ export function safeRenderKatex(
     };
   }
 }
+
+export function safeRenderKatexToString(
+  latex: string,
+  options?: KatexOptions
+): SafeRenderToStringResult {
+  const mergedOptions: KatexOptions = {
+    ...DEFAULT_KATEX_OPTIONS,
+    ...options,
+    macros: {
+      ...KATEX_SCIENTIFIC_MACROS,
+      ...(options?.macros ?? {}),
+    },
+  };
+
+  try {
+    const html = katex.renderToString(latex, mergedOptions);
+    return { success: true, html };
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err.message : String(err);
+    return {
+      success: false,
+      error,
+      rawError: err instanceof Error ? err : new Error(error),
+    };
+  }
+}
+
