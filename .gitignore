@@ -92,3 +92,8 @@ af.cmd
 
 # playwright
 storageState.json
+
+# Binaries & logs
+*.AppImage
+/logs/
+
