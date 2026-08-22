@@ -2,19 +2,23 @@ import { selectBlock } from '@blocksuite/affine-block-note';
 import { CaptionedBlockComponent } from '@blocksuite/affine-components/caption';
 import { createLitPortal } from '@blocksuite/affine-components/portal';
 import type { LatexBlockModel } from '@blocksuite/affine-model';
+import { CopyIcon, DoneIcon } from '@blocksuite/icons/lit';
 import { BlockSelection } from '@blocksuite/std';
 import type { Placement } from '@floating-ui/dom';
 import { effect } from '@preact/signals-core';
-import katex from 'katex';
-import { html, render } from 'lit';
-import { query } from 'lit/decorators.js';
+import { html, nothing, render } from 'lit';
+import { query, state } from 'lit/decorators.js';
 
+import { safeRenderKatex } from './katex-config.js';
 import { latexBlockStyles } from './styles.js';
 
 export class LatexBlockComponent extends CaptionedBlockComponent<LatexBlockModel> {
   static override styles = latexBlockStyles;
 
   private _editorAbortController: AbortController | null = null;
+
+  @state()
+  private accessor _copied = false;
 
   get editorPlacement(): Placement {
     return 'bottom';
@@ -44,6 +48,7 @@ export class LatexBlockComponent extends CaptionedBlockComponent<LatexBlockModel
     disposables.add(
       effect(() => {
         const latex = this.model.props.latex$.value;
+        this.requestUpdate();
 
         katexContainer.replaceChildren();
         // @ts-expect-error lit hack won't fix
@@ -55,16 +60,17 @@ export class LatexBlockComponent extends CaptionedBlockComponent<LatexBlockModel
             katexContainer
           );
         } else {
-          try {
-            katex.render(latex, katexContainer, {
-              displayMode: true,
-            });
-          } catch {
+          const result = safeRenderKatex(latex, katexContainer, {
+            displayMode: true,
+          });
+          if (!result.success) {
             katexContainer.replaceChildren();
             // @ts-expect-error lit hack won't fix
             delete katexContainer['_$litPart$'];
             render(
-              html`<span class="latex-block-error-placeholder"
+              html`<span
+                class="latex-block-error-placeholder"
+                title=${result.error ?? 'LaTeX error'}
                 >Error equation</span
               >`,
               katexContainer
@@ -85,18 +91,77 @@ export class LatexBlockComponent extends CaptionedBlockComponent<LatexBlockModel
     }
   }
 
+  private _handleCopy = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (this._copied) return;
+
+    const latex = this.model.props.latex$.value;
+    if (this.std?.clipboard) {
+      this.std.clipboard
+        .writeToClipboard(items => ({
+          ...items,
+          'text/plain': latex,
+        }))
+        .then(() => {
+          this._copied = true;
+          setTimeout(() => {
+            this._copied = false;
+          }, 1500);
+        })
+        .catch(err => {
+          console.error('Failed to copy LaTeX via std.clipboard:', err);
+          if (navigator?.clipboard) {
+            navigator.clipboard
+              .writeText(latex)
+              .then(() => {
+                this._copied = true;
+                setTimeout(() => {
+                  this._copied = false;
+                }, 1500);
+              })
+              .catch(console.error);
+          }
+        });
+    } else if (navigator?.clipboard) {
+      navigator.clipboard
+        .writeText(latex)
+        .then(() => {
+          this._copied = true;
+          setTimeout(() => {
+            this._copied = false;
+          }, 1500);
+        })
+        .catch(console.error);
+    }
+  };
+
   removeEditor(portal: HTMLDivElement) {
     portal.remove();
   }
 
   override renderBlock() {
+    const latex = this.model.props.latex$.value;
+    const showCopyButton = latex.length > 0 && !this.store.readonly;
+
     return html`
       <div
         contenteditable="false"
         class="latex-block-container"
         @click=${this._handleClick}
       >
-        <div class="katex"></div>
+        <div class="latex-block-content"></div>
+        ${showCopyButton
+          ? html`<button
+              type="button"
+              class="latex-copy-button ${this._copied ? 'copied' : ''}"
+              @click=${this._handleCopy}
+              title="${this._copied ? 'Copied!' : 'Copy LaTeX'}"
+            >
+              ${this._copied ? DoneIcon() : CopyIcon()}
+              ${this._copied ? html`<span>Copied!</span>` : nothing}
+            </button>`
+          : nothing}
       </div>
     `;
   }
@@ -147,7 +212,7 @@ export class LatexBlockComponent extends CaptionedBlockComponent<LatexBlockModel
     );
   }
 
-  @query('.latex-block-container')
+  @query('.latex-block-content')
   private accessor _katexContainer!: HTMLDivElement;
 }
 
@@ -156,3 +221,4 @@ declare global {
     'affine-latex': LatexBlockComponent;
   }
 }
+

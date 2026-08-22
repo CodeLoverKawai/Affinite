@@ -1,3 +1,4 @@
+import { safeRenderKatex } from '@blocksuite/affine-block-latex';
 import { createLitPortal } from '@blocksuite/affine-components/portal';
 import { unsafeCSSVar, unsafeCSSVarV2 } from '@blocksuite/affine-shared/theme';
 import type { AffineTextAttributes } from '@blocksuite/affine-shared/types';
@@ -14,7 +15,6 @@ import {
 } from '@blocksuite/std/inline';
 import type { DeltaInsert } from '@blocksuite/store';
 import { signal } from '@preact/signals-core';
-import katex from 'katex';
 import { css, html, render } from 'lit';
 import { property } from 'lit/decorators.js';
 
@@ -34,7 +34,7 @@ export class AffineLatexNode extends SignalWatcher(
       border-radius: 4px;
       text-decoration: none;
       cursor: pointer;
-      user-select: none;
+      user-select: text;
       padding: 1px 2px 1px 0;
       display: grid;
       grid-template-columns: auto 0;
@@ -64,6 +64,7 @@ export class AffineLatexNode extends SignalWatcher(
       font-size: 12px;
       font-weight: 500;
       line-height: normal;
+      cursor: help;
     }
 
     affine-latex-node .placeholder {
@@ -137,16 +138,19 @@ export class AffineLatexNode extends SignalWatcher(
                 latexContainer
               );
             } else {
-              try {
-                katex.render(latex, latexContainer, {
-                  displayMode: false,
-                });
-              } catch {
+              const result = safeRenderKatex(latex, latexContainer, {
+                displayMode: false,
+              });
+              if (!result.success) {
                 latexContainer.replaceChildren();
                 // @ts-expect-error lit hack won't fix
                 delete latexContainer['_$litPart$'];
                 render(
-                  html`<span class="error-placeholder">Error equation</span>`,
+                  html`<span
+                    class="error-placeholder"
+                    title=${result.error ?? 'LaTeX error'}
+                    >Error equation</span
+                  >`,
                   latexContainer
                 );
               }

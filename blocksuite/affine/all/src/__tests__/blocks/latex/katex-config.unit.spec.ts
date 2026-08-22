@@ -127,4 +127,18 @@ describe('KaTeX configuration & scientific macros', () => {
       expect(inlineSafeRenderKatex).toBe(safeRenderKatex);
     });
   });
+
+  describe('Error tooltip and error handling behavior', () => {
+    it('should provide descriptive error messages suitable for title attributes', () => {
+      const container = document.implementation
+        .createHTMLDocument()
+        .createElement('div');
+      const result = safeRenderKatex('\\unknownMacroXYZ', container);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBeDefined();
+      expect(result.error).toContain('KaTeX parse error');
+      expect(result.error).toContain('\\unknownMacroXYZ');
+    });
+  });
 });
