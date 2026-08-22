@@ -103,6 +103,9 @@ pkill -f "${APP_BIN_NAME}" || true
 rm -f "packages/frontend/apps/electron/out/${APPIMAGE_OUT_NAME}"
 
 ARCH=x86_64 /tmp/appimagetool --comp zstd "${APPDIR}" "packages/frontend/apps/electron/out/${APPIMAGE_OUT_NAME}"
+cp "packages/frontend/apps/electron/out/${APPIMAGE_OUT_NAME}" "./${APPIMAGE_OUT_NAME}"
 
 echo "=== AppImage build complete! ==="
 echo "Output: packages/frontend/apps/electron/out/${APPIMAGE_OUT_NAME}"
+echo "Root Copy: ./${APPIMAGE_OUT_NAME}"
+
