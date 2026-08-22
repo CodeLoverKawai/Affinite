@@ -10,3 +10,12 @@ Promise.withResolvers ??= function withResolvers() {
     });
   return { resolve: a, reject: b, promise: c };
 };
+
+if (typeof document !== 'undefined') {
+  try {
+    Object.defineProperty(document, 'compatMode', {
+      value: 'CSS1Compat',
+      configurable: true,
+    });
+  } catch {}
+}

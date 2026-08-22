@@ -7,6 +7,7 @@ export default defineConfig({
   },
   plugins: [vanillaExtractPlugin()],
   test: {
+    setupFiles: ['../../../scripts/setup/polyfill.ts'],
     globalSetup: '../../../scripts/vitest-global.js',
     include: ['src/__tests__/**/*.unit.spec.ts'],
     testTimeout: 1000,
