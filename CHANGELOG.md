@@ -2,6 +2,28 @@
 
 All notable changes to **AFFiNITe** will be documented in this file.
 
+## [v0.28.0] - 2026-08-22
+
+### 🌟 Features & Enhancements
+
+- **Professional LaTeX Math Suite (`blocksuite/affine/blocks/latex` & `inlines/latex`)**:
+  - **Centralized KaTeX Engine & Scientific Macros**: Preloaded support for number sets (`\R`, `\N`, `\Z`, `\Q`, `\C`, `\K`), vectors/tensors (`\bm`, `\vec`, `\grad`, `\curl`, `\div`, `\laplacian`), and calculus operators (`\diff`, `\pdiff`, `\d`, `\norm`, `\abs`, `\degree`, `\hbar`).
+  - **Redesigned Latex Editor Menu**: Responsive adaptive popover (`520px - 820px`), real-time dual-pane Live KaTeX preview, quick template snippets, non-destructive syntax diagnostic alerts, and keyboard shortcuts (`Enter`, `Shift+Enter`, `Escape`).
+  - **Text Selection & 1-Click Formula Copy**: Enabled `user-select: text` on all rendered equations and added a floating **"Copy LaTeX"** button with visual copy feedback.
+  - **Lossless HTML Adapters**: Bidirectional AST converters preserving LaTeX equations and KaTeX/MathML data when exporting/importing HTML.
+  - **Markdown Multiline Preprocessing**: Preserves multiline environments (`pmatrix`, `cases`, `aligned`) without paragraph fragmentation and supports inline `$formula$` triggers.
+
+- **🎨 Graphical Equation Builder (Ecuaciones Gráficas)**:
+  - **Dedicated Slash Menu Command**: `/greq`, `/graphical-equation`, `/visual-equation`, `/vmath`, `/formula`.
+  - **Mode Toggle**: Instant switching between `[ 🎨 Visual Builder ]` and `[ ⚡ Code Editor ]`.
+  - **Categorized Visual Palettes**: 5 palettes (Álgebra, Cálculo, Matrices & Vectores, Símbolos Griegos, Fórmulas Famosas con 1-clic).
+  - **Smart Slot Navigation**: Template insertion with `\square` placeholders and `⇥ Next Slot □` quick jumping.
+  - **Interactive Math Reference Guide**: `docs/notes/guia-ecuaciones-graficas.md` and `~/Documents/Affinite_Notes/Matematicas/guia-ecuaciones-graficas.md`.
+
+### 📱 Multi-Platform Releases & Tooling
+- **Linux AppImage**: Standalone executable `AFFiNITe-Math-linux-x86_64.AppImage` with bundled production dependencies in ASAR archive.
+- **Android APK**: Native Android app package `AFFiNITe-Math-android-debug.apk` built with Capacitor, OpenJDK 21, and 4GB Gradle heap.
+
 ## [v0.27.1] - 2026-08-10
 
 ### Bug Fixes & Improvements
