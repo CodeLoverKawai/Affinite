@@ -29,6 +29,7 @@
     "@types/lodash-es": "^4.17.12",
     "collapse-white-space": "^2.1.0",
     "date-fns": "^4.0.0",
+    "hast-util-from-html": "^2.0.3",
     "katex": "^0.16.27",
     "lit": "^3.2.0",
     "lit-html": "^3.2.1",
