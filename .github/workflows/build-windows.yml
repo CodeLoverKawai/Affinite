@@ -102,9 +102,11 @@ jobs:
       - name: Package Electron Application
         env:
           SKIP_WEB_BUILD: '1'
+          SKIP_GENERATE_ASSETS: '1'
         run: |
           $env:BUILD_TYPE = "${{ github.event.inputs.build_type || 'stable' }}"
           $env:SKIP_WEB_BUILD = "1"
+          $env:SKIP_GENERATE_ASSETS = "1"
           $env:HOIST_NODE_MODULES = "1"
           yarn affine @affine/electron package
         shell: pwsh

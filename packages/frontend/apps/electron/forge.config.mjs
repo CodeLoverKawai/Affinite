@@ -253,6 +253,7 @@ console.log('makers', makers);
 export default {
   buildIdentifier: buildType,
   packagerConfig: {
+    prune: false,
     name: productName,
     appBundleId: fromBuildIdentifier(appIdMap),
     icon: icnsPath,
@@ -302,7 +303,9 @@ export default {
           .catch(done);
       },
     ],
-    asar: true,
+    asar: {
+      unpack: '*.node',
+    },
     extendInfo: {
       NSAudioCaptureUsageDescription:
         'Please allow access in order to capture audio from other apps by AFFiNE.',
@@ -310,7 +313,6 @@ export default {
   },
   makers,
   plugins: [
-    { name: '@electron-forge/plugin-auto-unpack-natives', config: {} },
     new FusesPlugin({
       version: FuseVersion.V1,
       [FuseV1Options.RunAsNode]: false,
