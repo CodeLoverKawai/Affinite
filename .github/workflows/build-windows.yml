@@ -39,11 +39,13 @@ jobs:
       HOIST_NODE_MODULES: '1'
       SKIP_WEB_BUILD: '0'
       NODE_OPTIONS: '--max-old-space-size=8192'
+      YARN_ENABLE_IMMUTABLE_INSTALLS: 'false'
+      HUSKY: '0'
 
     steps:
       - name: Enable Git Symlinks for Windows
         run: git config --global core.symlinks true
-        shell: bash
+        shell: pwsh
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -60,7 +62,7 @@ jobs:
         run: |
           corepack enable
           corepack prepare yarn@4.12.0 --activate
-        shell: bash
+        shell: pwsh
 
       - name: Setup Rust Toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -74,65 +76,73 @@ jobs:
             . -> target
 
       - name: Install Monorepo Dependencies
-        run: yarn install
-        shell: bash
+        run: yarn install --no-immutable
+        shell: pwsh
 
       - name: Build Native Rust Bindings (@affine/native)
         run: yarn affine @affine/native build
-        shell: bash
+        shell: pwsh
 
       - name: Build Web Renderer and Electron Layer
         run: |
+          $env:BUILD_TYPE = "${{ github.event.inputs.build_type || 'stable' }}"
+          $env:DISTRIBUTION = "desktop"
           yarn affine @affine/electron build
           yarn affine @affine/electron generate-assets
-        shell: bash
+        shell: pwsh
 
       - name: Reconfigure Yarn Hoisting for Electron Packaging
         run: |
           yarn config set nmMode classic
           yarn config set nmHoistingLimits workspaces
-          Get-ChildItem -Path . -Filter node_modules -Recurse -Directory | Remove-Item -Recurse -Force
-          yarn install
-        shell: powershell
+          Get-ChildItem -Path . -Filter node_modules -Recurse -Directory | ForEach-Object { Remove-Item -Recurse -Force $_.FullName -ErrorAction SilentlyContinue }
+          yarn install --no-immutable
+        shell: pwsh
 
       - name: Package Electron Application
         env:
           SKIP_WEB_BUILD: '1'
-        run: yarn affine @affine/electron package
-        shell: bash
+        run: |
+          $env:BUILD_TYPE = "${{ github.event.inputs.build_type || 'stable' }}"
+          $env:SKIP_WEB_BUILD = "1"
+          $env:HOIST_NODE_MODULES = "1"
+          yarn affine @affine/electron package
+        shell: pwsh
 
       - name: Build NSIS Installer (.exe)
         env:
           SKIP_WEB_BUILD: '1'
-        run: yarn affine @affine/electron make-nsis
-        shell: bash
+        run: |
+          $env:BUILD_TYPE = "${{ github.event.inputs.build_type || 'stable' }}"
+          $env:SKIP_WEB_BUILD = "1"
+          yarn affine @affine/electron make-nsis
+        shell: pwsh
 
       - name: Build Squirrel Installer (Setup.exe & RELEASES)
         env:
           SKIP_WEB_BUILD: '1'
-        run: yarn affine @affine/electron make-squirrel
-        shell: bash
+        run: |
+          $env:BUILD_TYPE = "${{ github.event.inputs.build_type || 'stable' }}"
+          $env:SKIP_WEB_BUILD = "1"
+          yarn affine @affine/electron make-squirrel
+        shell: pwsh
 
       - name: Build Portable ZIP Package
         env:
           SKIP_WEB_BUILD: '1'
-        run: yarn affine @affine/electron make
-        shell: bash
+        run: |
+          $env:BUILD_TYPE = "${{ github.event.inputs.build_type || 'stable' }}"
+          $env:SKIP_WEB_BUILD = "1"
+          yarn affine @affine/electron make
+        shell: pwsh
 
       - name: Collect Windows Output Artifacts
         id: collect-artifacts
         run: |
-          mkdir -p dist-windows
-          # Copy NSIS installer
-          find packages/frontend/apps/electron/out -type f -name "*Setup*.exe" -exec cp {} dist-windows/ \; 2>/dev/null || true
-          # Copy Squirrel installer & RELEASES
-          find packages/frontend/apps/electron/out -type f -name "*.nupkg" -exec cp {} dist-windows/ \; 2>/dev/null || true
-          find packages/frontend/apps/electron/out -type f -name "RELEASES" -exec cp {} dist-windows/ \; 2>/dev/null || true
-          find packages/frontend/apps/electron/out -type f -name "*.msi" -exec cp {} dist-windows/ \; 2>/dev/null || true
-          # Copy Portable ZIP
-          find packages/frontend/apps/electron/out -type f -name "*.zip" -exec cp {} dist-windows/ \; 2>/dev/null || true
-          ls -la dist-windows/
-        shell: bash
+          New-Item -ItemType Directory -Force -Path dist-windows
+          Get-ChildItem -Path packages/frontend/apps/electron/out -Recurse -File -Include "*.exe","*.nupkg","*.zip","RELEASES","*.msi" | Copy-Item -Destination dist-windows/
+          Get-ChildItem -Path dist-windows
+        shell: pwsh
 
       - name: Upload Windows Installers as Workflow Artifacts
         uses: actions/upload-artifact@v4
