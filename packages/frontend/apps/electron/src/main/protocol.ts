@@ -268,18 +268,20 @@ export function registerProtocol() {
     }
   );
 
-  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
-    const url = new URL(details.url);
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    { urls: ['http://*/*', 'https://*/*', 'ws://*/*', 'wss://*/*'] },
+    (details, callback) => {
+      const url = new URL(details.url);
 
-    (async () => {
-      // session cookies are set to assets:// on production
-      // if sending request to the cloud, attach the session cookie (to affine cloud server)
-      if (
-        url.protocol === 'http:' ||
-        url.protocol === 'https:' ||
-        url.protocol === 'ws:' ||
-        url.protocol === 'wss:'
-      ) {
+      (async () => {
+        // session cookies are set to assets:// on production
+        // if sending request to the cloud, attach the session cookie (to affine cloud server)
+        if (
+          url.protocol === 'http:' ||
+          url.protocol === 'https:' ||
+          url.protocol === 'ws:' ||
+          url.protocol === 'wss:'
+        ) {
         const cookies = await session.defaultSession.cookies.get({
           url: details.url,
         });

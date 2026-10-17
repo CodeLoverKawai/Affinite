@@ -3,7 +3,7 @@ import { WindowsAppControls } from '@affine/core/components/pure/header/windows-
 import { ThemeProvider } from '@affine/core/components/theme-provider';
 import { configureElectronStateStorageImpls } from '@affine/core/desktop/storage';
 import { configureAppSidebarModule } from '@affine/core/modules/app-sidebar';
-import { ShellAppSidebarFallback } from '@affine/core/modules/app-sidebar/views';
+import { ShellAppSidebarFallback } from '@affine/core/modules/app-sidebar/views/shell-fallback';
 import {
   AppTabsHeader,
   configureAppTabsHeaderModule,

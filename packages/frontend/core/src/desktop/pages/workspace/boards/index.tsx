@@ -109,33 +109,43 @@ const LABELS = [
 const BoardCardItem = ({ doc, index, onClick }: { doc: DocRecord; index: number; onClick: () => void }) => {
   const docsService = useService(DocsService);
   const title = useLiveData(doc.title$);
-  const [boardBg, setBoardBg] = useState<string>('');
+  const properties = useLiveData(doc.properties$);
+  const cachedBg = properties['custom:boardBackground'] || '';
+  const [boardBg, setBoardBg] = useState<string>(cachedBg);
 
   useEffect(() => {
-    const { doc: openedDoc, release } = docsService.open(doc.id);
-    const yMap = openedDoc.yDoc.getMap('board_data');
-
-    const updateBg = () => {
-      const bg = yMap.get('background') as string;
-      if (bg) {
-        setBoardBg(bg);
+    if (cachedBg) {
+      setBoardBg(cachedBg);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      const { doc: openedDoc, release } = docsService.open(doc.id);
+      try {
+        const yMap = openedDoc.yDoc.getMap('board_data');
+        const bg = yMap.get('background') as string | undefined;
+        if (bg && !cancelled) {
+          setBoardBg(bg);
+          doc.setCustomProperty('boardBackground', bg);
+        }
+      } finally {
+        release();
       }
-    };
-
-    updateBg();
-    yMap.observeDeep(updateBg);
+    }, Math.min(index * 40, 400));
 
     return () => {
-      yMap.unobserveDeep(updateBg);
-      release();
+      cancelled = true;
+      window.clearTimeout(timer);
     };
-  }, [doc.id, docsService]);
+  }, [cachedBg, doc, index, docsService]);
 
   const defaultGradient = BOARD_GRADIENTS[index % BOARD_GRADIENTS.length];
-  const isImage = boardBg && (boardBg.startsWith('http') || boardBg.startsWith('data:'));
+  const resolvedBg = cachedBg || boardBg;
+  const isImage = resolvedBg && (resolvedBg.startsWith('http') || resolvedBg.startsWith('data:'));
   const backgroundStyle = isImage
-    ? `url("${boardBg}") center/cover no-repeat`
-    : (boardBg || defaultGradient);
+    ? `url("${resolvedBg}") center/cover no-repeat`
+    : (resolvedBg || defaultGradient);
 
   return (
     <div
@@ -317,9 +327,9 @@ export const Component = () => {
         width: 100%;
         padding: 0 20px;
         height: 54px;
-        background: rgba(15, 17, 21, 0.65);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
+        background: rgba(15, 17, 21, 0.82);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
         gap: 16px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         z-index: 10;
@@ -399,9 +409,9 @@ export const Component = () => {
         min-width: 280px;
         max-width: 280px;
         flex-shrink: 0;
-        background: rgba(22, 26, 34, 0.75);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
+        background: rgba(22, 26, 34, 0.88);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
         border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 12px;
         display: flex;
@@ -485,8 +495,7 @@ export const Component = () => {
         border-radius: 3px;
       }
       .affinite-board-card {
-        background: rgba(33, 38, 48, 0.85);
-        backdrop-filter: blur(8px);
+        background: rgba(33, 38, 48, 0.92);
         border: 1px solid rgba(255, 255, 255, 0.06);
         border-radius: 8px;
         padding: 10px 12px;
@@ -579,8 +588,8 @@ export const Component = () => {
         color: #f1f5f9;
       }
       .affinite-add-column-btn {
-        background: rgba(22, 26, 34, 0.6);
-        backdrop-filter: blur(12px);
+        background: rgba(22, 26, 34, 0.78);
+        backdrop-filter: blur(8px);
         border: 1px dashed rgba(255, 255, 255, 0.15);
         color: #f1f5f9;
         width: 280px;
@@ -835,9 +844,9 @@ export const Component = () => {
         top: 60px;
         right: 20px;
         width: 280px;
-        background: rgba(20, 24, 33, 0.95);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
+        background: rgba(20, 24, 33, 0.96);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
         border-radius: 12px;
         box-shadow: 0 16px 36px rgba(0,0,0,0.5);
         border: 1px solid rgba(255, 255, 255, 0.12);
@@ -1109,6 +1118,9 @@ const BoardDetail = ({ boardId, onClose }: { boardId: string; onClose: () => voi
       if (bgValue !== undefined) yMap.set('background', bgValue);
       if (overlayVal !== undefined) yMap.set('backgroundOverlay', overlayVal);
     });
+    if (bgValue !== undefined) {
+      docRef.current.record.setCustomProperty('boardBackground', bgValue);
+    }
   };
 
   const handleSaveTitle = () => {

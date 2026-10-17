@@ -1,6 +1,5 @@
 import { join } from 'node:path';
 
-import { I18n } from '@affine/i18n';
 import {
   app,
   BrowserWindow,
@@ -899,19 +898,16 @@ export class WebContentViewsManager {
       const menu = Menu.buildFromTemplate([
         {
           id: 'cut',
-          label: I18n['com.affine.context-menu.cut'](),
           role: 'cut',
           enabled: params.editFlags.canCut,
         },
         {
           id: 'copy',
-          label: I18n['com.affine.context-menu.copy'](),
           role: 'copy',
           enabled: params.editFlags.canCopy,
         },
         {
           id: 'paste',
-          label: I18n['com.affine.context-menu.paste'](),
           role: 'paste',
           enabled: params.editFlags.canPaste,
         },

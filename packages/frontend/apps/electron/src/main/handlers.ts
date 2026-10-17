@@ -1,4 +1,3 @@
-import { I18n } from '@affine/i18n';
 import { ipcMain } from 'electron';
 
 import { AFFINE_API_CHANNEL_NAME } from '../shared/type';
@@ -22,9 +21,12 @@ export const debugHandlers = {
   },
 };
 
+let currentLanguage = 'en';
+
 export const i18nHandlers = {
   changeLanguage: async (_: Electron.IpcMainInvokeEvent, language: string) => {
-    return I18n.changeLanguage(language);
+    currentLanguage = language;
+    return currentLanguage;
   },
 };
 

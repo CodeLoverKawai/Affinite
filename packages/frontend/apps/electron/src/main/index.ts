@@ -48,11 +48,29 @@ app.commandLine.appendSwitch('disable-blink-features', 'Autofill');
 // `DocumentPolicyIncludeJSCallStacksInCrashReports` - https://www.electronjs.org/docs/latest/api/web-frame-main#framecollectjavascriptcallstack-experimental
 // `EarlyEstablishGpuChannel` - Refs https://issues.chromium.org/issues/40208065
 // `EstablishGpuChannelAsync` - Refs https://issues.chromium.org/issues/40208065
-const enabledFeatures = [
+const enabledFeaturesList = [
   'DocumentPolicyIncludeJSCallStacksInCrashReports',
   'EarlyEstablishGpuChannel',
   'EstablishGpuChannelAsync',
-].join(',');
+];
+if (process.platform === 'linux') {
+  if (
+    !app.commandLine.hasSwitch('ozone-platform-hint') &&
+    !app.commandLine.hasSwitch('ozone-platform')
+  ) {
+    app.commandLine.appendSwitch(
+      'ozone-platform-hint',
+      process.env.ELECTRON_OZONE_PLATFORM_HINT || 'auto'
+    );
+  }
+  enabledFeaturesList.push(
+    'UseOzonePlatform',
+    'WaylandWindowDecorations',
+    'VaapiVideoDecodeLinuxGL',
+    'CanvasOopRasterization'
+  );
+}
+const enabledFeatures = enabledFeaturesList.join(',');
 app.commandLine.appendSwitch('enable-features', enabledFeatures);
 const enabledBlinkFeatures = ['CSSTextAutoSpace', 'WebCodecs'].join(',');
 app.commandLine.appendSwitch('enable-blink-features', enabledBlinkFeatures);

@@ -62,6 +62,8 @@ export function createHTMLTargetConfig(
   );
 
   const buildConfig = getBuildConfigFromEnv(pkg);
+  const enableSourceMap =
+    buildConfig.debug || Boolean(process.env.SENTRY_AUTH_TOKEN);
 
   console.log(
     `Building [${pkg.name}] for [${buildConfig.appBuildType}] channel in [${buildConfig.debug ? 'development' : 'production'}] mode.`
@@ -101,7 +103,11 @@ export function createHTMLTargetConfig(
     },
     target: ['web', 'es2022'],
     mode: buildConfig.debug ? 'development' : 'production',
-    devtool: buildConfig.debug ? 'cheap-module-source-map' : 'source-map',
+    devtool: enableSourceMap
+      ? buildConfig.debug
+        ? 'cheap-module-source-map'
+        : 'source-map'
+      : false,
     resolve: {
       symlinks: true,
       extensionAlias: {
@@ -166,8 +172,8 @@ export function createHTMLTargetConfig(
                     decoratorVersion: '2022-03',
                   },
                 },
-                sourceMaps: true,
-                inlineSourcesContent: true,
+                sourceMaps: enableSourceMap,
+                inlineSourcesContent: enableSourceMap,
               },
             },
             {
@@ -193,8 +199,8 @@ export function createHTMLTargetConfig(
                     decoratorVersion: '2022-03',
                   },
                 },
-                sourceMaps: true,
-                inlineSourcesContent: true,
+                sourceMaps: enableSourceMap,
+                inlineSourcesContent: enableSourceMap,
               },
             },
             {
@@ -300,6 +306,7 @@ export function createHTMLTargetConfig(
       // replace # sourceMappingURL=76-6370cd185962bc89.js.map
       // to      # sourceMappingURL=assets://./{dir}/76-6370cd185962bc89.js.map
       buildConfig.isElectron &&
+        enableSourceMap &&
         new webpack.SourceMapDevToolPlugin({
           append: pathData => {
             return `\n//# sourceMappingURL=assets://./${pathData.filename}.map`;

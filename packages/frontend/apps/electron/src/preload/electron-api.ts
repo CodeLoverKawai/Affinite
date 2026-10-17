@@ -5,7 +5,6 @@ import type { EventBasedChannel } from 'async-call-rpc';
 import { AsyncCall } from 'async-call-rpc';
 import { ipcRenderer } from 'electron';
 import { Subject } from 'rxjs';
-import { z } from 'zod';
 
 import {
   AFFINE_API_CHANNEL_NAME,
@@ -23,10 +22,18 @@ type Schema =
   | 'affine-internal'
   | 'affine-dev';
 
-// todo: remove duplicated codes
-const ReleaseTypeSchema = z.enum(['stable', 'beta', 'canary', 'internal']);
+type ReleaseType = 'stable' | 'beta' | 'canary' | 'internal';
+const RELEASE_TYPES = new Set<ReleaseType>([
+  'stable',
+  'beta',
+  'canary',
+  'internal',
+]);
 const envBuildType = (process.env.BUILD_TYPE || 'canary').trim().toLowerCase();
-const buildType = ReleaseTypeSchema.parse(envBuildType);
+if (!RELEASE_TYPES.has(envBuildType as ReleaseType)) {
+  throw new Error(`Invalid BUILD_TYPE: ${envBuildType}`);
+}
+const buildType = envBuildType as ReleaseType;
 const isDev = process.env.NODE_ENV === 'development';
 let scheme =
   buildType === 'stable' ? 'affine' : (`affine-${envBuildType}` as Schema);

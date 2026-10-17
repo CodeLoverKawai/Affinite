@@ -13,7 +13,8 @@ export const rootDir = resolve(electronDir, '..', '..', '..', '..');
 export const NODE_MAJOR_VERSION = 22;
 
 export const mode = (process.env.NODE_ENV =
-  process.env.NODE_ENV || 'development');
+  process.env.NODE_ENV ||
+  (process.env.DEV_SERVER_URL ? 'development' : 'production'));
 
 export const config = (): BuildOptions => {
   const define = {
@@ -89,6 +90,14 @@ export const config = (): BuildOptions => {
     platform: 'node',
     external: ['electron', 'electron-updater', 'yjs', 'semver'],
     format: 'cjs',
+    mainFields: ['module', 'main'],
+    alias: {
+      rxjs: resolve(rootDir, 'node_modules/rxjs/dist/esm/index.js'),
+      'rxjs/operators': resolve(
+        rootDir,
+        'node_modules/rxjs/dist/esm/operators/index.js'
+      ),
+    },
     loader: {
       '.node': 'copy',
     },
@@ -105,7 +114,8 @@ export const config = (): BuildOptions => {
     ),
     assetNames: '[name]',
     treeShaking: true,
-    sourcemap: 'linked',
+    minify: mode === 'production',
+    sourcemap: mode === 'development' ? 'linked' : false,
     plugins,
   };
 };

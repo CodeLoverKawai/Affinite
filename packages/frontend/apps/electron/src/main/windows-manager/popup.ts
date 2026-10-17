@@ -127,18 +127,25 @@ abstract class PopupWindow {
 
     this.showing$.next(true);
 
-    browserWindow.showInactive(); // focus the notification is too distracting right?
-    browserWindow.setOpacity(0);
-
     // Calculate start and end positions for x coordinate
     const startX = workArea.x + workArea.width + popupSize[0] + POPUP_PADDING;
     const endX = workArea.x + workArea.width - popupSize[0] - POPUP_PADDING;
     const y = workArea.y + POPUP_PADDING;
 
+    logger.info('showing popup', this.name);
+
+    if (process.platform === 'linux') {
+      browserWindow.setPosition(endX, y);
+      browserWindow.setOpacity(1);
+      browserWindow.showInactive();
+      return;
+    }
+
+    browserWindow.showInactive(); // focus the notification is too distracting right?
+    browserWindow.setOpacity(0);
+
     // Set initial position
     browserWindow.setPosition(startX, y);
-
-    logger.info('showing popup', this.name);
 
     // First fade in, then slide
     await Promise.all([
@@ -170,6 +177,10 @@ abstract class PopupWindow {
     }
     logger.info('hiding popup', this.name);
     this.showing$.next(false);
+    if (process.platform === 'linux') {
+      this.browserWindow?.hide();
+      return;
+    }
     await animate(this.browserWindow.getOpacity(), 0, opacity => {
       this.browserWindow?.setOpacity(opacity);
     });

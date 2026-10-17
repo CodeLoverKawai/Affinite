@@ -94,6 +94,7 @@ export const productionCacheGroups = {
   },
   vendor: {
     name: 'vendor',
+    chunks: (chunk: any) => chunk.name === 'app',
     test: /[\\/]node_modules[\\/]/,
     priority: 190,
     enforce: true,
