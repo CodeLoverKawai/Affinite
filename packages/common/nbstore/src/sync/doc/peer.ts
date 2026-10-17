@@ -529,17 +529,45 @@ export class DocSyncPeer {
   };
 
   async mainLoop(signal?: AbortSignal) {
+    let consecutiveErrors = 0;
     while (true) {
       try {
         await this.retryLoop(signal);
+        consecutiveErrors = 0;
       } catch (err) {
         if (signal?.aborted) {
           return;
         }
-        console.warn('Sync error, retry in 5s', err);
+        consecutiveErrors++;
         this.status.errorMessage =
           err instanceof Error ? err.message : `${err}`;
         this.statusUpdatedSubject$.next(true);
+
+        const isOffline =
+          typeof navigator !== 'undefined' && navigator.onLine === false;
+        if (
+          isOffline ||
+          this.remote.connection.status === 'error' ||
+          consecutiveErrors >= 3
+        ) {
+          console.warn(
+            `Sync paused after ${consecutiveErrors} error(s) (offline=${isOffline}, remoteStatus=${this.remote.connection.status}), waiting for connection...`,
+            err
+          );
+          if (this.remote.connection.status !== 'connected') {
+            try {
+              await this.remote.connection.waitForConnected(signal);
+              consecutiveErrors = 0;
+              continue;
+            } catch {
+              if (signal?.aborted) {
+                return;
+              }
+            }
+          }
+        } else {
+          console.warn('Sync error, retry in 5s', err);
+        }
       } finally {
         // reset all status
         this.status = {
@@ -557,10 +585,14 @@ export class DocSyncPeer {
         };
         this.statusUpdatedSubject$.next(true);
       }
-      // wait for 5s before next retry
+      const retryDelay =
+        consecutiveErrors >= 3
+          ? Math.min(5000 * Math.pow(2, consecutiveErrors - 2), 60_000)
+          : 5000;
+      // wait before next retry
       await Promise.race([
         new Promise<void>(resolve => {
-          setTimeout(resolve, 5000);
+          setTimeout(resolve, retryDelay);
         }),
         new Promise((_, reject) => {
           // exit if manually stopped
@@ -599,23 +631,11 @@ export class DocSyncPeer {
     const disposes: (() => void)[] = [];
 
     try {
-      // wait for all storages to connect, timeout after 30s
-      await Promise.race([
-        Promise.all([
-          this.local.connection.waitForConnected(signal),
-          this.remote.connection.waitForConnected(signal),
-          this.syncMetadata.connection.waitForConnected(signal),
-        ]),
-        new Promise<void>((_, reject) => {
-          setTimeout(() => {
-            reject(new Error('Connect to remote timeout'));
-          }, 1000 * 30);
-        }),
-        new Promise((_, reject) => {
-          signal?.addEventListener('abort', reason => {
-            reject(reason);
-          });
-        }),
+      // wait for all storages to connect
+      await Promise.all([
+        this.local.connection.waitForConnected(signal),
+        this.remote.connection.waitForConnected(signal),
+        this.syncMetadata.connection.waitForConnected(signal),
       ]);
 
       console.info('Remote sync started');
@@ -626,8 +646,10 @@ export class DocSyncPeer {
       for (const storage of [this.remote, this.local, this.syncMetadata]) {
         // abort if disconnected
         disposes.push(
-          storage.connection.onStatusChanged((_status, error) => {
-            abort.abort('Storage disconnected:' + error);
+          storage.connection.onStatusChanged((status, error) => {
+            if (status !== 'connected') {
+              abort.abort('Storage disconnected:' + error);
+            }
           })
         );
       }

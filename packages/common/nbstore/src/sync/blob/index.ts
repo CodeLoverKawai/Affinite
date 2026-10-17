@@ -167,7 +167,7 @@ export class BlobSyncImpl implements BlobSync {
     ).then(() => true as const);
   }
 
-  // start the upload loop
+  // start the upload and download loops
   start() {
     if (this.started) {
       return;
@@ -175,12 +175,15 @@ export class BlobSyncImpl implements BlobSync {
     this.started = true;
 
     const signal = this.abortController.signal;
-    Promise.allSettled(this.peers.map(p => p.fullUploadLoop(signal))).catch(
-      err => {
-        // should never reach here
-        console.error(err);
-      }
-    );
+    Promise.allSettled(
+      this.peers.flatMap(p => [
+        p.fullUploadLoop(signal),
+        p.fullDownloadLoop(signal),
+      ])
+    ).catch(err => {
+      // should never reach here
+      console.error(err);
+    });
   }
 
   // download all blobs from a peer

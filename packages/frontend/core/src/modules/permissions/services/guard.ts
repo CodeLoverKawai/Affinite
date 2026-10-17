@@ -143,7 +143,8 @@ export class GuardService extends Service {
     exhaustMapWithTrailing(() =>
       fromPromise(() => this.guardStore.getWorkspacePermissions()).pipe(
         backoffRetry({
-          count: Infinity,
+          count: 2,
+          when: () => typeof navigator === 'undefined' || navigator.onLine,
         })
       )
     )
@@ -156,7 +157,8 @@ export class GuardService extends Service {
         exhaustMap((docId: string) =>
           fromPromise(() => this.loadDocPermission(docId)).pipe(
             backoffRetry({
-              count: Infinity,
+              count: 2,
+              when: () => typeof navigator === 'undefined' || navigator.onLine,
             })
           )
         )

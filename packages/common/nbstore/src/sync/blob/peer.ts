@@ -212,21 +212,106 @@ export class BlobSyncPeer {
     return promise;
   }
 
-  async fullUploadLoop(signal?: AbortSignal) {
-    while (true) {
-      try {
-        await this.fullUpload(signal);
-      } catch (err) {
-        if (signal?.aborted) {
-          return;
-        }
-        // should never reach here
-        console.warn('Blob full upload error, retry in 15s', err);
+  private waitForOnlineOrDelay(delayMs: number, signal?: AbortSignal) {
+    return new Promise<void>(resolve => {
+      if (signal?.aborted) {
+        resolve();
+        return;
       }
-      // wait for 15s before next loop
-      await new Promise<void>(resolve => {
-        setTimeout(resolve, 15000);
-      });
+      const cleanup = () => {
+        clearTimeout(timer);
+        if (typeof globalThis.removeEventListener === 'function') {
+          globalThis.removeEventListener('online', onOnline);
+        }
+        signal?.removeEventListener('abort', onAbort);
+      };
+      const onOnline = () => {
+        cleanup();
+        resolve();
+      };
+      const onAbort = () => {
+        cleanup();
+        resolve();
+      };
+      const timer = setTimeout(() => {
+        cleanup();
+        resolve();
+      }, delayMs);
+      if (typeof globalThis.addEventListener === 'function') {
+        globalThis.addEventListener('online', onOnline, { once: true });
+      }
+      signal?.addEventListener('abort', onAbort, { once: true });
+    });
+  }
+
+  async fullUploadLoop(signal?: AbortSignal) {
+    let consecutiveErrors = 0;
+    while (true) {
+      if (signal?.aborted) {
+        return;
+      }
+      const isOffline =
+        typeof navigator !== 'undefined' && navigator.onLine === false;
+      if (!isOffline) {
+        try {
+          await this.fullUpload(signal);
+          consecutiveErrors = 0;
+        } catch (err) {
+          if (signal?.aborted) {
+            return;
+          }
+          consecutiveErrors++;
+          console.warn(
+            `Blob full upload error (attempt ${consecutiveErrors}), backing off`,
+            err
+          );
+        }
+      }
+
+      const offlineNow =
+        typeof navigator !== 'undefined' && navigator.onLine === false;
+      const delay =
+        offlineNow || consecutiveErrors >= 3
+          ? 300_000
+          : 15_000 * Math.pow(2, consecutiveErrors);
+      await this.waitForOnlineOrDelay(delay, signal);
+      if (signal?.aborted) {
+        return;
+      }
+    }
+  }
+
+  async fullDownloadLoop(signal?: AbortSignal) {
+    let consecutiveErrors = 0;
+    while (true) {
+      if (signal?.aborted) {
+        return;
+      }
+      const isOffline =
+        typeof navigator !== 'undefined' && navigator.onLine === false;
+      if (!isOffline) {
+        try {
+          await this.fullDownload(signal);
+          consecutiveErrors = 0;
+        } catch (err) {
+          if (signal?.aborted) {
+            return;
+          }
+          consecutiveErrors++;
+          console.warn(
+            `Blob full download error (attempt ${consecutiveErrors}), backing off`,
+            err
+          );
+        }
+      }
+
+      const offlineNow =
+        typeof navigator !== 'undefined' && navigator.onLine === false;
+      const delay =
+        offlineNow || consecutiveErrors >= 3
+          ? 300_000
+          : 60_000 * Math.pow(2, consecutiveErrors);
+      await this.waitForOnlineOrDelay(delay, signal);
       if (signal?.aborted) {
         return;
       }
@@ -273,6 +358,9 @@ export class BlobSyncPeer {
       this.status.blobWillUpload(blobKey);
     }
 
+    let lastError: unknown = null;
+    let successCount = 0;
+
     try {
       if (needUpload.length <= 3) {
         // if there is only few blobs to upload, upload them one by one
@@ -284,11 +372,12 @@ export class BlobSyncPeer {
           if (data) {
             try {
               await this.uploadBlob(data, false, signal);
+              successCount++;
             } catch (err) {
               if (err === MANUALLY_STOP) {
                 throw err;
               }
-              // ignore the error as it has already been recorded in the sync status
+              lastError = err;
             }
           }
         }
@@ -307,6 +396,7 @@ export class BlobSyncPeer {
 
             // mark the blob as uploaded
             this.status.blobUploadFinish(blobKey);
+            successCount++;
             continue;
           }
 
@@ -320,14 +410,18 @@ export class BlobSyncPeer {
           if (data) {
             try {
               await this.uploadBlob(data, false, signal);
+              successCount++;
             } catch (err) {
               if (err === MANUALLY_STOP) {
                 throw err;
               }
-              // ignore the error as it has already been recorded in the sync status
+              lastError = err;
             }
           }
         }
+      }
+      if (lastError && successCount === 0) {
+        throw lastError;
       }
     } finally {
       // remove all will upload flags

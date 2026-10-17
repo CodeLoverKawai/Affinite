@@ -76,7 +76,8 @@ export class AuthSession extends Entity {
     exhaustMapWithTrailing(() =>
       fromPromise(() => this.getSession()).pipe(
         backoffRetry({
-          count: Infinity,
+          count: 2,
+          when: () => typeof navigator === 'undefined' || navigator.onLine,
         }),
         tap(sessionInfo => {
           if (!isEqual(this.store.getCachedAuthSession(), sessionInfo)) {

@@ -56,7 +56,8 @@ export class WorkspacePermission extends Entity {
         }
       }).pipe(
         backoffRetry({
-          count: Infinity,
+          count: 2,
+          when: () => typeof navigator === 'undefined' || navigator.onLine,
         }),
         tap(({ isOwner, isAdmin, isTeam }) => {
           this.store.setWorkspacePermissionCache({

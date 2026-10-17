@@ -31,10 +31,21 @@ export abstract class AutoReconnectConnection<
   private _status: ConnectionStatus = 'idle';
   private _error: Error | undefined = undefined;
   retryDelay = 3000;
+  maxRetries = 3;
+  private retryCount = 0;
   connectingTimeout = 15000;
   private refCount = 0;
   private connectingAbort?: AbortController;
   private reconnectingAbort?: AbortController;
+
+  private readonly handleOnline = () => {
+    if (this.refCount > 0 && this.status === 'error') {
+      this.retryCount = 0;
+      this.reconnectingAbort?.abort(MANUALLY_STOP);
+      this.reconnectingAbort = undefined;
+      this.innerConnect();
+    }
+  };
 
   constructor() {}
 
@@ -75,6 +86,9 @@ export abstract class AutoReconnectConnection<
   private setStatus(status: ConnectionStatus, error?: Error) {
     const shouldEmit = status !== this._status || error !== this._error;
     this._status = status;
+    if (status === 'connected') {
+      this.retryCount = 0;
+    }
     // we only clear-up error when status is connected
     if (error || status === 'connected') {
       this._error = error;
@@ -138,23 +152,38 @@ export abstract class AutoReconnectConnection<
   }
 
   private handleError(reason?: Error) {
-    // on error
-    console.error('connection error, will reconnect', reason);
     this.innerDisconnect();
     // if the connection is closed, do not reconnect
     if (this.status === 'closed') {
       return;
     }
     this.setStatus('error', reason);
-    // reconnect
+
+    const isOffline =
+      typeof navigator !== 'undefined' && navigator.onLine === false;
+    if (isOffline || this.retryCount >= this.maxRetries) {
+      console.warn(
+        `connection circuit-breaker tripped (offline=${isOffline}, retries=${this.retryCount}/${this.maxRetries}), pausing auto-reconnect`,
+        reason
+      );
+      return;
+    }
+
+    this.retryCount++;
+    const delay = this.retryDelay * Math.pow(2, this.retryCount - 1);
+    console.error(
+      `connection error, will reconnect (attempt ${this.retryCount}/${this.maxRetries} in ${delay}ms)`,
+      reason
+    );
 
     this.reconnectingAbort = new AbortController();
     const signal = this.reconnectingAbort.signal;
     const timeout = setTimeout(() => {
+      this.reconnectingAbort = undefined;
       if (!signal.aborted) {
         this.innerConnect();
       }
-    }, this.retryDelay);
+    }, delay);
     signal.addEventListener('abort', () => {
       clearTimeout(timeout);
     });
@@ -162,7 +191,14 @@ export abstract class AutoReconnectConnection<
 
   connect() {
     this.refCount++;
-    if (this.refCount === 1) {
+    this.retryCount = 0;
+    if (typeof globalThis.addEventListener === 'function') {
+      globalThis.addEventListener('online', this.handleOnline);
+    }
+    if (
+      this.refCount === 1 ||
+      (this.status === 'error' && !this.reconnectingAbort)
+    ) {
       this.innerConnect();
     }
   }
@@ -174,6 +210,10 @@ export abstract class AutoReconnectConnection<
       this.refCount = Math.max(this.refCount - 1, 0);
     }
     if (this.refCount === 0) {
+      if (typeof globalThis.removeEventListener === 'function') {
+        globalThis.removeEventListener('online', this.handleOnline);
+      }
+      this.retryCount = 0;
       this.innerDisconnect();
       this.setStatus('closed');
     }

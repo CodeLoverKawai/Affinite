@@ -75,7 +75,8 @@ export class Server extends Entity<{
         this.serverConfigStore.fetchServerConfig(this.baseUrl, signal)
       ).pipe(
         backoffRetry({
-          count: Infinity,
+          count: 2,
+          when: () => typeof navigator === 'undefined' || navigator.onLine,
         }),
         tap(config => {
           this.serverListStore.updateServerConfig(this.serverMetadata.id, {
