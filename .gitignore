@@ -95,6 +95,8 @@ storageState.json
 
 # Binaries & logs
 *.AppImage
+*.flatpak
+.flatpak-*
 *.apk
 /logs/
 

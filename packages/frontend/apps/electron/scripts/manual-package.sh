@@ -25,7 +25,16 @@ mkdir -p "${OUT_DIR}"
 # Step 2: Extract Electron binary using system unzip (bypasses Node extract-zip bug)
 echo "[2/6] Extracting Electron v39.2.7..."
 unzip -qo "${ELECTRON_ZIP}" -d "${OUT_DIR}"
-echo "  Electron extracted: $(du -sh "${OUT_DIR}" | cut -f1)"
+rm -f "${OUT_DIR}/LICENSES.chromium.html"
+if [ -d "${OUT_DIR}/locales" ]; then
+  find "${OUT_DIR}/locales" -maxdepth 1 -type f -name "*.pak" \
+    ! -name "en-US.pak" \
+    ! -name "en-GB.pak" \
+    ! -name "es.pak" \
+    ! -name "es-419.pak" \
+    -delete
+fi
+echo "  Electron extracted (trimmed): $(du -sh "${OUT_DIR}" | cut -f1)"
 
 # Step 3: Rename the electron binary to product name
 echo "[3/6] Renaming electron binary to ${PRODUCT_NAME}..."
@@ -38,6 +47,16 @@ echo "[4/6] Copying application files..."
 RESOURCES_APP="${OUT_DIR}/resources/app"
 mkdir -p "${RESOURCES_APP}"
 
+# Clean stale TypeScript build outputs before copying dist/
+rm -rf "${ELECTRON_DIR}/dist/main" \
+       "${ELECTRON_DIR}/dist/helper" \
+       "${ELECTRON_DIR}/dist/preload" \
+       "${ELECTRON_DIR}/dist/shared" \
+       "${ELECTRON_DIR}/dist/tsconfig.tsbuildinfo"
+if [ -d "${ELECTRON_DIR}/dist" ]; then
+  find "${ELECTRON_DIR}/dist" \( -name "*.map" -o -name "*.d.ts" -o -name "*.tsbuildinfo" \) -delete
+fi
+
 # Copy dist (compiled electron app code)
 if [ -d "${APP_DIR}/dist" ]; then
   cp -r "${APP_DIR}/dist" "${RESOURCES_APP}/"
@@ -47,12 +66,15 @@ fi
 # Copy package.json
 cp "${APP_DIR}/package.json" "${RESOURCES_APP}/"
 
-# Copy resources
+# Copy resources (strip source maps from web-static first)
+if [ -d "${APP_DIR}/resources/web-static" ]; then
+  find "${APP_DIR}/resources/web-static" -name "*.map" -delete
+fi
 if [ -d "${APP_DIR}/resources" ]; then
   cp -r "${APP_DIR}/resources" "${RESOURCES_APP}/"
 fi
 
-# Step 5: Copy node_modules (production runtime dependencies)
+# Step 5: Copy node_modules (external runtime dependencies only)
 echo "[5/6] Copying runtime node_modules..."
 TARGET_NODE_MODULES="${RESOURCES_APP}/node_modules"
 node -e '
@@ -61,7 +83,6 @@ const path = require("path");
 
 const rootNodeModules = path.resolve("./node_modules");
 const targetNodeModules = path.resolve(process.argv[1]);
-const electronPkg = require("./packages/frontend/apps/electron/package.json");
 const visited = new Set();
 
 function collectDeps(pkgName) {
@@ -79,13 +100,23 @@ function collectDeps(pkgName) {
   } catch (e) {}
 }
 
-for (const dep of Object.keys(electronPkg.dependencies || {})) {
+// Only copy external runtime dependencies required by dist/main.js
+const runtimeRootDeps = [
+  "electron-updater",
+  "yjs",
+  "semver",
+  "builder-util-runtime",
+  "lazy-val",
+  "tiny-typed-emitter",
+  "lodash.isequal",
+  "sax",
+  "js-yaml",
+  "argparse",
+  "lib0",
+];
+for (const dep of runtimeRootDeps) {
   collectDeps(dep);
 }
-collectDeps("semver");
-collectDeps("electron-updater");
-collectDeps("yjs");
-collectDeps("lib0");
 
 fs.mkdirSync(targetNodeModules, { recursive: true });
 
@@ -99,6 +130,9 @@ for (const pkg of visited) {
 console.log("Successfully copied", visited.size, "runtime dependencies to", targetNodeModules);
 ' "${TARGET_NODE_MODULES}"
 
+# Strip all *.map, *.d.ts, and *.tsbuildinfo files from resources/app
+find "${OUT_DIR}/resources/app" \( -name "*.map" -o -name "*.d.ts" -o -name "*.tsbuildinfo" \) -delete
+
 # Step 6: Copy extra resources
 echo "[6/6] Copying extra resources..."
 if [ -f "${APP_DIR}/resources/app-update.yml" ]; then
@@ -110,7 +144,6 @@ echo "=== Package complete ==="
 echo "Output: ${OUT_DIR}"
 echo "Size: $(du -sh "${OUT_DIR}" | cut -f1)"
 echo ""
-echo "To create AppImage, run:"
-echo "  npx @electron/asar pack ${RESOURCES_APP} ${OUT_DIR}/resources/app.asar"
+echo "To create ASAR archive, run:"
+echo "  npx @electron/asar pack ${RESOURCES_APP} ${OUT_DIR}/resources/app.asar --unpack \"*.node\""
 echo "  rm -rf ${RESOURCES_APP}"
-echo "  # Then use appimagetool"

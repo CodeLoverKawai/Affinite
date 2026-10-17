@@ -21,7 +21,6 @@ echo "=== Building AFFiNITe AppImage ($BUILD_TYPE) ==="
 
 # Step 1: Compile Electron app renderer and main assets
 echo "[1/5] Compiling Electron build assets..."
-BUILD_TYPE=$BUILD_TYPE PUBLIC_PATH="/" yarn affine @affine/electron build
 BUILD_TYPE=$BUILD_TYPE PUBLIC_PATH="/" yarn affine @affine/electron generate-assets
 
 # Step 2: Package using manual packager
@@ -48,7 +47,7 @@ else
   ICON_SRC="icon_stable_512x512.png"
 fi
 
-npx @electron/asar pack "${OUT_DIR}/resources/app" "${OUT_DIR}/resources/app.asar"
+npx @electron/asar pack "${OUT_DIR}/resources/app" "${OUT_DIR}/resources/app.asar" --unpack "*.node"
 rm -rf "${OUT_DIR}/resources/app"
 
 # Step 4: Rebuild AppDir
@@ -61,14 +60,16 @@ cp -r "${OUT_DIR}"/* "${APPDIR}/usr/lib/"
 cat > "${APPDIR}/usr/bin/${ICON_NAME}" << WRAPPER
 #!/bin/bash
 HERE="\$(dirname "\$(dirname "\$(readlink -f "\$0")")")"
-exec "\${HERE}/lib/${APP_BIN_NAME}" "\$@" --no-sandbox
+export ELECTRON_OZONE_PLATFORM_HINT="\${ELECTRON_OZONE_PLATFORM_HINT:-auto}"
+exec "\${HERE}/lib/${APP_BIN_NAME}" "\$@" --no-sandbox --ozone-platform-hint=auto --enable-features=UseOzonePlatform,WaylandWindowDecorations,VaapiVideoDecodeLinuxGL,CanvasOopRasterization
 WRAPPER
 chmod +x "${APPDIR}/usr/bin/${ICON_NAME}"
 
 cat > "${APPDIR}/AppRun" << APPRUN
 #!/bin/bash
 HERE="\$(dirname "\$(readlink -f "\$0")")"
-exec "\${HERE}/usr/bin/${ICON_NAME}" "\$@"
+export ELECTRON_OZONE_PLATFORM_HINT="\${ELECTRON_OZONE_PLATFORM_HINT:-auto}"
+exec "\${HERE}/usr/lib/${APP_BIN_NAME}" "\$@" --no-sandbox --ozone-platform-hint=auto --enable-features=UseOzonePlatform,WaylandWindowDecorations,VaapiVideoDecodeLinuxGL,CanvasOopRasterization
 APPRUN
 chmod +x "${APPDIR}/AppRun"
 
