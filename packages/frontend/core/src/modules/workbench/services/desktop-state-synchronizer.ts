@@ -1,6 +1,6 @@
 import { LiveData, Service } from '@toeverything/infra';
 
-import type { DesktopApiService } from '../../desktop-api';
+import type { DesktopApiService, TabViewsMetaSchema } from '../../desktop-api';
 import type { PeekViewService } from '../../peek-view';
 import type { WorkbenchService } from '../../workbench';
 
@@ -25,21 +25,120 @@ export class DesktopStateSynchronizer extends Service {
     const workbench = this.workbenchService.workbench;
     const appInfo = this.electronApi.appInfo;
 
+    const initialMeta =
+      this.electronApi.sharedStorage.globalState.get<TabViewsMetaSchema>(
+        'tabViewsMetaSchema'
+      );
+    let currentActiveTabId =
+      workbench.activeTabId$.value ??
+      initialMeta?.activeWorkbenchId ??
+      appInfo?.viewId;
+    let isSwitchingTab = false;
+    let knownTabIds = new Set<string>(
+      initialMeta?.workbenches?.map(w => w.id) ?? []
+    );
+
+    if (currentActiveTabId && !workbench.activeTabId$.value) {
+      const initialTab = initialMeta?.workbenches?.find(
+        w => w.id === currentActiveTabId
+      );
+      if (initialTab) {
+        isSwitchingTab = true;
+        try {
+          workbench.switchTab(currentActiveTabId, initialTab);
+        } finally {
+          isSwitchingTab = false;
+        }
+      }
+    }
+
+    const isTargetTab = (tabId?: string) =>
+      !tabId || tabId === currentActiveTabId || tabId === appInfo?.viewId;
+
+    const handleTabViewsMeta = (meta: TabViewsMetaSchema | undefined) => {
+      if (!meta?.workbenches?.length) {
+        return;
+      }
+
+      const nextIds = new Set(meta.workbenches.map(w => w.id));
+      for (const oldId of knownTabIds) {
+        if (!nextIds.has(oldId)) {
+          workbench.removeTab(oldId);
+        }
+      }
+      knownTabIds = nextIds;
+
+      const nextActiveTabId =
+        meta.activeWorkbenchId ?? meta.workbenches[0]?.id;
+      if (!nextActiveTabId || nextActiveTabId === currentActiveTabId) {
+        return;
+      }
+
+      const targetWorkbench = meta.workbenches.find(
+        w => w.id === nextActiveTabId
+      );
+      if (!targetWorkbench) {
+        return;
+      }
+
+      const prevBasename = workbench.basename$.value;
+      currentActiveTabId = nextActiveTabId;
+      isSwitchingTab = true;
+      try {
+        workbench.switchTab(nextActiveTabId, targetWorkbench);
+        if (
+          targetWorkbench.basename &&
+          targetWorkbench.basename !== prevBasename &&
+          typeof window !== 'undefined'
+        ) {
+          const activeViewMeta =
+            targetWorkbench.views[targetWorkbench.activeViewIndex] ??
+            targetWorkbench.views[0];
+          const nextPath =
+            targetWorkbench.basename +
+            (activeViewMeta?.path?.pathname ?? '/all') +
+            (activeViewMeta?.path?.search ?? '') +
+            (activeViewMeta?.path?.hash ?? '');
+          if (window.location.pathname !== nextPath) {
+            window.history.replaceState(null, '', nextPath);
+            window.dispatchEvent(new PopStateEvent('popstate'));
+          }
+        }
+      } finally {
+        isSwitchingTab = false;
+      }
+    };
+
+    this.disposables.push(
+      this.electronApi.sharedStorage.globalState.watch<TabViewsMetaSchema>(
+        'tabViewsMetaSchema',
+        handleTabViewsMeta
+      ),
+      this.electronApi.events.ui.onTabViewsMetaChanged(handleTabViewsMeta)
+    );
+
     this.disposables.push(
       this.electronApi.events.ui.onTabAction(event => {
         if (
           event.type === 'open-in-split-view' &&
-          event.payload.tabId === appInfo?.viewId
+          isTargetTab(event.payload.tabId)
         ) {
-          workbench.openAll({
-            at: 'beside',
-            show: false,
-          });
+          if (event.payload.view?.path) {
+            workbench.open(event.payload.view.path, {
+              at: 'beside',
+              show: false,
+            });
+          } else {
+            workbench.openAll({
+              at: 'beside',
+              show: false,
+            });
+          }
         }
 
         if (
           event.type === 'separate-view' &&
-          event.payload.tabId === appInfo?.viewId
+          isTargetTab(event.payload.tabId)
         ) {
           const view = workbench.viewAt(event.payload.viewIndex);
           if (view) {
@@ -49,9 +148,13 @@ export class DesktopStateSynchronizer extends Service {
 
         if (
           event.type === 'activate-view' &&
-          event.payload.tabId === appInfo?.viewId
+          isTargetTab(event.payload.tabId)
         ) {
           workbench.active(event.payload.viewIndex);
+        }
+
+        if (event.type === 'close-tab' && event.payload) {
+          workbench.removeTab(event.payload);
         }
       })
     );
@@ -84,7 +187,7 @@ export class DesktopStateSynchronizer extends Service {
 
     this.disposables.push(
       this.electronApi.events.ui.onToggleRightSidebar(tabId => {
-        if (tabId === appInfo?.viewId) {
+        if (isTargetTab(tabId)) {
           workbench.setSidebarOpen(!workbench.sidebarOpen$.value);
         }
       })
@@ -92,11 +195,14 @@ export class DesktopStateSynchronizer extends Service {
 
     this.disposables.push(
       this.electronApi.events.ui.onTabGoToRequest(opts => {
-        if (opts.tabId === appInfo?.viewId) {
+        if (isTargetTab(opts.tabId)) {
           this.workbenchService.workbench.open(opts.to);
         }
       })
     );
+
+    const getTargetTabId = () =>
+      workbench.activeTabId$.value ?? currentActiveTabId ?? appInfo?.viewId;
 
     // sync workbench state with main process
     // also fill tab view meta with title & moduleName
@@ -115,12 +221,13 @@ export class DesktopStateSynchronizer extends Service {
         };
       });
     }).subscribe(views => {
-      if (!appInfo?.viewId) {
+      const targetTabId = getTargetTabId();
+      if (isSwitchingTab || !targetTabId) {
         return;
       }
 
       this.electronApi.handler.ui
-        .updateWorkbenchMeta(appInfo.viewId, {
+        .updateWorkbenchMeta(targetTabId, {
           views,
         })
         .catch(console.error);
@@ -128,12 +235,13 @@ export class DesktopStateSynchronizer extends Service {
 
     const activeViewIndexSub = workbench.activeViewIndex$.subscribe(
       activeViewIndex => {
-        if (!appInfo?.viewId) {
+        const targetTabId = getTargetTabId();
+        if (isSwitchingTab || !targetTabId) {
           return;
         }
 
         this.electronApi.handler.ui
-          .updateWorkbenchMeta(appInfo.viewId, {
+          .updateWorkbenchMeta(targetTabId, {
             activeViewIndex: activeViewIndex,
           })
           .catch(console.error);
@@ -141,12 +249,13 @@ export class DesktopStateSynchronizer extends Service {
     );
 
     const basenameSub = workbench.basename$.subscribe(basename => {
-      if (!appInfo?.viewId) {
+      const targetTabId = getTargetTabId();
+      if (isSwitchingTab || !targetTabId) {
         return;
       }
 
       this.electronApi.handler.ui
-        .updateWorkbenchMeta(appInfo.viewId, {
+        .updateWorkbenchMeta(targetTabId, {
           basename: basename,
         })
         .catch(console.error);

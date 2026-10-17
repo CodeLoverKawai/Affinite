@@ -145,6 +145,29 @@ export class WebContentViewsManager {
     this.setup();
   }
 
+  private primaryAppView: WebContentsView | null = null;
+  private readonly lastAppliedBounds = new WeakMap<
+    View,
+    { width: number; height: number }
+  >();
+
+  private getValidPrimaryAppView(): WebContentsView | undefined {
+    if (
+      this.primaryAppView &&
+      !this.primaryAppView.webContents.isDestroyed()
+    ) {
+      return this.primaryAppView;
+    }
+    this.primaryAppView = null;
+    for (const [key, view] of this.tabViewsMap.entries()) {
+      if (key !== 'shell' && !view.webContents.isDestroyed()) {
+        this.primaryAppView = view;
+        return view;
+      }
+    }
+    return undefined;
+  }
+
   readonly tabViewsMeta$ = TabViewsMetaState.$;
   readonly appTabsUIReady$ = new BehaviorSubject(new Set<string>());
 
@@ -163,13 +186,15 @@ export class WebContentViewsManager {
     this.appTabsUIReady$,
   ]).pipe(
     map(([viewsMeta, views, ready]) => {
+      const anyAppLoaded = [...views.keys()].some(k => k !== 'shell');
+      const anyAppReady = ready.size > 0;
       return viewsMeta.workbenches.map(w => {
         return {
           id: w.id,
           pinned: !!w.pinned,
           active: viewsMeta.activeWorkbenchId === w.id,
-          loaded: views.has(w.id),
-          ready: ready.has(w.id),
+          loaded: views.has(w.id) || anyAppLoaded,
+          ready: ready.has(w.id) || anyAppReady,
           activeViewIndex: w.activeViewIndex,
           views: w.views,
           basename: w.basename,
@@ -248,9 +273,13 @@ export class WebContentViewsManager {
   }
 
   get activeWorkbenchView() {
-    return this.activeWorkbenchId
-      ? this.webViewsMap$.value.get(this.activeWorkbenchId)
-      : undefined;
+    if (this.activeWorkbenchId) {
+      const mapped = this.webViewsMap$.value.get(this.activeWorkbenchId);
+      if (mapped) {
+        return mapped;
+      }
+    }
+    return this.getValidPrimaryAppView();
   }
 
   get activeWorkbenchMeta() {
@@ -268,26 +297,53 @@ export class WebContentViewsManager {
   }
 
   get allViews() {
-    return Array.from(this.tabViewsMap.values());
+    return Array.from(new Set(this.tabViewsMap.values()));
   }
 
   setTabUIReady = (tabId: string) => {
-    this.appTabsUIReady$.next(new Set([...this.appTabsUIReady, tabId]));
+    const view =
+      this.tabViewsMap.get(tabId) ?? this.getValidPrimaryAppView();
+    const readyIds = new Set([...this.appTabsUIReady, tabId]);
+    if (view) {
+      for (const w of this.tabViewsMeta.workbenches) {
+        this.tabViewsMap.set(w.id, view);
+        readyIds.add(w.id);
+      }
+      for (const [id, mappedView] of this.tabViewsMap.entries()) {
+        if (mappedView === view) {
+          readyIds.add(id);
+        }
+      }
+      this.webViewsMap$.next(this.tabViewsMap);
+    }
+    this.appTabsUIReady$.next(readyIds);
     this.reorderViews();
-    const view = this.tabViewsMap.get(tabId);
     if (view) {
       this.resizeView(view);
     }
   };
 
   setTabUIUnready = (tabId: string) => {
+    const view = this.tabViewsMap.get(tabId);
     this.appTabsUIReady$.next(
-      new Set([...this.appTabsUIReady$.value].filter(key => key !== tabId))
+      new Set(
+        [...this.appTabsUIReady$.value].filter(
+          key => key !== tabId && (!view || this.tabViewsMap.get(key) !== view)
+        )
+      )
     );
     this.reorderViews();
   };
 
   getWorkbenchIdFromWebContentsId = (id: number) => {
+    const activeView = this.activeWorkbenchView;
+    if (
+      activeView &&
+      activeView.webContents.id === id &&
+      this.activeWorkbenchId
+    ) {
+      return this.activeWorkbenchId;
+    }
     return Array.from(this.tabViewsMap.entries()).find(
       ([, view]) => view.webContents.id === id
     )?.[0];
@@ -391,17 +447,25 @@ export class WebContentViewsManager {
 
     this.closedWorkbenches.push(targetWorkbench);
 
-    setTimeout(() => {
-      const view = this.tabViewsMap.get(id);
-      this.tabViewsMap.delete(id);
+    const view = this.tabViewsMap.get(id);
+    this.tabViewsMap.delete(id);
+    this.webViewsMap$.next(this.tabViewsMap);
+    if (this.appTabsUIReady.has(id)) {
+      const nextReady = new Set(this.appTabsUIReady);
+      nextReady.delete(id);
+      this.appTabsUIReady$.next(nextReady);
+    }
 
-      if (this.mainWindow && view) {
-        this.mainWindow.contentView.removeChildView(view);
-        view?.webContents.close({
-          waitForBeforeUnload: true,
-        });
-      }
-    }, 500); // delay a bit to get rid of the flicker
+    // Only destroy the WebContentsView if no other tab shares it
+    const isSharedWithOtherTabs = view
+      ? [...this.tabViewsMap.values()].includes(view)
+      : false;
+    if (this.mainWindow && view && !isSharedWithOtherTabs) {
+      this.mainWindow.contentView.removeChildView(view);
+      view.webContents.close({
+        waitForBeforeUnload: true,
+      });
+    }
 
     onTabClose(id);
   };
@@ -478,6 +542,16 @@ export class WebContentViewsManager {
       return;
     }
 
+    const existingPrimaryView = this.getValidPrimaryAppView();
+    if (existingPrimaryView) {
+      this.webViewsMap$.next(this.tabViewsMap.set(id, existingPrimaryView));
+      if (this.appTabsUIReady.size > 0 && !this.appTabsUIReady.has(id)) {
+        this.appTabsUIReady$.next(new Set([...this.appTabsUIReady, id]));
+      }
+      this.reorderViews();
+      return existingPrimaryView;
+    }
+
     let view = this.tabViewsMap.get(id);
     if (!view) {
       view = await this.createAndAddView('app', id);
@@ -503,7 +577,6 @@ export class WebContentViewsManager {
         activeWorkbenchId: id,
       });
     }
-    this.reorderViews();
     let view = this.tabViewsMap.get(id);
     if (!view) {
       view = await this.loadTab(id);
@@ -638,58 +711,48 @@ export class WebContentViewsManager {
       // make sure shell view is on top
       const activeView = this.activeWorkbenchView;
 
-      const getViewId = (view: View) => {
-        return [...this.tabViewsMap.entries()].find(
-          ([_, v]) => v === view
-        )?.[0];
-      };
-
       const isViewReady = (view: View) => {
         if (view === this.shellView) {
           return true;
         }
-        const id = getViewId(view);
-        return id ? this.appTabsUIReady.has(id) : false;
+        for (const [id, v] of this.tabViewsMap.entries()) {
+          if (v === view && this.appTabsUIReady.has(id)) {
+            return true;
+          }
+        }
+        return false;
       };
 
-      // 2: active view (ready)
-      // 1: shell
-      // 0: inactive view (ready)
-      // -1 inactive view (not ready)
-      // -1 active view (not ready)
-      const getScore = (view: View) => {
-        if (view === this.shellView) {
-          return 1;
-        }
-        const viewReady = isViewReady(view);
-        if (view === activeView) {
-          return viewReady ? 2 : -1;
-        } else {
-          return viewReady ? 0 : -1;
-        }
-      };
+      const activeViewReady = !!activeView && isViewReady(activeView);
 
-      const sorted = [...this.tabViewsMap.entries()]
-        .map(([id, view]) => {
-          return {
-            id,
-            view,
-            score: getScore(view),
-          };
-        })
-        .filter(({ score }) => score >= 0)
-        .toSorted((a, b) => a.score - b.score);
-
-      // remove inactive views
-      this.mainWindow?.contentView.children.forEach(view => {
-        if (!isViewReady(view)) {
-          this.mainWindow?.contentView.removeChildView(view);
+      if (activeView && activeViewReady) {
+        // Detach all non-active views (including shellView) so the compositor
+        // only renders a single WebContentsView layer.
+        for (const child of [...this.mainWindow.contentView.children]) {
+          if (child !== activeView) {
+            this.mainWindow.contentView.removeChildView(child);
+          }
         }
-      });
-
-      sorted.forEach(({ view }, idx) => {
-        this.mainWindow?.contentView.addChildView(view, idx);
-      });
+        if (!this.mainWindow.contentView.children.includes(activeView)) {
+          this.mainWindow.contentView.addChildView(activeView, 0);
+        }
+      } else {
+        // Keep shellView on top while activeView is booting
+        for (const child of [...this.mainWindow.contentView.children]) {
+          if (child !== this.shellView && child !== activeView) {
+            this.mainWindow.contentView.removeChildView(child);
+          }
+        }
+        if (
+          activeView &&
+          !this.mainWindow.contentView.children.includes(activeView)
+        ) {
+          this.mainWindow.contentView.addChildView(activeView, 0);
+        }
+        if (this.shellView) {
+          this.mainWindow.contentView.addChildView(this.shellView);
+        }
+      }
 
       handleWebContentsResize(activeView?.webContents).catch(err =>
         logger.error(err)
@@ -711,17 +774,16 @@ export class WebContentViewsManager {
           if (this.activeWorkbenchView) {
             this.resizeView(this.activeWorkbenchView);
           }
-          if (this.shellView) {
+          if (
+            this.shellView &&
+            this.mainWindow?.contentView.children.includes(this.shellView)
+          ) {
             this.resizeView(this.shellView);
           }
         };
         screenSizeChangeEvents.forEach(event => {
           w.on(event as any, () => {
             onResize();
-            // sometimes the resize event is too fast, the view is not ready for the new size (esp. on linux)
-            setTimeout(() => {
-              onResize();
-            }, 100);
           });
         });
 
@@ -783,7 +845,7 @@ export class WebContentViewsManager {
     if (id === 'shell') {
       return this.shellView;
     } else {
-      return this.tabViewsMap.get(id);
+      return this.tabViewsMap.get(id) ?? this.getValidPrimaryAppView();
     }
   };
 
@@ -791,6 +853,14 @@ export class WebContentViewsManager {
     // app view will take full w/h of the main window
     const bounds = this.mainWindow?.getContentBounds();
     if (!bounds || bounds.width <= 0 || bounds.height <= 0) return;
+    const prev = this.lastAppliedBounds.get(view);
+    if (prev && prev.width === bounds.width && prev.height === bounds.height) {
+      return;
+    }
+    this.lastAppliedBounds.set(view, {
+      width: bounds.width,
+      height: bounds.height,
+    });
     view.setBounds({ x: 0, y: 0, width: bounds.width, height: bounds.height });
   };
 
@@ -873,6 +943,10 @@ export class WebContentViewsManager {
       menu.popup();
     });
 
+    if (type === 'app' && !this.primaryAppView) {
+      this.primaryAppView = view;
+    }
+
     this.webViewsMap$.next(this.tabViewsMap.set(viewId, view));
     let disconnectHelperProcess: (() => void) | null = null;
 
@@ -908,9 +982,14 @@ export class WebContentViewsManager {
     view.webContents.on('destroyed', () => {
       disconnectHelperProcess?.();
       disconnectHelperProcess = null;
+      if (this.primaryAppView === view) {
+        this.primaryAppView = null;
+      }
       this.webViewsMap$.next(
         new Map(
-          [...this.tabViewsMap.entries()].filter(([key]) => key !== viewId)
+          [...this.tabViewsMap.entries()].filter(
+            ([key, mapped]) => key !== viewId && mapped !== view
+          )
         )
       );
       // if all views are destroyed, close the app
@@ -939,13 +1018,23 @@ export class WebContentViewsManager {
 
   private readonly updateBackgroundThrottling = () => {
     const mainFocused = this.mainWindow?.isFocused() ?? false;
-    const activeId = this.activeWorkbenchId;
+    const activeView = this.activeWorkbenchView;
+    const visited = new Set<WebContentsView>();
     this.webViewsMap$.value.forEach((view, id) => {
-      // skip active view to avoid windows rendering
-      if (id === 'shell' || id === activeId) {
+      // skip shell and already-processed shared views
+      if (id === 'shell' || visited.has(view)) {
         return;
       }
-      const shouldThrottle = !mainFocused || id !== activeId;
+      visited.add(view);
+      if (view === activeView && mainFocused) {
+        try {
+          view.webContents.setBackgroundThrottling(false);
+        } catch (err) {
+          logger.warn('failed to set backgroundThrottling', err);
+        }
+        return;
+      }
+      const shouldThrottle = !mainFocused || view !== activeView;
       try {
         view.webContents.setBackgroundThrottling(shouldThrottle);
       } catch (err) {
@@ -953,7 +1042,9 @@ export class WebContentViewsManager {
       }
     });
     if (this.shellView) {
-      const shellThrottle = !mainFocused;
+      const shellAttached =
+        this.mainWindow?.contentView.children.includes(this.shellView) ?? false;
+      const shellThrottle = !mainFocused || !shellAttached;
       try {
         this.shellView.webContents.setBackgroundThrottling(shellThrottle);
       } catch (err) {
@@ -1125,6 +1216,11 @@ export const moveTab = WebContentViewsManager.instance.moveTab;
 export const openInSplitView = WebContentViewsManager.instance.openInSplitView;
 
 export const reloadView = async () => {
+  const activeView = WebContentViewsManager.instance.activeWorkbenchView;
+  if (activeView) {
+    activeView.webContents.reload();
+    return;
+  }
   const id = WebContentViewsManager.instance.activeWorkbenchId;
   if (id) {
     await WebContentViewsManager.instance.loadTab(id);

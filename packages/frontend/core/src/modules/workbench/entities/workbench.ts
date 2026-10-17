@@ -24,26 +24,44 @@ const sidebarWidthKey = 'workbenchSidebarWidth';
 const workspaceSelectorOpenKey = 'workspaceSelectorOpen';
 
 export class Workbench extends Entity {
+  private readonly tabCache = new Map<
+    string,
+    { basename: string; views: View[]; activeViewIndex: number }
+  >();
+
+  readonly activeTabId$ = new LiveData<string | undefined>(
+    this.defaultState.id
+  );
+
   constructor(
     private readonly defaultState: WorkbenchDefaultState,
     private readonly newTabHandler: WorkbenchNewTabHandler,
     private readonly globalState: GlobalState
   ) {
     super();
+    if (this.defaultState.id) {
+      this.tabCache.set(this.defaultState.id, {
+        basename: this.basename$.value,
+        views: this.views$.value,
+        activeViewIndex: this.activeViewIndex$.value,
+      });
+    }
+  }
+
+  private createViewFromMeta(meta: WorkbenchDefaultState['views'][number]) {
+    return this.framework.createEntity(View, {
+      id: meta.id,
+      defaultLocation: meta.path,
+      icon: meta.icon ?? meta.iconName,
+      title: meta.title,
+    });
   }
 
   readonly activeViewIndex$ = new LiveData(this.defaultState.activeViewIndex);
   readonly basename$ = new LiveData(this.defaultState.basename);
 
   readonly views$: LiveData<View[]> = new LiveData(
-    this.defaultState.views.map(meta => {
-      return this.framework.createEntity(View, {
-        id: meta.id,
-        defaultLocation: meta.path,
-        icon: meta.icon,
-        title: meta.title,
-      });
-    })
+    this.defaultState.views.map(meta => this.createViewFromMeta(meta))
   );
 
   activeView$ = LiveData.computed(get => {
@@ -77,6 +95,64 @@ export class Workbench extends Entity {
   );
   setWorkspaceSelectorOpen(open: boolean) {
     this.globalState.set(workspaceSelectorOpenKey, open);
+  }
+
+  switchTab(
+    tabId: string,
+    state: {
+      basename: string;
+      views: WorkbenchDefaultState['views'];
+      activeViewIndex: number;
+    }
+  ) {
+    const currentTabId = this.activeTabId$.value;
+    if (currentTabId) {
+      this.tabCache.set(currentTabId, {
+        basename: this.basename$.value,
+        views: this.views$.value,
+        activeViewIndex: this.activeViewIndex$.value,
+      });
+    }
+
+    const cached = this.tabCache.get(tabId);
+    let nextViews: View[];
+    if (cached) {
+      if (state.views.length > 0) {
+        nextViews = state.views.map(
+          meta =>
+            cached.views.find(v => v.id === meta.id) ??
+            this.createViewFromMeta(meta)
+        );
+      } else {
+        nextViews = cached.views;
+      }
+    } else {
+      const sourceMetas =
+        state.views.length > 0 ? state.views : [{ id: nanoid() }];
+      nextViews = sourceMetas.map(meta => this.createViewFromMeta(meta));
+    }
+
+    const nextActiveIndex = Math.max(
+      0,
+      Math.min(
+        state.activeViewIndex ?? cached?.activeViewIndex ?? 0,
+        nextViews.length - 1
+      )
+    );
+
+    this.tabCache.set(tabId, {
+      basename: state.basename,
+      views: nextViews,
+      activeViewIndex: nextActiveIndex,
+    });
+    this.activeTabId$.next(tabId);
+    this.basename$.next(state.basename);
+    this.views$.next(nextViews);
+    this.activeViewIndex$.next(nextActiveIndex);
+  }
+
+  removeTab(tabId: string) {
+    this.tabCache.delete(tabId);
   }
 
   active(index: number | View) {

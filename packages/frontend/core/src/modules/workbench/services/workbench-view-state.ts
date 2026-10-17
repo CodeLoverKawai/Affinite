@@ -6,11 +6,13 @@ import type { GlobalStateService } from '../../storage';
 import type { ViewIconName } from '../constants';
 
 export type WorkbenchDefaultState = {
+  id?: string;
   basename: string;
   views: {
     id: string;
     path?: { pathname?: string; hash?: string; search?: string };
     icon?: ViewIconName;
+    iconName?: ViewIconName;
     title?: string;
   }[];
   activeViewIndex: number;
@@ -46,11 +48,16 @@ export class DesktopWorkbenchDefaultState
       this.globalStateService.globalState.get<TabViewsMetaSchema>(
         'tabViewsMetaSchema'
       );
+    const targetId =
+      tabViewsMeta?.activeWorkbenchId ?? this.electronApi.appInfo.viewId;
 
     return (
+      tabViewsMeta?.workbenches.find(w => w.id === targetId) ||
       tabViewsMeta?.workbenches.find(
         w => w.id === this.electronApi.appInfo.viewId
-      ) || InMemoryWorkbenchDefaultState
+      ) ||
+      tabViewsMeta?.workbenches[0] ||
+      InMemoryWorkbenchDefaultState
     );
   }
 
