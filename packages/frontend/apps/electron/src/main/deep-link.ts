@@ -19,14 +19,16 @@ if (isDev) {
 }
 
 export function setupDeepLink(app: App) {
-  if (process.defaultApp) {
-    if (process.argv.length >= 2) {
-      app.setAsDefaultProtocolClient(protocol, process.execPath, [
-        path.resolve(process.argv[1]),
-      ]);
+  if (!process.env.FLATPAK_ID) {
+    if (process.defaultApp) {
+      if (process.argv.length >= 2) {
+        app.setAsDefaultProtocolClient(protocol, process.execPath, [
+          path.resolve(process.argv[1]),
+        ]);
+      }
+    } else {
+      app.setAsDefaultProtocolClient(protocol);
     }
-  } else {
-    app.setAsDefaultProtocolClient(protocol);
   }
 
   app.on('open-url', (event, url) => {
@@ -51,8 +53,8 @@ export function setupDeepLink(app: App) {
           return;
         }
         window.show();
-        const url = commandLine.pop();
-        if (url?.startsWith(`${protocol}://`)) {
+        const url = commandLine.find(arg => arg.startsWith(`${protocol}://`));
+        if (url) {
           event.preventDefault();
           handleAffineUrl(url).catch(e => {
             logger.error('failed to handle affine url', e);
@@ -65,9 +67,9 @@ export function setupDeepLink(app: App) {
   app.on('ready', () => {
     // app may be brought up without having a running instance
     // need to read the url from the command line
-    const url = process.argv.at(-1);
-    logger.log('url from argv', process.argv, url);
-    if (url?.startsWith(`${protocol}://`)) {
+    const url = process.argv.find(arg => arg.startsWith(`${protocol}://`));
+    if (url) {
+      logger.log('url from argv', url);
       handleAffineUrl(url).catch(e => {
         logger.error('failed to handle affine url', e);
       });

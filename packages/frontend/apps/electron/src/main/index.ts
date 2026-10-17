@@ -48,6 +48,8 @@ app.commandLine.appendSwitch('disable-blink-features', 'Autofill');
 // `DocumentPolicyIncludeJSCallStacksInCrashReports` - https://www.electronjs.org/docs/latest/api/web-frame-main#framecollectjavascriptcallstack-experimental
 // `EarlyEstablishGpuChannel` - Refs https://issues.chromium.org/issues/40208065
 // `EstablishGpuChannelAsync` - Refs https://issues.chromium.org/issues/40208065
+import fs from 'node:fs';
+
 const enabledFeaturesList = [
   'DocumentPolicyIncludeJSCallStacksInCrashReports',
   'EarlyEstablishGpuChannel',
@@ -62,6 +64,33 @@ if (process.platform === 'linux') {
       'ozone-platform-hint',
       process.env.ELECTRON_OZONE_PLATFORM_HINT || 'auto'
     );
+  }
+  if (!app.commandLine.hasSwitch('render-node-override')) {
+    try {
+      const render128Vendor = fs
+        .readFileSync('/sys/class/drm/renderD128/device/vendor', 'utf8')
+        .trim();
+      // On hybrid AMD/Intel + NVIDIA laptops (especially in Flatpak where
+      // NVIDIA's proprietary GL driver is absent or Wayland runs on the iGPU),
+      // renderD128 is often 0x10de (NVIDIA) causing `driver (null)`.
+      if (render128Vendor === '0x10de') {
+        for (const node of ['renderD129', 'renderD130']) {
+          const vendorPath = `/sys/class/drm/${node}/device/vendor`;
+          if (fs.existsSync(vendorPath)) {
+            const vendor = fs.readFileSync(vendorPath, 'utf8').trim();
+            if (vendor === '0x1002' || vendor === '0x8086') {
+              app.commandLine.appendSwitch(
+                'render-node-override',
+                `/dev/dri/${node}`
+              );
+              break;
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore if /sys/class/drm is unavailable
+    }
   }
   enabledFeaturesList.push(
     'UseOzonePlatform',

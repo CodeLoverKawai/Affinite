@@ -110,7 +110,19 @@ cp -a "${OUT_DIR}/." "${FLATPAK_BUILD_DIR}/files/lib/affinite/"
 cat > "${FLATPAK_BUILD_DIR}/files/bin/affinite" << WRAPPER
 #!/bin/sh
 export ELECTRON_OZONE_PLATFORM_HINT="\${ELECTRON_OZONE_PLATFORM_HINT:-auto}"
-exec "/app/lib/affinite/${APP_BIN_NAME}" "\$@" --no-sandbox --ozone-platform-hint=auto --enable-features=UseOzonePlatform,WaylandWindowDecorations,VaapiVideoDecodeLinuxGL,CanvasOopRasterization
+EXTRA_GPU_FLAGS=""
+if [ -r /sys/class/drm/renderD128/device/vendor ] && [ "\$(cat /sys/class/drm/renderD128/device/vendor 2>/dev/null)" = "0x10de" ]; then
+  for node in renderD129 renderD130; do
+    if [ -r "/sys/class/drm/\${node}/device/vendor" ]; then
+      vendor="\$(cat "/sys/class/drm/\${node}/device/vendor" 2>/dev/null)"
+      if [ "\$vendor" = "0x1002" ] || [ "\$vendor" = "0x8086" ]; then
+        EXTRA_GPU_FLAGS="--render-node-override=/dev/dri/\${node}"
+        break
+      fi
+    fi
+  done
+fi
+exec "/app/lib/affinite/${APP_BIN_NAME}" "\$@" --no-sandbox --ozone-platform-hint=auto \${EXTRA_GPU_FLAGS} --enable-features=UseOzonePlatform,WaylandWindowDecorations,VaapiVideoDecodeLinuxGL,CanvasOopRasterization
 WRAPPER
 chmod +x "${FLATPAK_BUILD_DIR}/files/bin/affinite"
 
@@ -147,6 +159,8 @@ flatpak build-finish "${FLATPAK_BUILD_DIR}" \
   --socket=wayland \
   --socket=fallback-x11 \
   --socket=pulseaudio \
+  --socket=session-bus \
+  --socket=system-bus \
   --device=dri \
   --filesystem=xdg-documents \
   --filesystem=xdg-download \

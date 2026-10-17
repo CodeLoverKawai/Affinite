@@ -126,7 +126,7 @@ export class MainWindowManager {
      *
      * @see https://github.com/electron/electron/issues/25012
      */
-    mainWindow.on('ready-to-show', () => {
+    mainWindow.once('ready-to-show', () => {
       logger.info('main window is ready to show');
 
       uiSubjects.onMaximized$.next(mainWindow.isMaximized());
