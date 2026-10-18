@@ -28,7 +28,11 @@ import dayjs from 'dayjs';
 import type { DocRecord, DocsService } from '../../doc';
 import type { ExplorerIconService } from '../../explorer-icon/services/explorer-icon';
 import type { I18nService } from '../../i18n';
-import type { JournalService } from '../../journal';
+import {
+  getWeekDateRange,
+  isWeeklyJournalString,
+  type JournalService,
+} from '../../journal';
 import { getDocIconComponent, getDocIconComponentLit } from './icon';
 
 type IconType = 'rc' | 'lit';
@@ -113,7 +117,10 @@ export class DocDisplayMetaService extends Service {
     options?: DocDisplayIconOptions<T>
   ) {
     const iconSet = icons[options?.type ?? 'rc'];
-    const day = dayjs(journalDate);
+    const day =
+      typeof journalDate === 'string' && isWeeklyJournalString(journalDate)
+        ? getWeekDateRange(journalDate).start
+        : dayjs(journalDate);
     return day.isBefore(dayjs(), 'day')
       ? iconSet.YesterdayIcon
       : day.isAfter(dayjs(), 'day')
@@ -188,7 +195,9 @@ export class DocDisplayMetaService extends Service {
       // journal title
       const journalDateString = get(this.journalService.journalDate$(docId));
       const journalTitle = journalDateString
-        ? i18nTime(journalDateString, { absolute: { accuracy: 'day' } })
+        ? isWeeklyJournalString(journalDateString)
+          ? originalTitle || `${journalDateString} · Nota Semanal`
+          : i18nTime(journalDateString, { absolute: { accuracy: 'day' } })
         : undefined;
       // const title = titleAlias ?? journalTitle ?? originalTitle;
 

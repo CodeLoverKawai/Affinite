@@ -13,6 +13,12 @@ export {
   type MaybeDate,
 } from './services/journal';
 export { JournalDocService } from './services/journal-doc';
+export {
+  formatWeeklyJournalKey,
+  getWeekDateRange,
+  isJournalString,
+  isWeeklyJournalString,
+} from './store/journal';
 export { suggestJournalDate } from './suggest-journal-date';
 
 export function configureJournalModule(framework: Framework) {

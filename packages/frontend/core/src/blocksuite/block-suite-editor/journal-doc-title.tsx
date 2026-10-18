@@ -1,4 +1,9 @@
-import { JournalService } from '@affine/core/modules/journal';
+import {
+  formatWeeklyJournalKey,
+  getWeekDateRange,
+  isWeeklyJournalString,
+  JournalService,
+} from '@affine/core/modules/journal';
 import { i18nTime, useI18n } from '@affine/i18n';
 import type { Store } from '@blocksuite/affine/store';
 import { useLiveData, useService } from '@toeverything/infra';
@@ -25,13 +30,36 @@ export const BlocksuiteEditorJournalDocTitleUI = ({
    */
   overrideClassName?: string;
 }) => {
+  const t = useI18n();
+  const today = dayjs();
+
+  if (dateStr && isWeeklyJournalString(dateStr)) {
+    const { start, end, weekNumber } = getWeekDateRange(dateStr);
+    const isCurrentWeek = dateStr === formatWeeklyJournalKey(today);
+    const rangeLabel = `Nota Semanal · Sem ${weekNumber} (${start.format('DD MMM')} - ${end.format('DD MMM YYYY')})`;
+
+    return (
+      <div
+        className={overrideClassName ?? 'doc-title-container'}
+        data-testid="journal-title"
+      >
+        <span data-testid="date">{dateStr}</span>
+        {isCurrentWeek ? (
+          <span className={styles.titleTodayTag} data-testid="date-today-label">
+            {rangeLabel}
+          </span>
+        ) : (
+          <span className={styles.titleDayTag}>{rangeLabel}</span>
+        )}
+      </div>
+    );
+  }
+
   const localizedJournalDate = i18nTime(dateStr, {
     absolute: { accuracy: 'day' },
   });
-  const t = useI18n();
 
   // TODO(catsjuice): i18n
-  const today = dayjs();
   const date = dayjs(dateStr);
   const day = dayjs(date).format('dddd') ?? null;
   const isToday = date.isSame(today, 'day');

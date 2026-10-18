@@ -1,4 +1,5 @@
 import {
+  Button,
   Divider,
   DragHandle,
   type InlineEditHandle,
@@ -18,10 +19,19 @@ import { HeaderDivider } from '@affine/core/components/pure/header';
 import { DocService } from '@affine/core/modules/doc';
 import { DocDisplayMetaService } from '@affine/core/modules/doc-display-meta';
 import { EditorService } from '@affine/core/modules/editor';
-import { JournalService } from '@affine/core/modules/journal';
+import {
+  formatWeeklyJournalKey,
+  getWeekDateRange,
+  isWeeklyJournalString,
+  JournalService,
+} from '@affine/core/modules/journal';
 import { SharePageButton } from '@affine/core/modules/share-menu';
 import { TemplateDocService } from '@affine/core/modules/template-doc';
-import { ViewIcon, ViewTitle } from '@affine/core/modules/workbench';
+import {
+  ViewIcon,
+  ViewTitle,
+  WorkbenchService,
+} from '@affine/core/modules/workbench';
 import type { Workspace } from '@affine/core/modules/workspace';
 import type { AffineDNDData } from '@affine/core/types/dnd';
 import { useI18n } from '@affine/i18n';
@@ -29,6 +39,7 @@ import { track } from '@affine/track';
 import type { Store } from '@blocksuite/affine/store';
 import { useLiveData, useService } from '@toeverything/infra';
 import clsx from 'clsx';
+import dayjs from 'dayjs';
 import {
   forwardRef,
   type HTMLAttributes,
@@ -97,8 +108,32 @@ export function JournalPageHeader({ page, workspace }: PageHeaderProps) {
     useDetailPageHeaderResponsive(containerWidth);
 
   const docDisplayMetaService = useService(DocDisplayMetaService);
+  const journalService = useService(JournalService);
+  const workbench = useService(WorkbenchService).workbench;
   const i18n = useI18n();
   const title = i18n.t(useLiveData(docDisplayMetaService.title$(page.id)));
+  const journalDateStr = useLiveData(journalService.journalDate$(page.id));
+  const isWeekly = isWeeklyJournalString(journalDateStr);
+  const activeWeekKey = isWeekly
+    ? journalDateStr
+    : formatWeeklyJournalKey(journalDateStr || dayjs());
+
+  const handleOpenWeeklyNote = useCallback(() => {
+    const doc = journalService.ensureWeeklyJournal(activeWeekKey);
+    workbench.openDoc(doc.id, { at: 'active' });
+  }, [activeWeekKey, journalService, workbench]);
+
+  const handleOpenDailyNote = useCallback(() => {
+    const targetDay = isWeekly
+      ? getWeekDateRange(activeWeekKey).start
+      : dayjs();
+    const doc = journalService.ensureJournalByDate(targetDay);
+    workbench.openDoc(doc.id, { at: 'active' });
+  }, [activeWeekKey, isWeekly, journalService, workbench]);
+
+  const handleOpenCalendar = useCallback(() => {
+    workbench.open('/calendar', { at: 'active' });
+  }, [workbench]);
 
   return (
     <Header className={styles.header} ref={containerRef}>
@@ -109,7 +144,31 @@ export function JournalPageHeader({ page, workspace }: PageHeaderProps) {
         <JournalWeekDatePicker page={page} />
       </div>
       <TemplateMark className={styles.journalTemplateMark} />
-      {hideToday ? null : <JournalTodayButton />}
+      {hideToday ? null : (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {isWeekly ? (
+            <Button onClick={handleOpenDailyNote} title="Abrir Nota Diaria">
+              📅 Nota Diaria
+            </Button>
+          ) : (
+            <Button
+              onClick={handleOpenWeeklyNote}
+              title={`Abrir o crear Nota Semanal (${activeWeekKey})`}
+              data-testid="open-weekly-journal-btn"
+            >
+              🗓️ Semanal ({activeWeekKey.split('-')[1]})
+            </Button>
+          )}
+          <Button
+            onClick={handleOpenCalendar}
+            title="Ver Calendario Mensual y Tareas"
+            data-testid="open-calendar-view-btn"
+          >
+            📅 Calendario
+          </Button>
+          <JournalTodayButton />
+        </div>
+      )}
       <HeaderDivider />
       <PageHeaderMenuButton
         isJournal

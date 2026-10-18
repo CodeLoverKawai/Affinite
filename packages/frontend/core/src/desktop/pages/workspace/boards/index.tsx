@@ -1845,6 +1845,45 @@ const CardModal = ({
             </div>
 
             <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>Fecha límite (Due Date)</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <input
+                  type="date"
+                  value={card.dueDate || ''}
+                  onChange={e => onUpdate({ ...card, dueDate: e.target.value || undefined })}
+                  style={{
+                    background: 'rgba(15, 23, 42, 0.75)',
+                    border: '1px solid rgba(255, 255, 255, 0.14)',
+                    borderRadius: '8px',
+                    color: '#f8fafc',
+                    padding: '7px 10px',
+                    fontSize: '12px',
+                    width: '100%',
+                    outline: 'none',
+                    colorScheme: 'dark',
+                  }}
+                />
+                {card.dueDate ? (
+                  <button
+                    onClick={() => onUpdate({ ...card, dueDate: undefined })}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: '#cbd5e1',
+                      padding: '5px 10px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Quitar fecha
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            <div>
               <div style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' }}>Actions</div>
               <button
                 onClick={() => onDelete(card.id)}

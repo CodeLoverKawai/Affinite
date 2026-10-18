@@ -5,6 +5,9 @@ import {
 } from '@affine/component';
 import { BlocksuiteEditorJournalDocTitleUI } from '@affine/core/blocksuite/block-suite-editor/journal-doc-title';
 import {
+  formatWeeklyJournalKey,
+  getWeekDateRange,
+  isWeeklyJournalString,
   JOURNAL_DATE_FORMAT,
   JournalService,
 } from '@affine/core/modules/journal';
@@ -28,9 +31,11 @@ import * as styles from './index.css';
 
 export function getDateFromUrl(location: Location) {
   const searchParams = new URLSearchParams(location.search);
-  const date = searchParams.get('date')
-    ? dayjs(searchParams.get('date'))
-    : dayjs();
+  const rawDate = searchParams.get('date');
+  if (rawDate && isWeeklyJournalString(rawDate)) {
+    return rawDate;
+  }
+  const date = rawDate ? dayjs(rawDate) : dayjs();
   return date.format(JOURNAL_DATE_FORMAT);
 }
 
@@ -39,6 +44,9 @@ export const JournalPlaceholder = ({ dateString }: { dateString: string }) => {
   const [redirecting, setRedirecting] = useState(false);
   const workbench = useService(WorkbenchService).workbench;
   const journalService = useService(JournalService);
+  const weekKey = isWeeklyJournalString(dateString)
+    ? dateString
+    : formatWeeklyJournalKey(dateString);
 
   const createJournal = useCallback(() => {
     if (redirecting) return;
@@ -49,6 +57,16 @@ export const JournalPlaceholder = ({ dateString }: { dateString: string }) => {
       at: 'active',
     });
   }, [dateString, journalService, redirecting, workbench]);
+
+  const createWeeklyJournal = useCallback(() => {
+    if (redirecting) return;
+    setRedirecting(true);
+    const doc = journalService.ensureWeeklyJournal(weekKey);
+    workbench.openDoc(doc.id, {
+      replaceHistory: true,
+      at: 'active',
+    });
+  }, [journalService, redirecting, weekKey, workbench]);
 
   return (
     <div className={styles.body} data-mobile={BUILD_CONFIG.isMobileEdition}>
@@ -64,13 +82,21 @@ export const JournalPlaceholder = ({ dateString }: { dateString: string }) => {
           <div className={styles.placeholderText}>
             {t['com.affine.journal.placeholder.title']()}
           </div>
-          <Button
-            variant="primary"
-            onClick={createJournal}
-            data-testid="confirm-create-journal-button"
-          >
-            {t['com.affine.journal.placeholder.create']()}
-          </Button>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <Button
+              variant="primary"
+              onClick={createJournal}
+              data-testid="confirm-create-journal-button"
+            >
+              {t['com.affine.journal.placeholder.create']()}
+            </Button>
+            <Button
+              onClick={createWeeklyJournal}
+              data-testid="confirm-create-weekly-journal-button"
+            >
+              🗓️ Crear Nota Semanal ({weekKey})
+            </Button>
+          </div>
         </div>
       </div>
     </div>
@@ -90,6 +116,12 @@ export const JournalsPageWithConfirmation = () => {
   const dateString = getDateFromUrl(location);
   const todayString = dayjs().format(JOURNAL_DATE_FORMAT);
   const isToday = dateString === todayString;
+  const pickerDateValue = isWeeklyJournalString(dateString)
+    ? getWeekDateRange(dateString).start.format(JOURNAL_DATE_FORMAT)
+    : dateString;
+  const activeWeekKey = isWeeklyJournalString(dateString)
+    ? dateString
+    : formatWeeklyJournalKey(dateString);
 
   const [ready, setReady] = useState(false);
 
@@ -99,6 +131,15 @@ export const JournalsPageWithConfirmation = () => {
     },
     [workbench]
   );
+
+  const openWeeklyJournal = useCallback(() => {
+    const doc = journalService.ensureWeeklyJournal(activeWeekKey);
+    workbench.openDoc(doc.id, { at: 'active' });
+  }, [activeWeekKey, journalService, workbench]);
+
+  const openCalendar = useCallback(() => {
+    workbench.open('/calendar', { at: 'active' });
+  }, [workbench]);
 
   useLayoutEffect(() => {
     // only handle current route
@@ -128,18 +169,29 @@ export const JournalsPageWithConfirmation = () => {
             data-testid="journal-week-picker"
             handleRef={handleRef}
             style={weekStyle}
-            value={dateString}
+            value={pickerDateValue}
             onChange={openJournal}
           />
 
-          {!isToday ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Button
-              className={styles.todayButton}
-              onClick={() => openJournal(todayString)}
+              onClick={openWeeklyJournal}
+              title={`Abrir o crear Nota Semanal (${activeWeekKey})`}
             >
-              {t['com.affine.today']()}
+              🗓️ Semanal ({activeWeekKey.split('-')[1]})
             </Button>
-          ) : null}
+            <Button onClick={openCalendar} title="Ver Calendario Mensual">
+              📅 Calendario
+            </Button>
+            {!isToday ? (
+              <Button
+                className={styles.todayButton}
+                onClick={() => openJournal(todayString)}
+              >
+                {t['com.affine.today']()}
+              </Button>
+            ) : null}
+          </div>
         </div>
       </ViewHeader>
       <ViewBody>

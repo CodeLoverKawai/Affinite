@@ -1,6 +1,8 @@
 import type { WeekDatePickerHandle } from '@affine/component';
 import { WeekDatePicker } from '@affine/component';
 import {
+  getWeekDateRange,
+  isWeeklyJournalString,
   JOURNAL_DATE_FORMAT,
   JournalService,
 } from '@affine/core/modules/journal';
@@ -19,7 +21,11 @@ export const JournalWeekDatePicker = ({ page }: JournalWeekDatePickerProps) => {
   const handleRef = useRef<WeekDatePickerHandle>(null);
   const journalService = useService(JournalService);
   const journalDateStr = useLiveData(journalService.journalDate$(page.id));
-  const journalDate = journalDateStr ? dayjs(journalDateStr) : null;
+  const journalDate = journalDateStr
+    ? isWeeklyJournalString(journalDateStr)
+      ? getWeekDateRange(journalDateStr).start
+      : dayjs(journalDateStr)
+    : null;
   const [date, setDate] = useState(
     (journalDate ?? dayjs()).format(JOURNAL_DATE_FORMAT)
   );
