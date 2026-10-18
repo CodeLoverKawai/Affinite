@@ -54,6 +54,11 @@
   </recommends>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.29.0" date="2026-10-18">
+      <description>
+        <p>Release v0.29.0: Native Flatpak bundle, offline SQLite blob mirror, single-renderer lightweight tabs, Linux Wayland GPU acceleration and Hyprland blank screen fix, Mermaid Pro Suite, ISO Weekly Notes, Weekly Reports Hub, supercharged Calendar Planner, Habits tracking suite with date sync, and zero-API-key Google Antigravity and Ollama AI integration.</p>
+      </description>
+    </release>
     <release version="0.28.0" date="2026-10-17">
       <description>
         <p>Added Mermaid Pro Suite with live split editor and templates, ISO Weekly Notes, native Monthly and Weekly Calendar planner synced with Kanban Boards, and zero-API-key Antigravity CLI and Ollama AI integration.</p>
