@@ -14,10 +14,15 @@ export {
 } from './services/journal';
 export { JournalDocService } from './services/journal-doc';
 export {
+  aggregateWeeklyReportOverview,
+  type DayJournalSummary,
   formatWeeklyJournalKey,
   getWeekDateRange,
+  getWeeklyReportDays,
   isJournalString,
   isWeeklyJournalString,
+  type WeeklyReportDay,
+  type WeeklyReportOverview,
 } from './store/journal';
 export { suggestJournalDate } from './suggest-journal-date';
 

@@ -49,6 +49,119 @@ export function getWeekDateRange(weekKey: string): {
   return { start, end, weekNumber, year };
 }
 
+export interface WeeklyReportDay {
+  date: string; // YYYY-MM-DD
+  dayName: string; // Lunes, Martes, Miércoles, Jueves, Viernes, Sábado, Domingo
+  dayShort: string; // Lun, Mar, Mié, Jue, Vie, Sáb, Dom
+  isoWeekday: number; // 1 = Monday, ..., 7 = Sunday
+  isToday: boolean;
+  dayNumber: number; // 1..31
+}
+
+export function getWeeklyReportDays(
+  weekKey: string,
+  todayDate?: string
+): WeeklyReportDay[] {
+  const { start } = getWeekDateRange(weekKey);
+  const dayNames = [
+    'Lunes',
+    'Martes',
+    'Miércoles',
+    'Jueves',
+    'Viernes',
+    'Sábado',
+    'Domingo',
+  ];
+  const dayShorts = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const today = todayDate ? dayjs(todayDate) : dayjs();
+
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = start.add(i, 'day');
+    const dateStr = d.format('YYYY-MM-DD');
+    return {
+      date: dateStr,
+      dayName: dayNames[i],
+      dayShort: dayShorts[i],
+      isoWeekday: i + 1,
+      isToday: d.isSame(today, 'day'),
+      dayNumber: d.date(),
+    };
+  });
+}
+
+export interface DayJournalSummary extends WeeklyReportDay {
+  exists: boolean;
+  hasJournal: boolean;
+  docId?: string;
+  title?: string;
+}
+
+export interface WeeklyReportOverview {
+  weekKey: string;
+  year: number;
+  weekNumber: number;
+  startDate: string;
+  endDate: string;
+  days: DayJournalSummary[];
+  daysWithJournal: number;
+  totalDays: 7;
+  completionRate: number; // 0..100
+  weeklyNoteDocId?: string;
+  hasWeeklyNote: boolean;
+}
+
+export function aggregateWeeklyReportOverview(
+  weekKey: string,
+  docList: Array<{ id: string; journalDate?: string; journal?: string; title?: string }>,
+  todayDate?: string
+): WeeklyReportOverview {
+  const { start, end, weekNumber, year } = getWeekDateRange(weekKey);
+  const days = getWeeklyReportDays(weekKey, todayDate);
+
+  const journalMap = new Map<string, { id: string; title?: string }>();
+  let weeklyNoteDocId: string | undefined;
+
+  for (const doc of docList) {
+    const jDate = doc.journalDate || doc.journal;
+    if (jDate) {
+      if (jDate === weekKey) {
+        weeklyNoteDocId = doc.id;
+      } else {
+        journalMap.set(jDate, { id: doc.id, title: doc.title });
+      }
+    }
+  }
+
+  const summarizedDays: DayJournalSummary[] = days.map(d => {
+    const doc = journalMap.get(d.date);
+    const hasDoc = !!doc;
+    return {
+      ...d,
+      exists: hasDoc,
+      hasJournal: hasDoc,
+      docId: doc?.id,
+      title: doc?.title,
+    };
+  });
+
+  const daysWithJournal = summarizedDays.filter(d => d.hasJournal).length;
+  const completionRate = Math.round((daysWithJournal / 7) * 100);
+
+  return {
+    weekKey,
+    year,
+    weekNumber,
+    startDate: start.format('YYYY-MM-DD'),
+    endDate: end.format('YYYY-MM-DD'),
+    days: summarizedDays,
+    daysWithJournal,
+    totalDays: 7,
+    completionRate,
+    weeklyNoteDocId,
+    hasWeeklyNote: !!weeklyNoteDocId,
+  };
+}
+
 export class JournalStore extends Store {
   constructor(private readonly docsService: DocsService) {
     super();

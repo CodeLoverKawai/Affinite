@@ -21,9 +21,11 @@ import type { Store } from '@blocksuite/affine/store';
 import {
   AiOutlineIcon,
   AllDocsIcon,
+  CheckBoxCheckSolidIcon,
   DateTimeIcon,
   ImportIcon,
   JournalIcon,
+  PresentationIcon,
   SettingsIcon,
 } from '@blocksuite/icons/rc';
 import { useLiveData, useService, useServices } from '@toeverything/infra';
@@ -155,6 +157,28 @@ const CalendarButton = () => {
   );
 };
 
+const WeeklyReportsButton = () => {
+  const { workbenchService } = useServices({
+    WorkbenchService,
+  });
+  const workbench = workbenchService.workbench;
+  const weeklyReportsActive = useLiveData(
+    workbench.location$.selector(location =>
+      location.pathname.startsWith('/weekly-reports')
+    )
+  );
+
+  return (
+    <MenuLinkItem
+      icon={<PresentationIcon />}
+      active={weeklyReportsActive}
+      to={'/weekly-reports'}
+    >
+      <span data-testid="weekly-reports-page">Reportes Semanales</span>
+    </MenuLinkItem>
+  );
+};
+
 /**
  * This is for the whole affine app sidebar.
  * This component wraps the app sidebar in `@affine/component` with logic and data.
@@ -252,6 +276,7 @@ export const RootAppSidebar = memo((): ReactElement => {
         </div>
         <AllDocsButton />
         <AppSidebarJournalButton />
+        <WeeklyReportsButton />
         <CalendarButton />
         {sessionStatus === 'authenticated' && <NotificationButton />}
         <AIChatButton />
