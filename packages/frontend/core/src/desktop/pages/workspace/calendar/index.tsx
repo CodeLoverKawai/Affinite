@@ -5,6 +5,7 @@ import {
 } from '@blocksuite/icons/rc';
 import { useLiveData, useService } from '@toeverything/infra';
 import dayjs from 'dayjs';
+import isLeapYear from 'dayjs/plugin/isLeapYear';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import isoWeeksInYear from 'dayjs/plugin/isoWeeksInYear';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -25,6 +26,7 @@ import {
 } from '../../../../modules/workbench';
 import { WorkspaceService } from '../../../../modules/workspace';
 
+dayjs.extend(isLeapYear);
 dayjs.extend(isoWeek);
 dayjs.extend(isoWeeksInYear);
 
@@ -131,6 +133,8 @@ export const Component = () => {
   const [boardCards, setBoardCards] = useState<BoardCardCalendarItem[]>([]);
   const [showUnscheduledPanel, setShowUnscheduledPanel] = useState(true);
   const [searchFilter, setSearchFilter] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
+  const [selectedSource, setSelectedSource] = useState<'all' | 'tasks' | 'boards'>('all');
 
   // Task Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -500,23 +504,40 @@ export const Component = () => {
   // Filtered tasks & board cards
   const normalizedFilter = searchFilter.trim().toLowerCase();
   const filteredTasks = useMemo(() => {
-    if (!normalizedFilter) return tasks;
-    return tasks.filter(
+    let list = tasks;
+    if (selectedSource === 'boards') return [];
+    if (selectedCategory !== 'Todas') {
+      list = list.filter(
+        t =>
+          (t.category || 'General').toLowerCase() ===
+          selectedCategory.toLowerCase()
+      );
+    }
+    if (!normalizedFilter) return list;
+    return list.filter(
       t =>
         t.title.toLowerCase().includes(normalizedFilter) ||
         (t.category || '').toLowerCase().includes(normalizedFilter) ||
         (t.notes || '').toLowerCase().includes(normalizedFilter)
     );
-  }, [normalizedFilter, tasks]);
+  }, [normalizedFilter, selectedCategory, selectedSource, tasks]);
 
   const filteredBoardCards = useMemo(() => {
-    if (!normalizedFilter) return boardCards;
-    return boardCards.filter(
+    if (selectedSource === 'tasks') return [];
+    let list = boardCards;
+    if (
+      selectedCategory !== 'Todas' &&
+      selectedCategory.toLowerCase() !== 'trabajo'
+    ) {
+      list = [];
+    }
+    if (!normalizedFilter) return list;
+    return list.filter(
       c =>
         c.title.toLowerCase().includes(normalizedFilter) ||
         c.boardTitle.toLowerCase().includes(normalizedFilter)
     );
-  }, [boardCards, normalizedFilter]);
+  }, [boardCards, normalizedFilter, selectedCategory, selectedSource]);
 
   const tasksByDate = useMemo(() => {
     const map = new Map<string, CalendarTask[]>();

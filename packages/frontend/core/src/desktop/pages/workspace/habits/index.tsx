@@ -7,6 +7,7 @@ import {
 } from '@blocksuite/icons/rc';
 import { useService } from '@toeverything/infra';
 import dayjs from 'dayjs';
+import isLeapYear from 'dayjs/plugin/isLeapYear';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import isoWeeksInYear from 'dayjs/plugin/isoWeeksInYear';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -33,6 +34,7 @@ import {
   isHabitDoneOnDate,
 } from './habits-calculator';
 
+dayjs.extend(isLeapYear);
 dayjs.extend(isoWeek);
 dayjs.extend(isoWeeksInYear);
 
@@ -159,12 +161,21 @@ export const Component = () => {
         // Initialize with default habits
         yMap.set('habits', JSON.stringify(DEFAULT_HABITS));
         setHabits(DEFAULT_HABITS);
+        try {
+          localStorage.setItem(
+            'affinite_habits_cache_v1',
+            JSON.stringify(DEFAULT_HABITS)
+          );
+        } catch {}
         return;
       }
       try {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
           setHabits(parsed);
+          try {
+            localStorage.setItem('affinite_habits_cache_v1', raw);
+          } catch {}
         } else {
           setHabits(DEFAULT_HABITS);
         }
@@ -185,7 +196,11 @@ export const Component = () => {
       setHabits(newHabits);
       const rootYDoc = workspaceService.workspace.rootYDoc;
       const yMap = rootYDoc.getMap('affinite_habits_v1');
-      yMap.set('habits', JSON.stringify(newHabits));
+      const serialized = JSON.stringify(newHabits);
+      yMap.set('habits', serialized);
+      try {
+        localStorage.setItem('affinite_habits_cache_v1', serialized);
+      } catch {}
     },
     [workspaceService]
   );

@@ -7,6 +7,7 @@ import {
 } from '@blocksuite/icons/rc';
 import { useLiveData, useService } from '@toeverything/infra';
 import dayjs from 'dayjs';
+import isLeapYear from 'dayjs/plugin/isLeapYear';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import isoWeeksInYear from 'dayjs/plugin/isoWeeksInYear';
 import { useCallback, useMemo, useState } from 'react';
@@ -26,6 +27,7 @@ import {
   WorkbenchService,
 } from '../../../../modules/workbench';
 
+dayjs.extend(isLeapYear);
 dayjs.extend(isoWeek);
 dayjs.extend(isoWeeksInYear);
 
@@ -132,7 +134,17 @@ export const Component = () => {
 
   const allWeeksOfYear = useMemo(() => {
     const dec28 = dayjs(`${currentYear}-12-28`);
-    const totalWeeks = dec28.isoWeeksInYear();
+    let totalWeeks = 52;
+    try {
+      totalWeeks =
+        typeof dec28.isoWeeksInYear === 'function'
+          ? dec28.isoWeeksInYear()
+          : dec28.isoWeek() === 53
+            ? 53
+            : 52;
+    } catch {
+      totalWeeks = dec28.isoWeek() === 53 ? 53 : 52;
+    }
     const weeks: Array<{
       weekKey: string;
       weekNumber: number;

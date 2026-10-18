@@ -1,11 +1,13 @@
 import { LiveData, Store } from '@toeverything/infra';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
+import isLeapYear from 'dayjs/plugin/isLeapYear';
 import isoWeeksInYear from 'dayjs/plugin/isoWeeksInYear';
 import type { Observable } from 'rxjs';
 
 import type { DocsService } from '../../doc';
 
+dayjs.extend(isLeapYear);
 dayjs.extend(isoWeek);
 dayjs.extend(isoWeeksInYear);
 
