@@ -669,7 +669,9 @@ export const Component = () => {
   const currentMonthLabel = `${MONTH_NAMES_ES[cursorDate.month()]} ${cursorDate.year()}`;
 
   const handlePrevPeriod = () => {
-    if (viewMode === 'week') {
+    if (viewMode === 'day') {
+      setCursorDate(d => d.subtract(1, 'day'));
+    } else if (viewMode === 'week') {
       setCursorDate(d => d.subtract(1, 'week'));
     } else {
       setCursorDate(d => d.subtract(1, 'month'));
@@ -677,7 +679,9 @@ export const Component = () => {
   };
 
   const handleNextPeriod = () => {
-    if (viewMode === 'week') {
+    if (viewMode === 'day') {
+      setCursorDate(d => d.add(1, 'day'));
+    } else if (viewMode === 'week') {
       setCursorDate(d => d.add(1, 'week'));
     } else {
       setCursorDate(d => d.add(1, 'month'));
@@ -721,9 +725,11 @@ export const Component = () => {
             >
               <DateTimeIcon style={{ width: 20, height: 20, color: '#3b82f6' }} />
               <span>
-                {viewMode === 'week'
-                  ? `${currentWeekInfo.weekKey} · Sem ${currentWeekInfo.weekNumber}`
-                  : currentMonthLabel}
+                {viewMode === 'day'
+                  ? cursorDate.format('dddd, DD [de] MMMM YYYY')
+                  : viewMode === 'week'
+                    ? `${currentWeekInfo.weekKey} · Sem ${currentWeekInfo.weekNumber}`
+                    : currentMonthLabel}
               </span>
             </div>
 
@@ -814,7 +820,8 @@ export const Component = () => {
               [
                 { id: 'month', label: '📅 Mes' },
                 { id: 'week', label: '🗓️ Semana' },
-                { id: 'agenda', label: '📋 Agenda del Mes' },
+                { id: 'day', label: '🕒 Día' },
+                { id: 'agenda', label: '📋 Agenda' },
               ] as const
             ).map(tab => {
               const active = viewMode === tab.id;
@@ -929,6 +936,122 @@ export const Component = () => {
               gap: '16px',
             }}
           >
+            {/* Quick KPI & Filter Control Bar */}
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                background: 'rgba(15, 23, 42, 0.7)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '12px',
+                padding: '10px 16px',
+              }}
+            >
+              {/* Category Pills */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: '11px',
+                    color: '#94a3b8',
+                    fontWeight: 600,
+                    marginRight: 4,
+                  }}
+                >
+                  Categoría:
+                </span>
+                {[
+                  'Todas',
+                  'General',
+                  'Trabajo',
+                  'Personal',
+                  'Estudio',
+                  'Salud',
+                  'Urgente',
+                ].map(cat => {
+                  const active = selectedCategory === cat;
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      style={{
+                        padding: '3px 10px',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        border: active
+                          ? '1px solid #3b82f6'
+                          : '1px solid rgba(255,255,255,0.08)',
+                        background: active
+                          ? 'rgba(59, 130, 246, 0.25)'
+                          : 'rgba(255,255,255,0.04)',
+                        color: active ? '#93c5fd' : '#cbd5e1',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {cat}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Source Filter Pills */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    color: '#94a3b8',
+                    fontWeight: 600,
+                    marginRight: 4,
+                  }}
+                >
+                  Origen:
+                </span>
+                {(
+                  [
+                    { id: 'all', label: 'Todo' },
+                    { id: 'tasks', label: 'Tareas' },
+                    { id: 'boards', label: 'Boards' },
+                  ] as const
+                ).map(s => {
+                  const active = selectedSource === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => setSelectedSource(s.id)}
+                      style={{
+                        padding: '3px 10px',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        border: active
+                          ? '1px solid #10b981'
+                          : '1px solid rgba(255,255,255,0.08)',
+                        background: active
+                          ? 'rgba(16, 185, 129, 0.25)'
+                          : 'rgba(255,255,255,0.04)',
+                        color: active ? '#6ee7b7' : '#cbd5e1',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* ==================== MODE 1: MONTHLY GRID VIEW ==================== */}
             {viewMode === 'month' && (
               <div
@@ -1744,6 +1867,445 @@ export const Component = () => {
               </div>
             )}
 
+            {/* ==================== MODE 4: DAILY TIME-BLOCKING VIEW ==================== */}
+            {viewMode === 'day' && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px',
+                  background: 'rgba(15, 23, 42, 0.65)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '14px',
+                  padding: '20px',
+                  backdropFilter: 'blur(12px)',
+                }}
+              >
+                {/* Day Header Banner */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '14px 18px',
+                    borderRadius: '10px',
+                    background: cursorDate.isSame(dayjs(), 'day')
+                      ? 'rgba(37, 99, 235, 0.15)'
+                      : 'rgba(30, 41, 59, 0.5)',
+                    border: cursorDate.isSame(dayjs(), 'day')
+                      ? '1px solid rgba(59, 130, 246, 0.4)'
+                      : '1px solid rgba(255, 255, 255, 0.08)',
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontSize: '28px' }}>🕒</span>
+                    <div>
+                      <div
+                        style={{
+                          fontSize: '18px',
+                          fontWeight: 800,
+                          color: '#f8fafc',
+                        }}
+                      >
+                        {cursorDate.format('dddd, DD [de] MMMM YYYY')}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+                        {cursorDate.isSame(dayjs(), 'day')
+                          ? '🌟 Hoy · Time-Blocking de tu jornada diaria'
+                          : 'Planificación por horas para el día'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <button
+                      onClick={() =>
+                        handleOpenDailyJournal(
+                          cursorDate.format(JOURNAL_DATE_FORMAT)
+                        )
+                      }
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '8px',
+                        background: allJournalDates.has(
+                          cursorDate.format(JOURNAL_DATE_FORMAT)
+                        )
+                          ? 'rgba(16, 185, 129, 0.2)'
+                          : 'rgba(59, 130, 246, 0.2)',
+                        border: allJournalDates.has(
+                          cursorDate.format(JOURNAL_DATE_FORMAT)
+                        )
+                          ? '1px solid rgba(16, 185, 129, 0.5)'
+                          : '1px solid rgba(59, 130, 246, 0.5)',
+                        color: allJournalDates.has(
+                          cursorDate.format(JOURNAL_DATE_FORMAT)
+                        )
+                          ? '#6ee7b7'
+                          : '#93c5fd',
+                        fontWeight: 600,
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <JournalIcon style={{ width: 14, height: 14 }} />
+                      <span>
+                        {allJournalDates.has(
+                          cursorDate.format(JOURNAL_DATE_FORMAT)
+                        )
+                          ? 'Abrir Nota Diaria'
+                          : 'Crear Nota Diaria'}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        openCreateTaskModal(
+                          cursorDate.format(JOURNAL_DATE_FORMAT)
+                        )
+                      }
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '8px',
+                        background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                        border: 'none',
+                        color: '#fff',
+                        fontWeight: 700,
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <PlusIcon style={{ width: 14, height: 14 }} />
+                      <span>Nueva Tarea en este día</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* All-Day Tasks & Board Deadlines */}
+                {(() => {
+                  const dayStr = cursorDate.format(JOURNAL_DATE_FORMAT);
+                  const dayTasks = tasksByDate.get(dayStr) || [];
+                  const dayCards = boardCardsByDate.get(dayStr) || [];
+                  const allDayTasks = dayTasks.filter(t => !t.time);
+
+                  if (allDayTasks.length === 0 && dayCards.length === 0)
+                    return null;
+
+                  return (
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                        background: 'rgba(30, 41, 59, 0.4)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: '10px',
+                        padding: '12px 16px',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          color: '#93c5fd',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        📌 Tareas del Día (Todo el Día / Entregables)
+                      </div>
+                      <div
+                        style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}
+                      >
+                        {allDayTasks.map(t => {
+                          const pMeta = PRIORITY_META[t.priority];
+                          return (
+                            <div
+                              key={t.id}
+                              onClick={() => openEditTaskModal(t)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '6px 12px',
+                                borderRadius: '8px',
+                                background: t.completed
+                                  ? 'rgba(255,255,255,0.03)'
+                                  : pMeta.bg,
+                                border: `1px solid ${
+                                  t.completed
+                                    ? 'rgba(255,255,255,0.08)'
+                                    : pMeta.border
+                                }`,
+                                cursor: 'pointer',
+                                opacity: t.completed ? 0.6 : 1,
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={t.completed}
+                                onClick={e => e.stopPropagation()}
+                                onChange={() => handleToggleTask(t.id)}
+                                style={{
+                                  accentColor: '#10b981',
+                                  cursor: 'pointer',
+                                }}
+                              />
+                              <span
+                                style={{
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  textDecoration: t.completed
+                                    ? 'line-through'
+                                    : 'none',
+                                }}
+                              >
+                                {t.title}
+                              </span>
+                              {t.category && (
+                                <span
+                                  style={{
+                                    fontSize: '10px',
+                                    background: 'rgba(255,255,255,0.1)',
+                                    padding: '2px 6px',
+                                    borderRadius: 6,
+                                  }}
+                                >
+                                  {t.category}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+
+                        {dayCards.map(c => (
+                          <div
+                            key={`${c.boardId}-${c.id}`}
+                            onClick={() => handleOpenBoard(c.boardId)}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              background: 'rgba(168, 85, 247, 0.18)',
+                              border: '1px solid rgba(168, 85, 247, 0.4)',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={c.isDoneColumn}
+                              onClick={e => e.stopPropagation()}
+                              onChange={() =>
+                                toggleBoardCardDone(c.boardId, c.id)
+                              }
+                              style={{
+                                accentColor: '#a855f7',
+                                cursor: 'pointer',
+                              }}
+                            />
+                            <span
+                              style={{
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                color: '#f3e8ff',
+                              }}
+                            >
+                              [Board] {c.title}
+                            </span>
+                            <span style={{ fontSize: '10px', color: '#d8b4fe' }}>
+                              ({c.boardTitle})
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 18-Hour Time-Blocking Grid (06:00 to 23:00) */}
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '10px',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {[
+                    '06:00',
+                    '07:00',
+                    '08:00',
+                    '09:00',
+                    '10:00',
+                    '11:00',
+                    '12:00',
+                    '13:00',
+                    '14:00',
+                    '15:00',
+                    '16:00',
+                    '17:00',
+                    '18:00',
+                    '19:00',
+                    '20:00',
+                    '21:00',
+                    '22:00',
+                    '23:00',
+                  ].map(slotTime => {
+                    const dayStr = cursorDate.format(JOURNAL_DATE_FORMAT);
+                    const dayTasks = tasksByDate.get(dayStr) || [];
+                    const hourPrefix = slotTime.slice(0, 3);
+                    const slotTasks = dayTasks.filter(
+                      t => t.time && t.time.startsWith(hourPrefix)
+                    );
+
+                    return (
+                      <div
+                        key={slotTime}
+                        onClick={() => openCreateTaskModal(dayStr, slotTime)}
+                        style={{
+                          display: 'flex',
+                          minHeight: '52px',
+                          borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                          background:
+                            slotTasks.length > 0
+                              ? 'rgba(30, 41, 59, 0.35)'
+                              : 'transparent',
+                          cursor: 'pointer',
+                          transition: 'background 0.15s',
+                        }}
+                      >
+                        {/* Time Label */}
+                        <div
+                          style={{
+                            width: '80px',
+                            padding: '10px 14px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: '#94a3b8',
+                            borderRight:
+                              '1px solid rgba(255, 255, 255, 0.08)',
+                            background: 'rgba(15, 23, 42, 0.4)',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                          }}
+                        >
+                          {slotTime}
+                        </div>
+
+                        {/* Slot Content */}
+                        <div
+                          style={{
+                            flex: 1,
+                            padding: '6px 12px',
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            alignItems: 'center',
+                            gap: '8px',
+                          }}
+                        >
+                          {slotTasks.map(t => {
+                            const pMeta = PRIORITY_META[t.priority];
+                            return (
+                              <div
+                                key={t.id}
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  openEditTaskModal(t);
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                  padding: '6px 12px',
+                                  borderRadius: '8px',
+                                  background: t.completed
+                                    ? 'rgba(255,255,255,0.03)'
+                                    : pMeta.bg,
+                                  border: `1px solid ${
+                                    t.completed
+                                      ? 'rgba(255,255,255,0.08)'
+                                      : pMeta.border
+                                  }`,
+                                  cursor: 'pointer',
+                                  opacity: t.completed ? 0.6 : 1,
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={t.completed}
+                                  onClick={e => e.stopPropagation()}
+                                  onChange={() => handleToggleTask(t.id)}
+                                  style={{
+                                    accentColor: '#10b981',
+                                    cursor: 'pointer',
+                                  }}
+                                />
+                                <span
+                                  style={{
+                                    fontSize: '11px',
+                                    color: '#94a3b8',
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {t.time}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: '12px',
+                                    fontWeight: 700,
+                                    color: '#f8fafc',
+                                    textDecoration: t.completed
+                                      ? 'line-through'
+                                      : 'none',
+                                  }}
+                                >
+                                  {t.title}
+                                </span>
+                                {t.category && (
+                                  <span
+                                    style={{
+                                      fontSize: '10px',
+                                      padding: '2px 6px',
+                                      borderRadius: 6,
+                                      background: 'rgba(255,255,255,0.1)',
+                                      color: '#cbd5e1',
+                                    }}
+                                  >
+                                    {t.category}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+
+                          {slotTasks.length === 0 && (
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                color: 'rgba(148, 163, 184, 0.4)',
+                                fontStyle: 'italic',
+                              }}
+                            >
+                              + Clic para programar tarea a las {slotTime}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* ==================== MODE 3: MONTHLY AGENDA & KPI VIEW ==================== */}
             {viewMode === 'agenda' && (
               <div
@@ -2316,6 +2878,26 @@ export const Component = () => {
                     onChange={e => setFormTime(e.target.value)}
                     style={{ ...modalInputStyle, colorScheme: 'dark' }}
                   />
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {['09:00', '12:00', '15:00', '18:00', '20:00'].map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setFormTime(t)}
+                        style={{
+                          background: 'rgba(255,255,255,0.06)',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                          color: '#93c5fd',
+                          borderRadius: 4,
+                          padding: '2px 5px',
+                          fontSize: '10px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -2355,6 +2937,34 @@ export const Component = () => {
                     placeholder="General, Estudio, Proyecto..."
                     style={modalInputStyle}
                   />
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {['General', 'Trabajo', 'Personal', 'Estudio', 'Salud'].map(
+                      cat => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setFormCategory(cat)}
+                          style={{
+                            background:
+                              formCategory === cat
+                                ? 'rgba(59, 130, 246, 0.3)'
+                                : 'rgba(255,255,255,0.06)',
+                            border:
+                              formCategory === cat
+                                ? '1px solid #3b82f6'
+                                : '1px solid rgba(255,255,255,0.1)',
+                            color: formCategory === cat ? '#93c5fd' : '#94a3b8',
+                            borderRadius: 4,
+                            padding: '2px 5px',
+                            fontSize: '10px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {cat}
+                        </button>
+                      )
+                    )}
+                  </div>
                 </div>
               </div>
 
