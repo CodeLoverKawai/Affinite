@@ -211,6 +211,25 @@ export function registerProtocol() {
                     parsedCookie.name
                   );
                 } else {
+                  const rawSameSite = parsedCookie.sameSite?.toLowerCase();
+                  const sameSite:
+                    | 'unspecified'
+                    | 'no_restriction'
+                    | 'lax'
+                    | 'strict'
+                    | undefined =
+                    rawSameSite === 'none'
+                      ? 'no_restriction'
+                      : rawSameSite === 'lax'
+                        ? 'lax'
+                        : rawSameSite === 'strict'
+                          ? 'strict'
+                          : rawSameSite === 'no_restriction'
+                            ? 'no_restriction'
+                            : rawSameSite === 'unspecified'
+                              ? 'unspecified'
+                              : undefined;
+
                   await session.defaultSession.cookies.set({
                     url: responseDetails.url,
                     domain: parsedCookie.domain,
@@ -220,12 +239,7 @@ export function registerProtocol() {
                     value: parsedCookie.value,
                     name: parsedCookie.name,
                     path: parsedCookie.path,
-                    sameSite: parsedCookie.sameSite?.toLowerCase() as
-                      | 'unspecified'
-                      | 'no_restriction'
-                      | 'lax'
-                      | 'strict'
-                      | undefined,
+                    sameSite,
                   });
                 }
               }
