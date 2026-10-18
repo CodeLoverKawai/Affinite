@@ -147,7 +147,7 @@ describe('Habits Calculator', () => {
       expect(singleHabit?.searchAlias).toContain('habito');
 
       const completeItem = items.find(i =>
-        i.name.includes('Registrar Hábito Completado Hoy')
+        i.name.includes('Registrar Hábito Completado')
       );
       expect(completeItem).toBeDefined();
       expect((completeItem as any)?.subMenu?.length).toBeGreaterThanOrEqual(5);

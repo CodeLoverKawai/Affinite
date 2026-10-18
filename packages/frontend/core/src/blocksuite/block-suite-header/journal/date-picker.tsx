@@ -39,11 +39,9 @@ export const JournalWeekDatePicker = ({ page }: JournalWeekDatePickerProps) => {
 
   const openJournal = useCallback(
     (date: string) => {
-      const docs = journalService.journalsByDate$(date).value;
-      if (docs.length > 0) {
-        workbench.openDoc(docs[0].id, { at: 'active' });
-      } else {
-        workbench.open(`/journals?date=${date}`, { at: 'active' });
+      const doc = journalService.ensureJournalByDate(date);
+      if (doc?.id) {
+        workbench.openDoc(doc.id, { at: 'active' });
       }
     },
     [journalService, workbench]

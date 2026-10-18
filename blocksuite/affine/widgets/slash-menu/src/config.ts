@@ -91,6 +91,57 @@ export function getCachedHabits(): SlashMenuHabitItem[] {
   return DEFAULT_SLASH_HABITS;
 }
 
+export function getJournalDocInfo(std: any): {
+  isJournal: boolean;
+  dateStr: string;
+} {
+  try {
+    const doc = std?.store?.doc;
+    if (!doc) return { isJournal: false, dateStr: '' };
+
+    // 1. Check doc title (Daily: YYYY-MM-DD, Weekly: YYYY-Www)
+    const title = doc.meta?.title || '';
+    const dailyMatch = title.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (dailyMatch) {
+      return { isJournal: true, dateStr: dailyMatch[1] };
+    }
+    const weeklyMatch = title.match(/^(\d{4}-W\d{2})/);
+    if (weeklyMatch) {
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      return { isJournal: true, dateStr: todayStr };
+    }
+
+    // 2. Check rootDoc pageProperties if title was customized
+    const rootDoc = doc.rootDoc;
+    if (rootDoc) {
+      const pageProps = rootDoc
+        .getMap('affine:workspace-properties')
+        ?.get('pageProperties')
+        ?.get?.(doc.id);
+      const journalProp =
+        pageProps?.system?.journal?.value ||
+        pageProps?.custom?.journal?.value ||
+        pageProps?.journal;
+      if (typeof journalProp === 'string') {
+        const jDaily = journalProp.match(/^(\d{4}-\d{2}-\d{2})/);
+        if (jDaily) return { isJournal: true, dateStr: jDaily[1] };
+        const jWeekly = journalProp.match(/^(\d{4}-W\d{2})/);
+        if (jWeekly) {
+          const now = new Date();
+          const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+          return { isJournal: true, dateStr: todayStr };
+        }
+      }
+    }
+  } catch {}
+  return { isJournal: false, dateStr: '' };
+}
+
+export function isJournalDoc(std: any): boolean {
+  return getJournalDocInfo(std).isJournal;
+}
+
 export const defaultSlashMenuConfig: SlashMenuConfig = {
   items: () => {
     const now = new Date();
@@ -130,19 +181,26 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
         index + 1
       );
 
-      if (model.text?.length === 0) {
+      const currentText = model.text?.toString().trim() || '';
+      if (currentText.length === 0 || currentText.startsWith('/')) {
         host.store.deleteBlock(model);
       }
     };
 
-    const completeHabitToday = (h: SlashMenuHabitItem, std: any) => {
+    const completeHabitToday = (
+      h: SlashMenuHabitItem,
+      std: any,
+      targetDateStr?: string
+    ) => {
       const todayDate = new Date();
-      const todayStr = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+      const defaultTodayStr = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+      const effectiveDate = targetDateStr || defaultTodayStr;
 
       try {
         const rootDoc =
-          (std.store.doc as any)?.docCollection?.doc ||
-          (std.store.workspace as any)?.doc;
+          std?.store?.doc?.rootDoc ||
+          std?.store?.doc?.spaceDoc?.doc ||
+          (std?.store?.doc as any)?.docCollection?.doc;
         if (rootDoc) {
           const yMap = rootDoc.getMap('affinite_habits_v1');
           const raw = yMap.get('habits');
@@ -153,7 +211,7 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
                 ...item,
                 entries: {
                   ...item.entries,
-                  [todayStr]:
+                  [effectiveDate]:
                     item.type === 'quantitative'
                       ? item.targetValue || 1
                       : true,
@@ -174,10 +232,10 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
     };
 
     return [
-      // Habits Suite
+      // Habits Suite (Only invocable inside Journal & Weekly notes)
       {
         name: '🎯 Insertar Todos los Hábitos',
-        description: 'Checklist con todos los hábitos del día',
+        description: 'Checklist con todos los hábitos del día (Solo en Journal)',
         icon: CheckBoxCheckSolidIcon({ style: 'color: #3b82f6' }),
         searchAlias: [
           'habits',
@@ -190,6 +248,7 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
           'seguimiento',
         ],
         group: '5_Hábitos@0',
+        when: ({ std }) => isJournalDoc(std),
         action: ({ std, model }) => {
           const { host } = std;
           const parent = host.store.getParent(model);
@@ -214,7 +273,8 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
               insertIdx++
             );
           }
-          if (model.text?.length === 0) {
+          const currentText = model.text?.toString().trim() || '';
+          if (currentText.length === 0 || currentText.startsWith('/')) {
             host.store.deleteBlock(model);
           }
           toast(std.host, `¡${habitsList.length} hábitos añadidos a la nota! 🎯`);
@@ -233,14 +293,15 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
           ...h.title.toLowerCase().split(' '),
         ],
         group: `5_Hábitos@${i + 1}` as const,
+        when: ({ std }: any) => isJournalDoc(std),
         action: ({ std, model }: any) => {
           insertHabitAsTodo(std, model, h, false);
           toast(std.host, `Hábito "${h.title}" añadido.`);
         },
       })),
       {
-        name: '✅ Registrar Hábito Completado Hoy...',
-        description: 'Marcar como cumplido hoy y añadir a la nota',
+        name: '✅ Registrar Hábito Completado en esta Fecha...',
+        description: 'Marcar como cumplido y sincronizar con este día',
         icon: CheckBoxCheckSolidIcon({ style: 'color: #10b981' }),
         searchAlias: [
           'completar',
@@ -252,14 +313,17 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
           'habitos',
         ],
         group: '5_Hábitos@20',
+        when: ({ std }) => isJournalDoc(std),
         subMenu: habitsList.map(h => ({
           name: `${h.icon} ${h.title}`,
-          description: `Marcar como completado hoy`,
+          description: `Marcar como completado en la fecha de esta nota`,
           icon: html`<span style="font-size: 16px">${h.icon}</span>`,
           action: ({ std, model }: any) => {
-            completeHabitToday(h, std);
+            const { dateStr } = getJournalDocInfo(std);
+            completeHabitToday(h, std, dateStr);
             insertHabitAsTodo(std, model, h, true);
-            toast(std.host, `¡Hábito "${h.title}" completado hoy! 🔥`);
+            const dateLabel = dateStr ? ` (${dateStr})` : '';
+            toast(std.host, `¡Hábito "${h.title}" completado${dateLabel}! 🔥`);
           },
         })),
       },
@@ -269,6 +333,7 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
         icon: html`<span style="font-size: 16px">🔥</span>`,
         searchAlias: ['habits', 'habitos', 'rachas', 'streaks', 'matriz'],
         group: '5_Hábitos@21',
+        when: ({ std }) => isJournalDoc(std),
         action: () => {
           try {
             window.history.pushState({}, '', '/habits');

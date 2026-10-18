@@ -81,6 +81,7 @@ export class MainWindowManager {
     });
 
     const browserWindow = new BrowserWindow({
+      backgroundColor: '#121212',
       titleBarStyle: isMacOS()
         ? 'hiddenInset'
         : isWindows()
@@ -112,7 +113,7 @@ export class MainWindowManager {
       );
     }
 
-    nativeTheme.themeSource = 'light';
+    nativeTheme.themeSource = 'system';
     mainWindowState.manage(browserWindow);
 
     this.bindEvents(browserWindow);

@@ -1,3 +1,4 @@
+import { REFERENCE_NODE } from '@blocksuite/affine-shared/consts';
 import { Text } from '@blocksuite/affine/store';
 import { LiveData, Service } from '@toeverything/infra';
 import dayjs from 'dayjs';
@@ -180,20 +181,37 @@ export class JournalService extends Service {
             },
             noteId
           );
-          const days = [
-            `Lunes (${start.format('DD MMM')}): `,
-            `Martes (${start.add(1, 'day').format('DD MMM')}): `,
-            `Miércoles (${start.add(2, 'day').format('DD MMM')}): `,
-            `Jueves (${start.add(3, 'day').format('DD MMM')}): `,
-            `Viernes (${start.add(4, 'day').format('DD MMM')}): `,
-            `Fin de Semana (${start.add(5, 'day').format('DD MMM')} – ${end.format('DD MMM')}): `,
+          const weekDays = [
+            { name: 'Lunes', date: start },
+            { name: 'Martes', date: start.add(1, 'day') },
+            { name: 'Miércoles', date: start.add(2, 'day') },
+            { name: 'Jueves', date: start.add(3, 'day') },
+            { name: 'Viernes', date: start.add(4, 'day') },
+            { name: 'Sábado', date: start.add(5, 'day') },
+            { name: 'Domingo', date: start.add(6, 'day') },
           ];
-          for (const dayLabel of days) {
+
+          for (const item of weekDays) {
+            const dateStr = item.date.format(JOURNAL_DATE_FORMAT);
+            const dailyDoc = this.ensureJournalByDate(dateStr);
             doc.addBlock(
               'affine:list',
               {
                 type: 'bulleted',
-                text: new Text(dayLabel),
+                text: new Text([
+                  {
+                    insert: `${item.name} (${item.date.format('DD MMM')}): `,
+                  },
+                  {
+                    insert: REFERENCE_NODE,
+                    attributes: {
+                      reference: {
+                        type: 'LinkedPage',
+                        pageId: dailyDoc.id,
+                      },
+                    },
+                  },
+                ] as any),
               },
               noteId
             );

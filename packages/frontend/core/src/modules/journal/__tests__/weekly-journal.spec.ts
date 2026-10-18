@@ -39,5 +39,20 @@ describe('weekly journal helpers', () => {
     expect(range.weekNumber).toBe(42);
     expect(range.start.format('YYYY-MM-DD')).toBe('2026-10-12'); // Monday
     expect(range.end.format('YYYY-MM-DD')).toBe('2026-10-18'); // Sunday
+
+    const expectedDays = [
+      '2026-10-12',
+      '2026-10-13',
+      '2026-10-14',
+      '2026-10-15',
+      '2026-10-16',
+      '2026-10-17',
+      '2026-10-18',
+    ];
+
+    const generatedDays = Array.from({ length: 7 }, (_, i) =>
+      range.start.add(i, 'day').format('YYYY-MM-DD')
+    );
+    expect(generatedDays).toEqual(expectedDays);
   });
 });

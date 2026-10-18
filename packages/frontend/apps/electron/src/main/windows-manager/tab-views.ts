@@ -768,21 +768,33 @@ export class WebContentViewsManager {
     disposables.push(
       windowReadyToShow$.subscribe(w => {
         handleWebContentsResize().catch(err => logger.error(err));
-        const screenSizeChangeEvents = ['resize', 'maximize', 'unmaximize'];
-        const onResize = () => {
+        const screenSizeChangeEvents = [
+          'resize',
+          'maximize',
+          'unmaximize',
+          'show',
+          'restore',
+          'focus',
+        ];
+        const onResize = (force = false) => {
           if (this.activeWorkbenchView) {
-            this.resizeView(this.activeWorkbenchView);
+            this.resizeView(this.activeWorkbenchView, force);
+            try {
+              this.activeWorkbenchView.webContents.invalidate();
+            } catch {}
           }
           if (
             this.shellView &&
             this.mainWindow?.contentView.children.includes(this.shellView)
           ) {
-            this.resizeView(this.shellView);
+            this.resizeView(this.shellView, force);
           }
         };
         screenSizeChangeEvents.forEach(event => {
           w.on(event as any, () => {
-            onResize();
+            const force =
+              event === 'show' || event === 'restore' || event === 'focus';
+            onResize(force);
           });
         });
 
@@ -848,12 +860,17 @@ export class WebContentViewsManager {
     }
   };
 
-  resizeView = (view: View) => {
+  resizeView = (view: View, force = false) => {
     // app view will take full w/h of the main window
     const bounds = this.mainWindow?.getContentBounds();
     if (!bounds || bounds.width <= 0 || bounds.height <= 0) return;
     const prev = this.lastAppliedBounds.get(view);
-    if (prev && prev.width === bounds.width && prev.height === bounds.height) {
+    if (
+      !force &&
+      prev &&
+      prev.width === bounds.width &&
+      prev.height === bounds.height
+    ) {
       return;
     }
     this.lastAppliedBounds.set(view, {
@@ -890,7 +907,7 @@ export class WebContentViewsManager {
         preload: join(__dirname, './preload.js'), // this points to the bundled preload module
         // serialize exposed meta that to be used in preload
         additionalArguments: additionalArguments,
-        backgroundThrottling: type === 'app',
+        backgroundThrottling: process.platform !== 'linux' && type === 'app',
       }),
     });
 
@@ -1013,6 +1030,14 @@ export class WebContentViewsManager {
   };
 
   private readonly updateBackgroundThrottling = () => {
+    if (process.platform === 'linux') {
+      // On Linux (especially Wayland / Hyprland), keep active and primary views unthrottled
+      // so Chromium never drops frames or produces blank/white buffers during tiling/workspace transitions.
+      try {
+        this.activeWorkbenchView?.webContents.setBackgroundThrottling(false);
+      } catch {}
+      return;
+    }
     const mainFocused = this.mainWindow?.isFocused() ?? false;
     const activeView = this.activeWorkbenchView;
     const visited = new Set<WebContentsView>();

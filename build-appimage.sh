@@ -61,7 +61,7 @@ cat > "${APPDIR}/usr/bin/${ICON_NAME}" << WRAPPER
 #!/bin/bash
 HERE="\$(dirname "\$(dirname "\$(readlink -f "\$0")")")"
 export ELECTRON_OZONE_PLATFORM_HINT="\${ELECTRON_OZONE_PLATFORM_HINT:-auto}"
-exec "\${HERE}/lib/${APP_BIN_NAME}" "\$@" --no-sandbox --ozone-platform-hint=auto --enable-features=UseOzonePlatform,WaylandWindowDecorations,VaapiVideoDecodeLinuxGL,CanvasOopRasterization
+exec "\${HERE}/lib/${APP_BIN_NAME}" "\$@" --no-sandbox --ozone-platform-hint=auto --enable-features=UseOzonePlatform,WaylandWindowDecorations,VaapiVideoDecodeLinuxGL --disable-features=CanvasOopRasterization
 WRAPPER
 chmod +x "${APPDIR}/usr/bin/${ICON_NAME}"
 
@@ -69,7 +69,7 @@ cat > "${APPDIR}/AppRun" << APPRUN
 #!/bin/bash
 HERE="\$(dirname "\$(readlink -f "\$0")")"
 export ELECTRON_OZONE_PLATFORM_HINT="\${ELECTRON_OZONE_PLATFORM_HINT:-auto}"
-exec "\${HERE}/usr/lib/${APP_BIN_NAME}" "\$@" --no-sandbox --ozone-platform-hint=auto --enable-features=UseOzonePlatform,WaylandWindowDecorations,VaapiVideoDecodeLinuxGL,CanvasOopRasterization
+exec "\${HERE}/usr/lib/${APP_BIN_NAME}" "\$@" --no-sandbox --ozone-platform-hint=auto --enable-features=UseOzonePlatform,WaylandWindowDecorations,VaapiVideoDecodeLinuxGL --disable-features=CanvasOopRasterization
 APPRUN
 chmod +x "${APPDIR}/AppRun"
 

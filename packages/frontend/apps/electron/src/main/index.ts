@@ -30,7 +30,7 @@ if (isDev) {
 }
 // https://github.com/electron/electron/issues/43556
 // // `CalculateNativeWinOcclusion` - Disable native window occlusion tracker (https://groups.google.com/a/chromium.org/g/embedder-dev/c/ZF3uHHyWLKw/m/VDN2hDXMAAAJ)
-const disabledFeatures = [
+const disabledFeaturesList = [
   'PlzDedicatedWorker',
   'CalculateNativeWinOcclusion',
   // Disable Chrome autofill and password save prompts
@@ -40,7 +40,12 @@ const disabledFeatures = [
   'AutofillPaymentCards',
   'AutofillEnableAccountWalletStorage',
   'SavePasswordBubble',
-].join(',');
+];
+if (process.platform === 'linux') {
+  // CanvasOopRasterization causes EGL context loss and white/blank frames on Wayland compositors (Hyprland, Sway)
+  disabledFeaturesList.push('CanvasOopRasterization');
+}
+const disabledFeatures = disabledFeaturesList.join(',');
 app.commandLine.appendSwitch('disable-features', disabledFeatures);
 app.commandLine.appendSwitch('disable-blink-features', 'Autofill');
 
@@ -95,8 +100,7 @@ if (process.platform === 'linux') {
   enabledFeaturesList.push(
     'UseOzonePlatform',
     'WaylandWindowDecorations',
-    'VaapiVideoDecodeLinuxGL',
-    'CanvasOopRasterization'
+    'VaapiVideoDecodeLinuxGL'
   );
 }
 const enabledFeatures = enabledFeaturesList.join(',');

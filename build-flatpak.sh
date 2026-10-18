@@ -123,7 +123,7 @@ if [ -r /sys/class/drm/renderD128/device/vendor ] && [ "\$(cat /sys/class/drm/re
     fi
   done
 fi
-exec "/app/lib/affinite/${APP_BIN_NAME}" "\$@" --no-sandbox --ozone-platform-hint=auto \${EXTRA_GPU_FLAGS} --enable-features=UseOzonePlatform,WaylandWindowDecorations,VaapiVideoDecodeLinuxGL,CanvasOopRasterization
+exec "/app/lib/affinite/${APP_BIN_NAME}" "\$@" --no-sandbox --ozone-platform-hint=auto \${EXTRA_GPU_FLAGS} --enable-features=UseOzonePlatform,WaylandWindowDecorations,VaapiVideoDecodeLinuxGL --disable-features=CanvasOopRasterization
 WRAPPER
 chmod +x "${FLATPAK_BUILD_DIR}/files/bin/affinite"
 
