@@ -418,6 +418,9 @@ export class CodeBlockComponent extends CaptionedBlockComponent<CodeBlockModel> 
     );
     const shouldRenderPreview = preview && previewContext;
 
+    const isMermaid =
+      (this.model.props.language ?? '').toLowerCase() === 'mermaid';
+
     return html`
       <div
         class=${classMap({
@@ -428,6 +431,25 @@ export class CodeBlockComponent extends CaptionedBlockComponent<CodeBlockModel> 
           'disable-line-numbers': !showLineNumbers,
         })}
       >
+        ${isMermaid && !shouldRenderPreview && previewContext
+          ? html`
+              <div
+                contenteditable="false"
+                style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; padding: 6px 10px; border-radius: 6px; background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.3); font-family: Inter, system-ui, sans-serif; font-size: 12px;"
+              >
+                <span style="font-weight: 600; color: var(--affine-text-primary);">
+                  📊 Diagrama Mermaid (Modo Código)
+                </span>
+                <button
+                  type="button"
+                  style="padding: 4px 10px; border-radius: 5px; border: 1px solid rgba(99, 102, 241, 0.45); background: #6366f1; color: #fff; font-size: 11px; font-weight: 600; cursor: pointer;"
+                  @click=${() => this.setPreviewState(true)}
+                >
+                  Abrir Editor en Vivo + Diagrama
+                </button>
+              </div>
+            `
+          : nothing}
         <rich-text
           style=${styleMap({
             display: shouldRenderPreview ? 'none' : undefined,

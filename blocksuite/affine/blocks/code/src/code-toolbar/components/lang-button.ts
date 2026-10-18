@@ -76,6 +76,9 @@ export class LanguageListButton extends WithDisposable(
         }
         this.blockComponent.store.transact(() => {
           this.blockComponent.model.props.language$.value = item.name;
+          if (item.name === 'mermaid') {
+            this.blockComponent.model.props.preview$.value = true;
+          }
         });
 
         const std = this.blockComponent.std;

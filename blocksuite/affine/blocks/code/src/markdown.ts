@@ -41,10 +41,14 @@ export const CodeBlockMarkdownExtension =
       if (!parent) return;
       const index = parent.children.indexOf(model);
 
+      const isMermaid = language.toLowerCase() === 'mermaid';
       store.captureSync();
       const codeId = store.addBlock<CodeBlockModel>(
         CodeBlockSchema.model.flavour,
-        { language },
+        {
+          language: isMermaid ? 'mermaid' : language,
+          preview: isMermaid ? true : false,
+        },
         parent,
         index
       );
