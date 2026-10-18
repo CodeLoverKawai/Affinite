@@ -13,13 +13,27 @@ import {
 import { z } from 'zod';
 
 import { AIProvider } from './ai-provider';
-import { type CopilotClient, Endpoint } from './copilot-client';
+import {
+  type CopilotClient,
+  Endpoint,
+  isLocalAIProvider,
+} from './copilot-client';
 import type { PromptKey } from './prompt';
 import { textToText, toImage } from './request';
 import { setupTracker } from './tracker';
 
 function toAIUserInfo(account: AuthAccountInfo | null) {
-  if (!account) return null;
+  if (!account) {
+    if (isLocalAIProvider()) {
+      return {
+        avatarUrl: '',
+        email: 'local@affinite.app',
+        id: 'local-user',
+        name: 'Usuario Local',
+      };
+    }
+    return null;
+  }
   return {
     avatarUrl: account.avatar ?? '',
     email: account.email ?? '',
@@ -845,6 +859,9 @@ Could you make a new website based on these notes and send back just the html fi
 
   const disposeRequestLoginHandler = AIProvider.slots.requestLogin.subscribe(
     () => {
+      if (isLocalAIProvider()) {
+        return;
+      }
       globalDialogService.open('sign-in', {});
     }
   );

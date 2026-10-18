@@ -17,6 +17,9 @@ type toTextStreamOptions = {
   signal?: AbortSignal;
 };
 
+const CLOSED_STATE =
+  typeof EventSource !== 'undefined' ? EventSource.CLOSED : 2;
+
 // todo(@Peng): may need to extend the error type
 const safeParseError = (data: string): { status: number } => {
   try {
@@ -60,6 +63,13 @@ export function toTextStream(
       eventSource.addEventListener('message', messageListener);
       eventSource.addEventListener('attachment', messageListener);
 
+      eventSource.addEventListener('done', () => {
+        eventSource.close();
+        if (resolveMessagePromise) {
+          resolveMessagePromise();
+        }
+      });
+
       eventSource.addEventListener('error', event => {
         const errorMessage = (event as unknown as { data: string }).data;
         // if there is data in Error event, it means the server sent an error message
@@ -76,7 +86,8 @@ export function toTextStream(
 
       try {
         while (
-          eventSource.readyState !== EventSource.CLOSED &&
+          (eventSource.readyState !== CLOSED_STATE ||
+            messageQueue.length > 0) &&
           !signal?.aborted
         ) {
           if (messageQueue.length === 0) {

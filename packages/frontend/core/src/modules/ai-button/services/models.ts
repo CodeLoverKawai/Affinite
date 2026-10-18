@@ -6,6 +6,12 @@ import {
 import { signal } from '@preact/signals-core';
 import { LiveData, Service } from '@toeverything/infra';
 
+import { isLocalAIProvider } from '../../../blocksuite/ai/provider/copilot-client';
+import {
+  loadAISettings,
+  PRESET_MODELS,
+  saveAISettings,
+} from '../../../desktop/dialogs/setting/account-setting/ai-model-selector';
 import type { GraphQLService, SubscriptionService } from '../../cloud';
 import type { GlobalStateService } from '../../storage';
 
@@ -20,14 +26,28 @@ export interface AIModel {
   isDefault: boolean;
 }
 
+function getLocalFallbackModels(): AIModel[] {
+  const settings = loadAISettings();
+  const presets =
+    PRESET_MODELS[settings.provider] || PRESET_MODELS.antigravity;
+  return presets.map((m, idx) => ({
+    name: m.label,
+    id: m.id,
+    version: m.label,
+    category: settings.provider === 'ollama' ? 'Ollama' : 'Antigravity',
+    isPro: false,
+    isDefault: idx === 0 || m.id === settings.modelId,
+  }));
+}
+
 export class AIModelService extends Service {
   modelId: Signal<string | undefined>;
 
-  models: Signal<AIModel[]> = signal([]);
+  models: Signal<AIModel[]> = signal(getLocalFallbackModels());
 
   private readonly modelId$ = LiveData.from(
     this.globalStateService.globalState.watch<string>(AI_MODEL_ID_KEY),
-    undefined
+    loadAISettings().modelId
   );
 
   constructor(
@@ -39,9 +59,29 @@ export class AIModelService extends Service {
 
     const { signal: modelId, cleanup } = createSignalFromObservable<
       string | undefined
-    >(this.modelId$, undefined);
+    >(this.modelId$, loadAISettings().modelId);
     this.modelId = modelId;
     this.disposables.push(cleanup);
+
+    if (typeof window !== 'undefined') {
+      const onSettingsChange = (e: Event) => {
+        const detail = (e as CustomEvent).detail;
+        if (detail?.modelId) {
+          this.models.value = getLocalFallbackModels();
+          this.globalStateService.globalState.set(
+            AI_MODEL_ID_KEY,
+            detail.modelId
+          );
+        }
+      };
+      window.addEventListener('affinite-ai-settings-changed', onSettingsChange);
+      this.disposables.push(() =>
+        window.removeEventListener(
+          'affinite-ai-settings-changed',
+          onSettingsChange
+        )
+      );
+    }
 
     this.init().catch(err => {
       console.error(err);
@@ -49,10 +89,19 @@ export class AIModelService extends Service {
   }
 
   resetModel = () => {
-    this.globalStateService.globalState.set(AI_MODEL_ID_KEY, undefined);
+    this.globalStateService.globalState.set(
+      AI_MODEL_ID_KEY,
+      loadAISettings().modelId
+    );
   };
 
   setModel = (modelId: string) => {
+    if (isLocalAIProvider()) {
+      const current = loadAISettings();
+      saveAISettings({ ...current, modelId });
+      this.globalStateService.globalState.set(AI_MODEL_ID_KEY, modelId);
+      return;
+    }
     const isSubscribed =
       this.subscriptionService.subscription.ai$.value?.status ===
       SubscriptionStatus.Active;
@@ -69,6 +118,7 @@ export class AIModelService extends Service {
     // subscribe to ai purchase status
     const sub = this.subscriptionService.subscription.ai$.subscribe(
       subscription => {
+        if (isLocalAIProvider()) return;
         const isSubscribed = subscription?.status === SubscriptionStatus.Active;
         const model = this.models.value.find(
           model => model.id === this.modelId.value
@@ -82,22 +132,30 @@ export class AIModelService extends Service {
   };
 
   private readonly initModels = async (prompt?: string) => {
-    const promptName = prompt || 'Chat With AFFiNE AI';
-    const models = await this.getModelsByPrompt(promptName);
-    if (models) {
-      const { defaultModel, optionalModels, proModels } = models;
-      this.models.value = optionalModels.map(model => {
-        const [category] = model.name.split(' ');
-        const version = model.name.slice(category.length + 1);
-        return {
-          name: model.name,
-          id: model.id,
-          version,
-          category,
-          isPro: proModels.some(proModel => proModel.id === model.id),
-          isDefault: model.id === defaultModel,
-        };
-      });
+    if (isLocalAIProvider()) {
+      this.models.value = getLocalFallbackModels();
+      return;
+    }
+    try {
+      const promptName = prompt || 'Chat With AFFiNE AI';
+      const models = await this.getModelsByPrompt(promptName);
+      if (models) {
+        const { defaultModel, optionalModels, proModels } = models;
+        this.models.value = optionalModels.map(model => {
+          const [category] = model.name.split(' ');
+          const version = model.name.slice(category.length + 1);
+          return {
+            name: model.name,
+            id: model.id,
+            version,
+            category,
+            isPro: proModels.some(proModel => proModel.id === model.id),
+            isDefault: model.id === defaultModel,
+          };
+        });
+      }
+    } catch {
+      this.models.value = getLocalFallbackModels();
     }
   };
 

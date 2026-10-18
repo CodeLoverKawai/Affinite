@@ -282,9 +282,14 @@ function getHelperAPIs() {
 const mainAPIs = getMainAPIs();
 const helperAPIs = getHelperAPIs();
 
-export const apis = {
+const mergedApis = {
   ...mainAPIs.apis,
   ...helperAPIs.apis,
+};
+
+export const apis = {
+  ...mergedApis,
+  handler: mergedApis,
 };
 
 export const events = {

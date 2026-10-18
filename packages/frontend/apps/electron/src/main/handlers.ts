@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron';
 
 import { AFFINE_API_CHANNEL_NAME } from '../shared/type';
+import { aiHandlers } from './ai';
 import { clipboardHandlers } from './clipboard';
 import { configStorageHandlers } from './config-storage';
 import { findInPageHandlers } from './find-in-page';
@@ -32,6 +33,7 @@ export const i18nHandlers = {
 
 // Note: all of these handlers will be the single-source-of-truth for the apis exposed to the renderer process
 export const allHandlers = {
+  ai: aiHandlers,
   debug: debugHandlers,
   ui: uiHandlers,
   clipboard: clipboardHandlers,

@@ -50,6 +50,12 @@ import { useFramework, useService } from '@toeverything/infra';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import {
+  type AIProviderType,
+  loadAISettings,
+  PRESET_MODELS,
+  saveAISettings,
+} from '../../../dialogs/setting/account-setting/ai-model-selector';
 import { createSessionDeleteHandler } from '../chat-panel-utils';
 import * as styles from './index.css';
 
@@ -423,13 +429,83 @@ export const Component = () => {
     });
   }, [isBodyProvided]);
 
+  const [aiSettings, setAiSettings] = useState(loadAISettings);
+
+  useEffect(() => {
+    const onSettingsChanged = () => {
+      setAiSettings(loadAISettings());
+    };
+    window.addEventListener('affinite-ai-settings-changed', onSettingsChanged);
+    return () =>
+      window.removeEventListener(
+        'affinite-ai-settings-changed',
+        onSettingsChanged
+      );
+  }, []);
+
+  const handleQuickProviderChange = useCallback(
+    (provider: AIProviderType) => {
+      const models = PRESET_MODELS[provider] || PRESET_MODELS.antigravity;
+      const next = {
+        ...aiSettings,
+        provider,
+        modelId: models[0]?.id || 'gemini-4-argon-high',
+      };
+      setAiSettings(next);
+      saveAISettings(next);
+    },
+    [aiSettings]
+  );
+
+  const handleQuickModelChange = useCallback(
+    (modelId: string) => {
+      const next = {
+        ...aiSettings,
+        modelId,
+      };
+      setAiSettings(next);
+      saveAISettings(next);
+    },
+    [aiSettings]
+  );
+
+  const currentPresets =
+    PRESET_MODELS[aiSettings.provider] || PRESET_MODELS.antigravity;
+
   return (
     <>
       <ViewTitle title={t['com.affine.workspaceSubPath.chat']()} />
       <ViewIcon icon="ai" />
       <ViewHeader>
         <div className={styles.chatHeader}>
-          <div />
+          <div className={styles.localModelBar} data-testid="chat-local-ai-bar">
+            <span className={styles.zeroKeyDot} title="Zero API Key Active" />
+            <select
+              className={styles.headerSelect}
+              value={aiSettings.provider}
+              onChange={e =>
+                handleQuickProviderChange(e.target.value as AIProviderType)
+              }
+              aria-label="AI Provider"
+            >
+              <option value="antigravity">⚡ Antigravity (agy)</option>
+              <option value="ollama">🦙 Ollama Local</option>
+              <option value="local-cli">🛠️ CLI Local (gemini/claude)</option>
+            </select>
+            <span style={{ opacity: 0.4 }}>·</span>
+            <select
+              className={styles.headerSelect}
+              value={aiSettings.modelId}
+              onChange={e => handleQuickModelChange(e.target.value)}
+              aria-label="AI Model"
+            >
+              {currentPresets.map(m => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <div ref={onChatToolContainerRef} />
         </div>
       </ViewHeader>
