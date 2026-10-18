@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>app.affinite.Affinite</id>
+  <name>AFFiNITe</name>
+  <summary>Local-first workspace for docs, whiteboards, Kanban boards, LaTeX, and AI</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="io.github.rousseaukairos">
+    <name>Rousseau Kairos</name>
+  </developer>
+  <launchable type="desktop-id">app.affinite.Affinite.desktop</launchable>
+  <description>
+    <p>
+      AFFiNITe is a privacy-focused, local-first personal knowledge management and productivity workspace designed for Linux and cross-platform environments. It combines documents, edgeless whiteboards, databases, Kanban boards, calendar planning, LaTeX scientific writing, Mermaid diagramming, and local AI into a unified offline-first application.
+    </p>
+    <p>Key features include:</p>
+    <ul>
+      <li>Rich block-based documents and infinite Edgeless whiteboards powered by BlockSuite and Yjs CRDTs</li>
+      <li>Mermaid Pro Suite with live split-view editor, dark mode theming, templates, and SVG export</li>
+      <li>Daily and ISO Weekly Notes integrated with a native Monthly and Weekly Calendar planner</li>
+      <li>Native Kanban Project Boards with due date synchronization and progress tracking</li>
+      <li>Scientific LaTeX editor with live KaTeX preview, BibTeX management, and PDF compilation</li>
+      <li>Zero-API-key AI integration supporting Google Antigravity CLI (agy), local CLI models, and Ollama</li>
+    </ul>
+  </description>
+  <url type="homepage">https://github.com/RousseauKairos/Affinite</url>
+  <url type="bugtracker">https://github.com/RousseauKairos/Affinite/issues</url>
+  <url type="vcs-browser">https://github.com/RousseauKairos/Affinite</url>
+  <categories>
+    <category>Office</category>
+    <category>WordProcessor</category>
+    <category>ProjectManagement</category>
+  </categories>
+  <keywords>
+    <keyword>notes</keyword>
+    <keyword>knowledge-base</keyword>
+    <keyword>whiteboard</keyword>
+    <keyword>kanban</keyword>
+    <keyword>calendar</keyword>
+    <keyword>mermaid</keyword>
+    <keyword>latex</keyword>
+    <keyword>markdown</keyword>
+  </keywords>
+  <branding>
+    <color type="primary" scheme_preference="light">#93c5fd</color>
+    <color type="primary" scheme_preference="dark">#1e3a8a</color>
+  </branding>
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+  <recommends>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </recommends>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.28.0" date="2026-10-17">
+      <description>
+        <p>Added Mermaid Pro Suite with live split editor and templates, ISO Weekly Notes, native Monthly and Weekly Calendar planner synced with Kanban Boards, and zero-API-key Antigravity CLI and Ollama AI integration.</p>
+      </description>
+    </release>
+  </releases>
+</component>

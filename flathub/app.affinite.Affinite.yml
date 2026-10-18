@@ -1,0 +1,77 @@
+app-id: app.affinite.Affinite
+runtime: org.freedesktop.Platform
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '25.08'
+command: affinite
+separate-locales: false
+
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=pulseaudio
+  - --socket=session-bus
+  - --socket=system-bus
+  - --device=dri
+  - --filesystem=xdg-documents
+  - --filesystem=xdg-download
+  - --filesystem=xdg-pictures
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.kde.StatusNotifierWatcher
+  - --talk-name=org.freedesktop.Flatpak
+
+modules:
+  - name: affinite
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/lib/affinite /app/bin /app/share/applications /app/share/metainfo /app/share/icons/hicolor/512x512/apps
+      - cp -a AFFiNITe-stable-linux-x64/. /app/lib/affinite/
+      - install -Dm755 affinite-wrapper.sh /app/bin/affinite
+      - install -Dm644 app.affinite.Affinite.desktop /app/share/applications/app.affinite.Affinite.desktop
+      - install -Dm644 app.affinite.Affinite.metainfo.xml /app/share/metainfo/app.affinite.Affinite.metainfo.xml
+      - install -Dm644 icon_stable_512x512.png /app/share/icons/hicolor/512x512/apps/app.affinite.Affinite.png
+    sources:
+      - type: archive
+        only-arches:
+          - x86_64
+        url: https://github.com/RousseauKairos/Affinite/releases/download/v0.28.0/AFFiNITe-linux-x64-0.28.0.tar.gz
+        sha256: REPLACE_WITH_RELEASE_TARBALL_SHA256
+      - type: file
+        path: app.affinite.Affinite.metainfo.xml
+      - type: file
+        path: ../packages/frontend/apps/electron/resources/icons/icon_stable_512x512.png
+      - type: script
+        dest-filename: affinite-wrapper.sh
+        commands:
+          - export ELECTRON_OZONE_PLATFORM_HINT="${ELECTRON_OZONE_PLATFORM_HINT:-auto}"
+          - EXTRA_GPU_FLAGS=""
+          - |
+            if [ -r /sys/class/drm/renderD128/device/vendor ] && [ "$(cat /sys/class/drm/renderD128/device/vendor 2>/dev/null)" = "0x10de" ]; then
+              for node in renderD129 renderD130; do
+                if [ -r "/sys/class/drm/${node}/device/vendor" ]; then
+                  vendor="$(cat "/sys/class/drm/${node}/device/vendor" 2>/dev/null)"
+                  if [ "$vendor" = "0x1002" ] || [ "$vendor" = "0x8086" ]; then
+                    EXTRA_GPU_FLAGS="--render-node-override=/dev/dri/${node}"
+                    break
+                  fi
+                fi
+              done
+            fi
+          - exec zypak-wrapper /app/lib/affinite/AFFiNITe-stable "$@" --no-sandbox --ozone-platform-hint=auto ${EXTRA_GPU_FLAGS} --enable-features=UseOzonePlatform,WaylandWindowDecorations,VaapiVideoDecodeLinuxGL,CanvasOopRasterization
+      - type: inline
+        dest-filename: app.affinite.Affinite.desktop
+        contents: |
+          [Desktop Entry]
+          Name=AFFiNITe
+          Comment=Local-first workspace for docs, whiteboards, Kanban boards, LaTeX, and AI
+          Exec=affinite %U
+          Terminal=false
+          Type=Application
+          Icon=app.affinite.Affinite
+          Categories=Office;WordProcessor;ProjectManagement;
+          MimeType=x-scheme-handler/affine;x-scheme-handler/affinite;
+          StartupWMClass=AFFiNITe-stable
+          StartupNotify=true

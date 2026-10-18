@@ -102,6 +102,7 @@ mkdir -p \
   "${FLATPAK_BUILD_DIR}/files/lib/affinite" \
   "${FLATPAK_BUILD_DIR}/files/bin" \
   "${FLATPAK_BUILD_DIR}/files/share/applications" \
+  "${FLATPAK_BUILD_DIR}/files/share/metainfo" \
   "${FLATPAK_BUILD_DIR}/files/share/icons/hicolor/256x256/apps" \
   "${FLATPAK_BUILD_DIR}/files/share/icons/hicolor/512x512/apps"
 
@@ -140,6 +141,11 @@ StartupWMClass=${APP_BIN_NAME}
 StartupNotify=true
 DESKTOP
 
+METAINFO_PATH="${REPO_ROOT}/flathub/${FLATPAK_ID}.metainfo.xml"
+if [ -f "${METAINFO_PATH}" ]; then
+  cp "${METAINFO_PATH}" "${FLATPAK_BUILD_DIR}/files/share/metainfo/${FLATPAK_ID}.metainfo.xml"
+fi
+
 ICON_PATH="${REPO_ROOT}/packages/frontend/apps/electron/resources/icons/${ICON_SRC}"
 if [ -f "${ICON_PATH}" ]; then
   cp "${ICON_PATH}" "${FLATPAK_BUILD_DIR}/files/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png"
@@ -166,7 +172,8 @@ flatpak build-finish "${FLATPAK_BUILD_DIR}" \
   --filesystem=xdg-download \
   --filesystem=xdg-pictures \
   --talk-name=org.freedesktop.Notifications \
-  --talk-name=org.kde.StatusNotifierWatcher
+  --talk-name=org.kde.StatusNotifierWatcher \
+  --talk-name=org.freedesktop.Flatpak
 
 rm -rf "${FLATPAK_REPO_DIR}"
 flatpak build-export "${FLATPAK_REPO_DIR}" "${FLATPAK_BUILD_DIR}" stable

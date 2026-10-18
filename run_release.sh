@@ -74,20 +74,31 @@ git commit -m "chore: Bump version to $NEW_VERSION" || true
 
 # Run the AppImage build script
 echo ""
-echo "--- [1/3] Building Linux AppImage (Stable) ---"
+echo "--- [1/4] Building Linux AppImage (Stable) ---"
 ./build-appimage.sh stable
+
+# Run the Flatpak build script (reusing freshly built Electron assets)
+echo ""
+echo "--- [2/4] Building Linux Flatpak Bundle (Stable) ---"
+./build-flatpak.sh stable --no-install
 
 # Run the APK build script
 echo ""
-echo "--- [2/3] Building Android APK (Stable) ---"
+echo "--- [3/4] Building Android APK (Stable) ---"
 ./build-apk.sh
 
 # Check build outputs
 APPIMAGE_PATH="packages/frontend/apps/electron/out/AFFiNITe-linux-x86_64.AppImage"
+FLATPAK_PATH="AFFiNITe-linux-x86_64.flatpak"
 APK_PATH="packages/frontend/apps/android/App/app/build/outputs/apk/stable/release/AFFINITE-release.apk"
 
 if [ ! -f "$APPIMAGE_PATH" ]; then
   echo "❌ Error: AppImage was not generated at $APPIMAGE_PATH"
+  exit 1
+fi
+
+if [ ! -f "$FLATPAK_PATH" ]; then
+  echo "❌ Error: Flatpak bundle was not generated at $FLATPAK_PATH"
   exit 1
 fi
 
@@ -98,7 +109,7 @@ fi
 
 # Create GitHub Release and Upload Assets
 echo ""
-echo "--- [3/3] Publishing to GitHub Releases ---"
+echo "--- [4/4] Publishing to GitHub Releases ---"
 echo "Creating release $TAG and uploading assets..."
 
 # Push commits to remote origin
@@ -106,13 +117,15 @@ git push origin || true
 
 gh release create "$TAG" \
   "$APPIMAGE_PATH" \
+  "$FLATPAK_PATH" \
   "$APK_PATH" \
   --title "AFFiNITe $TAG" \
-  --notes "Release of AFFiNITe Desktop AppImage (Linux) and Mobile APK (Android) v$NEW_VERSION." \
+  --notes "Release of AFFiNITe Desktop AppImage & Flatpak (Linux) and Mobile APK (Android) v$NEW_VERSION." \
   --generate-notes
 
 echo ""
 echo "=== Release $TAG successfully created! ==="
 echo "Assets uploaded:"
 echo "  - Linux AppImage: $APPIMAGE_PATH"
-echo "  - Android APK: $APK_PATH"
+echo "  - Linux Flatpak:  $FLATPAK_PATH"
+echo "  - Android APK:    $APK_PATH"
