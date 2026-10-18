@@ -1,4 +1,5 @@
 import {
+  CheckBoxCheckSolidIcon,
   EdgelessIcon,
   JournalIcon,
   PlusIcon,
@@ -758,6 +759,61 @@ export const Component = () => {
                 </span>
               </button>
             </div>
+          </div>
+
+          {/* Weekly Habits Consistency Section */}
+          <div
+            className="affinite-weekly-card"
+            style={{
+              padding: '18px 24px',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 16,
+              background: 'rgba(16, 185, 129, 0.08)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 26 }}>🔥</span>
+              <div>
+                <h4
+                  style={{
+                    margin: 0,
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: '#f8fafc',
+                  }}
+                >
+                  Hábitos & Rutinas de la Semana ({selectedWeekKey})
+                </h4>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#94a3b8' }}>
+                  Monitorea tus hábitos, rachas de consistencia y registros
+                  diarios en la suite de hábitos.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => workbench.open('/habits')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '8px 16px',
+                borderRadius: 8,
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                background: 'rgba(16, 185, 129, 0.2)',
+                color: '#6ee7b7',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: 13,
+              }}
+            >
+              <CheckBoxCheckSolidIcon style={{ width: 14, height: 14 }} />
+              <span>Ver Matriz de Hábitos →</span>
+            </button>
           </div>
 
           {/* Yearly Weeks History Grid / List */}

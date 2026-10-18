@@ -18,6 +18,10 @@ export const workbenchRoutes = [
     lazy: () => import('./pages/workspace/weekly-reports/index'),
   },
   {
+    path: '/habits',
+    lazy: () => import('./pages/workspace/habits/index'),
+  },
+  {
     path: '/all',
     lazy: () => import('./pages/workspace/all-page/all-page'),
   },

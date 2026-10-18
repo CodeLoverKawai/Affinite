@@ -179,6 +179,28 @@ const WeeklyReportsButton = () => {
   );
 };
 
+const HabitsButton = () => {
+  const { workbenchService } = useServices({
+    WorkbenchService,
+  });
+  const workbench = workbenchService.workbench;
+  const habitsActive = useLiveData(
+    workbench.location$.selector(location =>
+      location.pathname.startsWith('/habits')
+    )
+  );
+
+  return (
+    <MenuLinkItem
+      icon={<CheckBoxCheckSolidIcon />}
+      active={habitsActive}
+      to={'/habits'}
+    >
+      <span data-testid="habits-page">Hábitos</span>
+    </MenuLinkItem>
+  );
+};
+
 /**
  * This is for the whole affine app sidebar.
  * This component wraps the app sidebar in `@affine/component` with logic and data.
@@ -277,6 +299,7 @@ export const RootAppSidebar = memo((): ReactElement => {
         <AllDocsButton />
         <AppSidebarJournalButton />
         <WeeklyReportsButton />
+        <HabitsButton />
         <CalendarButton />
         {sessionStatus === 'authenticated' && <NotificationButton />}
         <AIChatButton />
