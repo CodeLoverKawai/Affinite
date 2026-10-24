@@ -303,3 +303,117 @@ export function updateBookMetadata(
     };
   });
 }
+
+// ---------------------------------------------------------------------------
+// Anx Reader Pro Suite: Search, TTS, Highlights & Quote Cards
+// ---------------------------------------------------------------------------
+
+export const HIGHLIGHT_COLORS = [
+  { id: 'yellow', label: 'Amarillo', hex: '#fef08a', bg: 'rgba(254, 240, 138, 0.45)', border: '#eab308' },
+  { id: 'green', label: 'Verde', hex: '#bbf7d0', bg: 'rgba(187, 247, 208, 0.45)', border: '#22c55e' },
+  { id: 'blue', label: 'Azul', hex: '#bfdbfe', bg: 'rgba(191, 219, 254, 0.45)', border: '#3b82f6' },
+  { id: 'pink', label: 'Rosa', hex: '#fbcfe8', bg: 'rgba(251, 207, 232, 0.45)', border: '#ec4899' },
+  { id: 'purple', label: 'Púrpura', hex: '#e9d5ff', bg: 'rgba(233, 213, 255, 0.45)', border: '#a855f7' },
+] as const;
+
+export interface InBookSearchResult {
+  cfi: string;
+  excerpt: string;
+  chapter?: string;
+}
+
+export function formatSearchSnippet(excerpt: string, maxLength = 140): string {
+  const clean = excerpt.replace(/\s+/g, ' ').trim();
+  if (clean.length <= maxLength) return clean;
+  return clean.slice(0, maxLength) + '...';
+}
+
+export interface TtsState {
+  status: 'idle' | 'playing' | 'paused' | 'stopped';
+  currentSentence: string;
+  currentCfi?: string;
+  rate: number;
+  pitch: number;
+  volume: number;
+}
+
+export function createInitialTtsState(): TtsState {
+  return {
+    status: 'idle',
+    currentSentence: '',
+    rate: 1.0,
+    pitch: 1.0,
+    volume: 1.0,
+  };
+}
+
+export function sanitizeTtsText(rawText: string): string {
+  return rawText
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export type QuoteCardThemeId = 'modern-dark' | 'editorial-sepia' | 'oled-obsidian' | 'emerald-night';
+
+export interface QuoteCardTheme {
+  id: QuoteCardThemeId;
+  name: string;
+  background: string;
+  textColor: string;
+  accentColor: string;
+  subtextColor: string;
+  fontFamily: string;
+  quoteMarkColor: string;
+}
+
+export const QUOTE_CARD_THEMES: Record<QuoteCardThemeId, QuoteCardTheme> = {
+  'modern-dark': {
+    id: 'modern-dark',
+    name: 'Modern Dark',
+    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+    textColor: '#f8fafc',
+    accentColor: '#38bdf8',
+    subtextColor: '#94a3b8',
+    fontFamily: 'system-ui, -apple-system, sans-serif',
+    quoteMarkColor: 'rgba(56, 189, 248, 0.3)',
+  },
+  'editorial-sepia': {
+    id: 'editorial-sepia',
+    name: 'Editorial Sepia',
+    background: '#fbf0d9',
+    textColor: '#451a03',
+    accentColor: '#9a3412',
+    subtextColor: '#78350f',
+    fontFamily: 'Georgia, Cambria, serif',
+    quoteMarkColor: 'rgba(154, 52, 18, 0.25)',
+  },
+  'oled-obsidian': {
+    id: 'oled-obsidian',
+    name: 'OLED Obsidian',
+    background: '#000000',
+    textColor: '#ffffff',
+    accentColor: '#a855f7',
+    subtextColor: '#a1a1aa',
+    fontFamily: 'system-ui, -apple-system, sans-serif',
+    quoteMarkColor: 'rgba(168, 85, 247, 0.4)',
+  },
+  'emerald-night': {
+    id: 'emerald-night',
+    name: 'Emerald Night',
+    background: 'linear-gradient(135deg, #064e3b 0%, #022c22 100%)',
+    textColor: '#ecfdf5',
+    accentColor: '#34d399',
+    subtextColor: '#6ee7b7',
+    fontFamily: 'Georgia, Cambria, serif',
+    quoteMarkColor: 'rgba(52, 211, 153, 0.3)',
+  },
+};
+
+export function computeQuoteCardFontSize(textLength: number): number {
+  if (textLength < 60) return 24;
+  if (textLength < 140) return 20;
+  if (textLength < 280) return 16;
+  return 14;
+}
+

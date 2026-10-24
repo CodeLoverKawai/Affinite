@@ -27,20 +27,29 @@ import {
   addBookTag,
   addHighlight,
   calculateReadingStatistics,
+  computeQuoteCardFontSize,
+  createInitialTtsState,
   createLibraryBook,
   filterBooks,
   formatBookSize,
   formatReadingProgress,
   formatReadingTime,
+  formatSearchSnippet,
   generateJournalQuoteMarkdown,
+  HIGHLIGHT_COLORS,
+  InBookSearchResult,
   LibraryBook,
   LibraryBookmark,
   LibraryHighlight,
+  QUOTE_CARD_THEMES,
+  QuoteCardThemeId,
   ReadingStatistics,
   removeBookmark,
   removeBookTag,
   removeHighlight,
+  sanitizeTtsText,
   sortBooks,
+  TtsState,
   updateBookMetadata,
   updateBookRating,
 } from './library-manager';
@@ -77,6 +86,43 @@ export const Component = () => {
   const [currentChapter, setCurrentChapter] = useState('Inicio');
   const [currentCfi, setCurrentCfi] = useState<string>('');
   const [currentPercentage, setCurrentPercentage] = useState(0);
+
+  // 1. In-Book Search State
+  const [showSearchDrawer, setShowSearchDrawer] = useState(false);
+  const [inBookSearchQuery, setInBookSearchQuery] = useState('');
+  const [inBookSearchResults, setInBookSearchResults] = useState<InBookSearchResult[]>([]);
+  const [isSearchingInBook, setIsSearchingInBook] = useState(false);
+
+  // 2. Synchronized TTS Floating Bar State
+  const [showTtsBar, setShowTtsBar] = useState(false);
+  const [ttsState, setTtsState] = useState<TtsState>(createInitialTtsState());
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const ttsStateRef = useRef(ttsState);
+  useEffect(() => {
+    ttsStateRef.current = ttsState;
+  }, [ttsState]);
+
+  // 3. Floating Selection Context Toolbar State
+  const [selectionRangeData, setSelectionRangeData] = useState<{
+    text: string;
+    cfi: string;
+    pos?: { left: number; top: number; right: number; bottom: number };
+  } | null>(null);
+  const [selectedHighlightColor, setSelectedHighlightColor] = useState('yellow');
+  const [showSelectionNoteInput, setShowSelectionNoteInput] = useState(false);
+  const [selectionNoteText, setSelectionNoteText] = useState('');
+
+  // 4. AI Reading Assistant State (Antigravity Zero-Key CLI)
+  const [showAiDrawer, setShowAiDrawer] = useState(false);
+  const [aiMessages, setAiMessages] = useState<Array<{ id: string; role: 'user' | 'assistant'; content: string; createdAt: number }>>([]);
+  const [aiPromptInput, setAiPromptInput] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+
+  // 5. Excerpt Share Card Modal State
+  const [showQuoteCardModal, setShowQuoteCardModal] = useState(false);
+  const [selectedQuoteTheme, setSelectedQuoteTheme] = useState<QuoteCardThemeId>('modern-dark');
+  const [quoteCardCopiedFeedback, setQuoteCardCopiedFeedback] = useState(false);
 
   // Book Detail Modal State
   const [selectedBookForDetail, setSelectedBookForDetail] = useState<LibraryBook | null>(null);
@@ -295,6 +341,277 @@ export const Component = () => {
     workbench,
   ]);
 
+  // Reader commands sent to iframe
+  const sendReaderCommand = useCallback((command: string, ...args: any[]) => {
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        { type: 'anx-command', command, args },
+        '*'
+      );
+    }
+  }, []);
+
+  const handleNextPage = () => sendReaderCommand('nextPage');
+  const handlePrevPage = () => sendReaderCommand('prevPage');
+
+  // Load speech synthesis voices
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    const updateVoices = () => {
+      const v = window.speechSynthesis.getVoices();
+      if (v && v.length > 0) {
+        setAvailableVoices(v);
+        const esVoice = v.find(item => item.lang.startsWith('es')) || v[0];
+        setSelectedVoice(esVoice || null);
+      }
+    };
+    updateVoices();
+    window.speechSynthesis.onvoiceschanged = updateVoices;
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, []);
+
+  // TTS playback handlers
+  const handlePlayTtsSentence = useCallback(
+    (rawSentence: string, cfi?: string) => {
+      const clean = sanitizeTtsText(rawSentence);
+      if (!clean) {
+        if (ttsStateRef.current.status === 'playing') {
+          sendReaderCommand('ttsNext');
+        }
+        return;
+      }
+      setTtsState(s => ({ ...s, currentSentence: clean, currentCfi: cfi }));
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(clean);
+        utterance.rate = ttsStateRef.current.rate;
+        utterance.pitch = ttsStateRef.current.pitch;
+        utterance.volume = ttsStateRef.current.volume;
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+        }
+        utterance.onend = () => {
+          if (ttsStateRef.current.status === 'playing') {
+            sendReaderCommand('ttsNext');
+          }
+        };
+        utterance.onerror = () => {
+          if (ttsStateRef.current.status === 'playing') {
+            sendReaderCommand('ttsNext');
+          }
+        };
+        window.speechSynthesis.speak(utterance);
+      }
+    },
+    [selectedVoice, sendReaderCommand]
+  );
+
+  const handleStartTts = useCallback(() => {
+    if (ttsState.status === 'paused') {
+      window.speechSynthesis?.resume();
+      setTtsState(s => ({ ...s, status: 'playing' }));
+    } else {
+      setTtsState(s => ({ ...s, status: 'playing' }));
+      sendReaderCommand('ttsHere');
+      sendReaderCommand('ttsNext');
+    }
+  }, [sendReaderCommand, ttsState.status]);
+
+  const handlePauseTts = useCallback(() => {
+    window.speechSynthesis?.pause();
+    setTtsState(s => ({ ...s, status: 'paused' }));
+  }, []);
+
+  const handleStopTts = useCallback(() => {
+    window.speechSynthesis?.cancel();
+    sendReaderCommand('ttsStop');
+    setTtsState(s => ({ ...s, status: 'stopped', currentSentence: '' }));
+  }, [sendReaderCommand]);
+
+  const handleNextSentence = useCallback(() => {
+    window.speechSynthesis?.cancel();
+    sendReaderCommand('ttsNext');
+  }, [sendReaderCommand]);
+
+  const handlePrevSentence = useCallback(() => {
+    window.speechSynthesis?.cancel();
+    sendReaderCommand('ttsPrev');
+  }, [sendReaderCommand]);
+
+  // In-Book search handler
+  const handleExecuteInBookSearch = useCallback(
+    (query: string) => {
+      const q = query.trim();
+      if (!q) {
+        setInBookSearchResults([]);
+        sendReaderCommand('clearSearch');
+        return;
+      }
+      setIsSearchingInBook(true);
+      setInBookSearchResults([]);
+      sendReaderCommand('search', q);
+    },
+    [sendReaderCommand]
+  );
+
+  // AI Reading Assistant prompt handler
+  const handleSendAiPrompt = useCallback(
+    async (customPrompt?: string) => {
+      const promptText = (customPrompt || aiPromptInput).trim();
+      if (!promptText || isAiLoading) return;
+
+      const userMsg = {
+        id: `msg-${Date.now()}`,
+        role: 'user' as const,
+        content: promptText,
+        createdAt: Date.now(),
+      };
+      setAiMessages(prev => [...prev, userMsg]);
+      if (!customPrompt) setAiPromptInput('');
+      setIsAiLoading(true);
+
+      try {
+        const aiApi = (window as any).__apis?.handler?.ai;
+        let reply = '';
+        const bookContext = `Estás leyendo el libro "${activeBook?.title}" de ${activeBook?.author}. Capítulo actual: "${currentChapter}".`;
+        const fullPrompt = `${bookContext}\n\nPregunta o instrucción del lector:\n${promptText}`;
+
+        if (aiApi?.chat) {
+          const res = await aiApi.chat({
+            provider: 'antigravity',
+            modelId: 'gemini-4-argon-high',
+            prompt: fullPrompt,
+            messages: aiMessages.concat(userMsg).map(m => ({ role: m.role, content: m.content })),
+          });
+          reply = res?.content || 'No se recibió respuesta del modelo local.';
+        } else {
+          reply = 'El puente de IA local (Antigravity agy CLI) no está disponible en este entorno.';
+        }
+
+        const assistantMsg = {
+          id: `msg-${Date.now() + 1}`,
+          role: 'assistant' as const,
+          content: reply,
+          createdAt: Date.now(),
+        };
+        setAiMessages(prev => [...prev, assistantMsg]);
+      } catch (err: any) {
+        const errorMsg = {
+          id: `msg-${Date.now() + 1}`,
+          role: 'assistant' as const,
+          content: `Error al consultar Antigravity: ${err?.message || String(err)}`,
+          createdAt: Date.now(),
+        };
+        setAiMessages(prev => [...prev, errorMsg]);
+      } finally {
+        setIsAiLoading(false);
+      }
+    },
+    [activeBook?.author, activeBook?.title, aiMessages, aiPromptInput, currentChapter, isAiLoading]
+  );
+
+  // Quote Card generator using HTML5 Canvas
+  const generateQuoteCardImage = useCallback(
+    async (themeId: QuoteCardThemeId): Promise<Blob | null> => {
+      const theme = QUOTE_CARD_THEMES[themeId];
+      const quote = selectedQuoteText || (activeBook ? activeBook.title : 'Cita');
+      const author = activeBook?.author || 'Autor desconocido';
+      const bookTitle = activeBook?.title || 'Libro';
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 1200;
+      canvas.height = 700;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      // Background
+      if (themeId === 'modern-dark') {
+        const grad = ctx.createLinearGradient(0, 0, 1200, 700);
+        grad.addColorStop(0, '#0f172a');
+        grad.addColorStop(1, '#1e293b');
+        ctx.fillStyle = grad;
+      } else if (themeId === 'emerald-night') {
+        const grad = ctx.createLinearGradient(0, 0, 1200, 700);
+        grad.addColorStop(0, '#064e3b');
+        grad.addColorStop(1, '#022c22');
+        ctx.fillStyle = grad;
+      } else {
+        ctx.fillStyle = theme.background;
+      }
+      ctx.fillRect(0, 0, 1200, 700);
+
+      // Decorative border
+      ctx.strokeStyle = theme.accentColor + '33';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(40, 40, 1120, 620);
+
+      // Quotation mark
+      ctx.fillStyle = theme.quoteMarkColor;
+      ctx.font = 'bold 120px Georgia, serif';
+      ctx.fillText('“', 80, 150);
+
+      // Quote text wrapped
+      ctx.fillStyle = theme.textColor;
+      const fontSize = computeQuoteCardFontSize(quote.length) * 1.6;
+      ctx.font = `italic ${Math.round(fontSize)}px ${theme.fontFamily}`;
+
+      const words = quote.split(' ');
+      let line = '';
+      let y = 190;
+      const maxWidth = 1000;
+      const lineHeight = fontSize * 1.45;
+
+      for (let n = 0; n < words.length; n++) {
+        const testLine = line + words[n] + ' ';
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxWidth && n > 0) {
+          ctx.fillText(line.trim(), 90, y);
+          line = words[n] + ' ';
+          y += lineHeight;
+          if (y > 510) {
+            ctx.fillText(line.trim() + '...', 90, y);
+            break;
+          }
+        } else {
+          line = testLine;
+        }
+      }
+      if (y <= 510 && line) {
+        ctx.fillText(line.trim(), 90, y);
+      }
+
+      // Divider line
+      ctx.strokeStyle = theme.accentColor + '66';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(90, 560);
+      ctx.lineTo(350, 560);
+      ctx.stroke();
+
+      // Book title and author
+      ctx.fillStyle = theme.accentColor;
+      ctx.font = `bold 22px system-ui, sans-serif`;
+      ctx.fillText(bookTitle, 90, 595);
+
+      ctx.fillStyle = theme.subtextColor;
+      ctx.font = `18px system-ui, sans-serif`;
+      ctx.fillText(`${author} · ${currentChapter}`, 90, 625);
+
+      // Watermark
+      ctx.fillStyle = theme.subtextColor + '88';
+      ctx.font = `14px system-ui, sans-serif`;
+      ctx.textAlign = 'right';
+      ctx.fillText('AFFiNITe · Anx Reader', 1100, 625);
+
+      return new Promise<Blob | null>(resolve => {
+        canvas.toBlob(blob => resolve(blob), 'image/png');
+      });
+    },
+    [activeBook, currentChapter, selectedQuoteText]
+  );
+
   // Handle message from Foliate iframe
   useEffect(() => {
     const handleWindowMessage = (e: MessageEvent) => {
@@ -323,16 +640,47 @@ export const Component = () => {
           const selection = data.data;
           if (selection?.text) {
             setSelectedQuoteText(selection.text);
+            setSelectionRangeData({
+              text: selection.text,
+              cfi: selection.cfi || currentCfi,
+              pos: selection.pos,
+            });
+            setShowSelectionNoteInput(false);
+            setSelectionNoteText('');
             if (activeBook) {
               const nextHighlights = addHighlight(
                 highlights,
                 activeBook.id,
                 selection.text,
                 selection.cfi || currentCfi,
-                { chapter: currentChapter }
+                { chapter: currentChapter, color: selectedHighlightColor }
               );
               saveHighlightsToYjs(nextHighlights);
             }
+          }
+          break;
+        }
+        case 'onSelectionCleared': {
+          setSelectionRangeData(null);
+          setShowSelectionNoteInput(false);
+          break;
+        }
+        case 'onSearch': {
+          const payload = data.data;
+          if (payload === 'done' || payload?.process === 1.0) {
+            setIsSearchingInBook(false);
+          } else if (payload?.cfi && payload?.excerpt) {
+            setInBookSearchResults(prev => [
+              ...prev,
+              { cfi: payload.cfi, excerpt: payload.excerpt, chapter: currentChapter },
+            ]);
+          }
+          break;
+        }
+        case 'onTtsSentence': {
+          const payload = data.data;
+          if (payload?.text) {
+            handlePlayTtsSentence(payload.text, payload.cfi);
           }
           break;
         }
@@ -343,7 +691,16 @@ export const Component = () => {
 
     window.addEventListener('message', handleWindowMessage);
     return () => window.removeEventListener('message', handleWindowMessage);
-  }, [activeBook, currentCfi, currentChapter, handleUpdateProgress, highlights, saveHighlightsToYjs]);
+  }, [
+    activeBook,
+    currentCfi,
+    currentChapter,
+    handlePlayTtsSentence,
+    handleUpdateProgress,
+    highlights,
+    saveHighlightsToYjs,
+    selectedHighlightColor,
+  ]);
 
   // Compute safe iframe reader URL with JSON-encoded parameters
   const readerIframeSrc = useMemo(() => {
@@ -384,19 +741,6 @@ export const Component = () => {
     });
     return `assets://./foliate/index.html?${params.toString()}`;
   }, [activeBook?.id, activeBook?.filePath, readerFontSize, readerPageTurn, readerTheme]);
-
-  // Reader commands sent to iframe
-  const sendReaderCommand = useCallback((command: string, ...args: any[]) => {
-    if (iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage(
-        { type: 'anx-command', command, args },
-        '*'
-      );
-    }
-  }, []);
-
-  const handleNextPage = () => sendReaderCommand('nextPage');
-  const handlePrevPage = () => sendReaderCommand('prevPage');
 
   // Bookmarks handlers
   const handleAddCurrentBookmark = () => {
@@ -714,6 +1058,60 @@ export const Component = () => {
                     title="Estilos y Tema de lectura"
                   >
                     🎨 Estilo
+                  </button>
+
+                  <button
+                    onClick={() => setShowSearchDrawer(s => !s)}
+                    style={{
+                      ...readerBtnStyle,
+                      background: showSearchDrawer ? 'rgba(59, 130, 246, 0.45)' : readerBtnStyle.background,
+                      color: showSearchDrawer ? '#ffffff' : readerBtnStyle.color,
+                    }}
+                    title="Buscar texto en todo el libro (In-Book Search)"
+                  >
+                    🔍 Buscar
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowTtsBar(s => !s);
+                      if (!showTtsBar && ttsState.status === 'idle') {
+                        handleStartTts();
+                      }
+                    }}
+                    style={{
+                      ...readerBtnStyle,
+                      background: showTtsBar ? 'rgba(16, 185, 129, 0.45)' : readerBtnStyle.background,
+                      color: showTtsBar ? '#ffffff' : readerBtnStyle.color,
+                    }}
+                    title="Narrador de voz sincronizado (Text-to-Speech)"
+                  >
+                    🔊 Voz (TTS)
+                  </button>
+
+                  <button
+                    onClick={() => setShowAiDrawer(s => !s)}
+                    style={{
+                      ...readerBtnStyle,
+                      background: showAiDrawer ? 'rgba(168, 85, 247, 0.45)' : readerBtnStyle.background,
+                      color: showAiDrawer ? '#ffffff' : readerBtnStyle.color,
+                    }}
+                    title="Asistente IA de lectura (Antigravity Zero-Key)"
+                  >
+                    🤖 IA
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (!selectedQuoteText) {
+                        setSelectedQuoteText(`Fragmento de ${activeBook.title}`);
+                      }
+                      setShowQuoteCardModal(true);
+                    }}
+                    style={readerBtnStyle}
+                    title="Crear tarjeta visual de cita (Quote Card)"
+                  >
+                    🖼️ Tarjeta
                   </button>
 
                   <div>
@@ -1186,6 +1584,677 @@ export const Component = () => {
                     background: 'transparent',
                   }}
                 />
+
+                {/* 1. In-Book Full-Text Search Drawer */}
+                {showSearchDrawer && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      bottom: 0,
+                      width: 340,
+                      background: 'rgba(15, 23, 42, 0.96)',
+                      backdropFilter: 'blur(16px)',
+                      borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+                      zIndex: 60,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      padding: '16px',
+                      gap: 12,
+                      boxShadow: '10px 0 30px rgba(0,0,0,0.5)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: '#f8fafc' }}>
+                        🔍 Buscar en el libro
+                      </span>
+                      <button
+                        onClick={() => {
+                          setShowSearchDrawer(false);
+                          sendReaderCommand('clearSearch');
+                        }}
+                        style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 18, cursor: 'pointer' }}
+                      >
+                        ×
+                      </button>
+                    </div>
+
+                    {/* Search Input */}
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <input
+                        type="text"
+                        placeholder="Escribe palabra o frase..."
+                        value={inBookSearchQuery}
+                        onChange={e => {
+                          const q = e.target.value;
+                          setInBookSearchQuery(q);
+                          if (!q.trim()) {
+                            setInBookSearchResults([]);
+                            sendReaderCommand('clearSearch');
+                          }
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            handleExecuteInBookSearch(inBookSearchQuery);
+                          }
+                        }}
+                        style={{
+                          flex: 1,
+                          background: 'rgba(255,255,255,0.06)',
+                          border: '1px solid rgba(255,255,255,0.12)',
+                          color: '#f8fafc',
+                          padding: '8px 12px',
+                          borderRadius: 6,
+                          fontSize: 13,
+                          outline: 'none',
+                        }}
+                      />
+                      <button
+                        onClick={() => handleExecuteInBookSearch(inBookSearchQuery)}
+                        style={{
+                          background: '#3b82f6',
+                          border: 'none',
+                          color: '#ffffff',
+                          borderRadius: 6,
+                          padding: '0 12px',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Buscar
+                      </button>
+                    </div>
+
+                    <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>{inBookSearchResults.length} coincidencias</span>
+                      {isSearchingInBook && <span style={{ color: '#38bdf8' }}>Buscando...</span>}
+                    </div>
+
+                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {inBookSearchResults.length === 0 ? (
+                        <div style={{ color: '#64748b', fontSize: 12, textAlign: 'center', marginTop: 30 }}>
+                          {isSearchingInBook ? 'Escaneando capítulos...' : 'Ingresa un término para buscar en todo el libro'}
+                        </div>
+                      ) : (
+                        inBookSearchResults.map((res, idx) => (
+                          <div
+                            key={`${res.cfi}-${idx}`}
+                            onClick={() => sendReaderCommand('goToCfi', res.cfi)}
+                            style={{
+                              background: 'rgba(255, 255, 255, 0.04)',
+                              border: '1px solid rgba(255, 255, 255, 0.08)',
+                              borderRadius: 6,
+                              padding: '10px',
+                              cursor: 'pointer',
+                              transition: 'background 0.15s ease',
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59, 130, 246, 0.15)')}
+                            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)')}
+                          >
+                            <div style={{ fontSize: 11, color: '#60a5fa', fontWeight: 600, marginBottom: 4 }}>
+                              {res.chapter || currentChapter}
+                            </div>
+                            <div style={{ fontSize: 12, color: '#e2e8f0', lineHeight: 1.4 }}>
+                              {formatSearchSnippet(res.excerpt, 120)}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. AI Reading Assistant Drawer (Right side) */}
+                {showAiDrawer && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      right: 0,
+                      bottom: 0,
+                      width: 380,
+                      background: 'rgba(15, 23, 42, 0.96)',
+                      backdropFilter: 'blur(20px)',
+                      borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+                      zIndex: 65,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      padding: '16px',
+                      gap: 12,
+                      boxShadow: '-10px 0 30px rgba(0,0,0,0.5)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 18 }}>🤖</span>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: '#f8fafc' }}>
+                            Asistente IA de Lectura
+                          </div>
+                          <div style={{ fontSize: 10, color: '#10b981' }}>
+                            ⚡ Antigravity Local (Zero-API-Key)
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowAiDrawer(false)}
+                        style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 18, cursor: 'pointer' }}
+                      >
+                        ×
+                      </button>
+                    </div>
+
+                    {/* Quick Prompt Chips */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {[
+                        { label: '💡 Resumir capítulo', prompt: `Por favor resume de forma clara y concisa los puntos principales del capítulo "${currentChapter}" de la obra "${activeBook.title}".` },
+                        { label: '🔍 Explicar selección', prompt: selectedQuoteText ? `Explica el significado y contexto del siguiente fragmento de "${activeBook.title}":\n\n"${selectedQuoteText}"` : `Explica los conceptos clave del capítulo "${currentChapter}".` },
+                        { label: '🧠 Mapa Mental Mermaid', prompt: `Genera un mapa mental o diagrama conceptual en formato Mermaid (flowchart TD) de las ideas de "${activeBook.title}" en el capítulo "${currentChapter}". Responde con el bloque \`\`\`mermaid\`\`\`.` },
+                        { label: '❓ Preguntas de reflexión', prompt: `Plantea 3 preguntas profundas de comprensión y reflexión crítica sobre las ideas presentadas en "${currentChapter}".` },
+                      ].map(chip => (
+                        <button
+                          key={chip.label}
+                          onClick={() => handleSendAiPrompt(chip.prompt)}
+                          disabled={isAiLoading}
+                          style={{
+                            background: 'rgba(255,255,255,0.06)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            color: '#e2e8f0',
+                            fontSize: 11,
+                            padding: '5px 10px',
+                            borderRadius: 14,
+                            cursor: isAiLoading ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                          onMouseEnter={e => !isAiLoading && (e.currentTarget.style.background = 'rgba(59, 130, 246, 0.25)')}
+                          onMouseLeave={e => !isAiLoading && (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                        >
+                          {chip.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Messages List */}
+                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, paddingRight: 4 }}>
+                      {aiMessages.length === 0 ? (
+                        <div style={{ textAlign: 'center', color: '#64748b', fontSize: 12, marginTop: 40, lineHeight: 1.6 }}>
+                          Selecciona un texto del libro o haz clic en un chip de acción rápida para analizar la lectura con Antigravity AI.
+                        </div>
+                      ) : (
+                        aiMessages.map(m => (
+                          <div
+                            key={m.id}
+                            style={{
+                              alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
+                              background: m.role === 'user' ? 'rgba(59, 130, 246, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                              border: m.role === 'user' ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(255, 255, 255, 0.08)',
+                              borderRadius: 10,
+                              padding: '10px 12px',
+                              maxWidth: '90%',
+                              fontSize: 12,
+                              lineHeight: 1.5,
+                              color: '#f8fafc',
+                              whiteSpace: 'pre-wrap',
+                            }}
+                          >
+                            <div style={{ fontSize: 10, color: m.role === 'user' ? '#93c5fd' : '#10b981', marginBottom: 4, fontWeight: 700 }}>
+                              {m.role === 'user' ? 'Tú' : 'Antigravity AI'}
+                            </div>
+                            {m.content}
+                          </div>
+                        ))
+                      )}
+                      {isAiLoading && (
+                        <div style={{ alignSelf: 'flex-start', color: '#38bdf8', fontSize: 12, fontStyle: 'italic' }}>
+                          Antigravity está razonando...
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Input Box */}
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <input
+                        type="text"
+                        placeholder="Pregunta algo sobre el libro..."
+                        value={aiPromptInput}
+                        onChange={e => setAiPromptInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') handleSendAiPrompt();
+                        }}
+                        disabled={isAiLoading}
+                        style={{
+                          flex: 1,
+                          background: 'rgba(255,255,255,0.06)',
+                          border: '1px solid rgba(255,255,255,0.12)',
+                          color: '#f8fafc',
+                          padding: '8px 12px',
+                          borderRadius: 6,
+                          fontSize: 12,
+                          outline: 'none',
+                        }}
+                      />
+                      <button
+                        onClick={() => handleSendAiPrompt()}
+                        disabled={isAiLoading || !aiPromptInput.trim()}
+                        style={{
+                          background: '#8b5cf6',
+                          border: 'none',
+                          color: '#ffffff',
+                          borderRadius: 6,
+                          padding: '0 14px',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: isAiLoading ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        Enviar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Floating Selection Context Toolbar */}
+                {selectionRangeData && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: selectionRangeData.pos
+                        ? `${Math.max(15, Math.min(85, (selectionRangeData.pos.left + selectionRangeData.pos.right) * 50))}%`
+                        : '50%',
+                      top: selectionRangeData.pos
+                        ? `${Math.max(8, Math.min(90, selectionRangeData.pos.top * 100 - 4))}%`
+                        : '20%',
+                      transform: 'translate(-50%, -100%)',
+                      zIndex: 100,
+                      background: 'rgba(15, 23, 42, 0.94)',
+                      backdropFilter: 'blur(16px)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '24px',
+                      padding: '4px 10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                    }}
+                  >
+                    {/* 5 Colors */}
+                    <div style={{ display: 'flex', gap: 5, paddingRight: 6, borderRight: '1px solid rgba(255,255,255,0.12)' }}>
+                      {HIGHLIGHT_COLORS.map(col => (
+                        <button
+                          key={col.id}
+                          onClick={() => {
+                            if (activeBook && selectionRangeData.text) {
+                              const next = addHighlight(
+                                highlights,
+                                activeBook.id,
+                                selectionRangeData.text,
+                                selectionRangeData.cfi,
+                                { chapter: currentChapter, color: col.hex, note: selectionNoteText }
+                              );
+                              saveHighlightsToYjs(next);
+                              setSelectedHighlightColor(col.id);
+                              sendReaderCommand('renderAnnotations', next.map(h => ({ value: h.cfi, type: 'highlight', color: h.color || col.hex })));
+                            }
+                          }}
+                          title={col.label}
+                          style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: '50%',
+                            background: col.hex,
+                            border: selectedHighlightColor === col.id ? '2px solid #ffffff' : '1px solid rgba(0,0,0,0.3)',
+                            cursor: 'pointer',
+                            padding: 0,
+                          }}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Note button */}
+                    <button
+                      onClick={() => setShowSelectionNoteInput(s => !s)}
+                      style={{
+                        background: showSelectionNoteInput ? 'rgba(59, 130, 246, 0.3)' : 'transparent',
+                        border: 'none',
+                        color: '#cbd5e1',
+                        fontSize: '12px',
+                        padding: '4px 6px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                      }}
+                      title="Agregar nota personal"
+                    >
+                      📝 Nota
+                    </button>
+
+                    {/* TTS Pronounce button */}
+                    <button
+                      onClick={() => {
+                        if (selectionRangeData.text) {
+                          setShowTtsBar(true);
+                          handlePlayTtsSentence(selectionRangeData.text, selectionRangeData.cfi);
+                          setTtsState(s => ({ ...s, status: 'playing' }));
+                        }
+                      }}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#cbd5e1',
+                        fontSize: '12px',
+                        padding: '4px 6px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                      }}
+                      title="Leer selección con voz"
+                    >
+                      🔊 Escuchar
+                    </button>
+
+                    {/* Quote Card */}
+                    <button
+                      onClick={() => {
+                        setSelectedQuoteText(selectionRangeData.text);
+                        setShowQuoteCardModal(true);
+                      }}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#38bdf8',
+                        fontSize: '12px',
+                        padding: '4px 6px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                      }}
+                      title="Crear tarjeta visual de cita"
+                    >
+                      🖼️ Tarjeta
+                    </button>
+
+                    {/* Daily Note quote */}
+                    <button
+                      onClick={() => {
+                        setSelectedQuoteText(selectionRangeData.text);
+                        setQuoteModalOpen(true);
+                      }}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#6ee7b7',
+                        fontSize: '12px',
+                        padding: '4px 6px',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                      }}
+                      title="Citar en Diario de hoy"
+                    >
+                      📖 Diario
+                    </button>
+
+                    {/* Explain with AI */}
+                    <button
+                      onClick={() => {
+                        setShowAiDrawer(true);
+                        handleSendAiPrompt(`Explica detalladamente el siguiente fragmento del libro "${activeBook?.title}":\n\n"${selectionRangeData.text}"`);
+                      }}
+                      style={{
+                        background: 'rgba(168, 85, 247, 0.25)',
+                        border: '1px solid rgba(168, 85, 247, 0.4)',
+                        color: '#d8b4fe',
+                        fontSize: '12px',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontWeight: 600,
+                      }}
+                      title="Explicar con Antigravity AI"
+                    >
+                      🤖 Explicar
+                    </button>
+
+                    {/* Dismiss selection button */}
+                    <button
+                      onClick={() => {
+                        setSelectionRangeData(null);
+                        setShowSelectionNoteInput(false);
+                      }}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#94a3b8',
+                        fontSize: '14px',
+                        padding: '0 4px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+
+                {/* Note input below floating toolbar if active */}
+                {selectionRangeData && showSelectionNoteInput && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: selectionRangeData.pos
+                        ? `${Math.max(15, Math.min(85, (selectionRangeData.pos.left + selectionRangeData.pos.right) * 50))}%`
+                        : '50%',
+                      top: selectionRangeData.pos
+                        ? `${Math.max(12, Math.min(94, selectionRangeData.pos.top * 100 + 4))}%`
+                        : '28%',
+                      transform: 'translateX(-50%)',
+                      zIndex: 101,
+                      background: 'rgba(15, 23, 42, 0.96)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: '8px',
+                      padding: '8px 12px',
+                      display: 'flex',
+                      gap: 6,
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                      width: '320px',
+                    }}
+                  >
+                    <input
+                      type="text"
+                      placeholder="Escribe una nota para esta cita..."
+                      value={selectionNoteText}
+                      onChange={e => setSelectionNoteText(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && activeBook) {
+                          const next = addHighlight(
+                            highlights,
+                            activeBook.id,
+                            selectionRangeData.text,
+                            selectionRangeData.cfi,
+                            { chapter: currentChapter, color: selectedHighlightColor, note: selectionNoteText }
+                          );
+                          saveHighlightsToYjs(next);
+                          setShowSelectionNoteInput(false);
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        background: 'rgba(255,255,255,0.08)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        color: '#f8fafc',
+                        borderRadius: 4,
+                        padding: '4px 8px',
+                        fontSize: 12,
+                        outline: 'none',
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        if (activeBook) {
+                          const next = addHighlight(
+                            highlights,
+                            activeBook.id,
+                            selectionRangeData.text,
+                            selectionRangeData.cfi,
+                            { chapter: currentChapter, color: selectedHighlightColor, note: selectionNoteText }
+                          );
+                          saveHighlightsToYjs(next);
+                          setShowSelectionNoteInput(false);
+                        }
+                      }}
+                      style={{
+                        background: '#3b82f6',
+                        border: 'none',
+                        color: '#ffffff',
+                        borderRadius: 4,
+                        padding: '4px 10px',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Guardar
+                    </button>
+                  </div>
+                )}
+
+                {/* 4. Floating TTS Player Bar */}
+                {showTtsBar && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: 24,
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      zIndex: 110,
+                      background: 'rgba(15, 23, 42, 0.95)',
+                      backdropFilter: 'blur(20px)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '16px',
+                      padding: '10px 18px',
+                      boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 14,
+                      maxWidth: '680px',
+                      width: '90%',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <button
+                        onClick={handlePrevSentence}
+                        style={readerBtnStyle}
+                        title="Oración anterior"
+                      >
+                        ⏮️
+                      </button>
+
+                      {ttsState.status === 'playing' ? (
+                        <button
+                          onClick={handlePauseTts}
+                          style={{
+                            background: '#3b82f6',
+                            border: 'none',
+                            color: '#ffffff',
+                            borderRadius: '50%',
+                            width: 36,
+                            height: 36,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            fontSize: 16,
+                          }}
+                          title="Pausar lectura de voz"
+                        >
+                          ⏸️
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleStartTts}
+                          style={{
+                            background: '#10b981',
+                            border: 'none',
+                            color: '#ffffff',
+                            borderRadius: '50%',
+                            width: 36,
+                            height: 36,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            fontSize: 16,
+                          }}
+                          title="Iniciar / Reanudar lectura de voz"
+                        >
+                          ▶️
+                        </button>
+                      )}
+
+                      <button
+                        onClick={handleNextSentence}
+                        style={readerBtnStyle}
+                        title="Siguiente oración"
+                      >
+                        ⏭️
+                      </button>
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>🔊 Narrador de voz sincronizado</span>
+                        <span style={{ color: '#38bdf8' }}>{ttsState.rate}x</span>
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: '#f8fafc',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          marginTop: 2,
+                        }}
+                      >
+                        {ttsState.currentSentence || 'Preparado para leer...'}
+                      </div>
+                    </div>
+
+                    {/* Speed Selectors */}
+                    <div style={{ display: 'flex', gap: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 6, padding: 2 }}>
+                      {[0.75, 1.0, 1.25, 1.5, 2.0].map(r => (
+                        <button
+                          key={r}
+                          onClick={() => setTtsState(s => ({ ...s, rate: r }))}
+                          style={{
+                            background: ttsState.rate === r ? 'rgba(59, 130, 246, 0.45)' : 'transparent',
+                            border: 'none',
+                            color: ttsState.rate === r ? '#ffffff' : '#94a3b8',
+                            fontSize: 10,
+                            padding: '2px 5px',
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                            fontWeight: ttsState.rate === r ? 700 : 400,
+                          }}
+                        >
+                          {r}x
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Close TTS */}
+                    <button
+                      onClick={handleStopTts}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#94a3b8',
+                        fontSize: 16,
+                        cursor: 'pointer',
+                        padding: '0 4px',
+                      }}
+                      title="Cerrar narrador de voz"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Bottom Interactive Progress Slider matching Anx Remix */}
@@ -2723,6 +3792,182 @@ export const Component = () => {
                   >
                     <JournalIcon style={{ width: 14, height: 14 }} />
                     <span>Insertar en Nota Diaria</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 5. Excerpt Share Card Generator Modal */}
+          {showQuoteCardModal && (
+            <div
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0, 0, 0, 0.75)',
+                backdropFilter: 'blur(8px)',
+                zIndex: 200,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '20px',
+              }}
+            >
+              <div
+                style={{
+                  background: '#0f172a',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  borderRadius: '16px',
+                  padding: '24px',
+                  maxWidth: '680px',
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px',
+                  boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: '#f8fafc' }}>
+                    🖼️ Tarjeta de Cita (Quote Card)
+                  </span>
+                  <button
+                    onClick={() => setShowQuoteCardModal(false)}
+                    style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 20, cursor: 'pointer' }}
+                  >
+                    ×
+                  </button>
+                </div>
+
+                {/* Theme Picker */}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {(Object.keys(QUOTE_CARD_THEMES) as QuoteCardThemeId[]).map(tId => {
+                    const t = QUOTE_CARD_THEMES[tId];
+                    return (
+                      <button
+                        key={tId}
+                        onClick={() => setSelectedQuoteTheme(tId)}
+                        style={{
+                          flex: 1,
+                          padding: '8px',
+                          borderRadius: 8,
+                          background: selectedQuoteTheme === tId ? 'rgba(59, 130, 246, 0.35)' : 'rgba(255,255,255,0.06)',
+                          border: selectedQuoteTheme === tId ? '1px solid #3b82f6' : '1px solid rgba(255,255,255,0.1)',
+                          color: '#f8fafc',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {t.name}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Visual Preview */}
+                <div
+                  style={{
+                    background: QUOTE_CARD_THEMES[selectedQuoteTheme].background,
+                    color: QUOTE_CARD_THEMES[selectedQuoteTheme].textColor,
+                    fontFamily: QUOTE_CARD_THEMES[selectedQuoteTheme].fontFamily,
+                    borderRadius: 12,
+                    padding: '28px',
+                    border: `1px solid ${QUOTE_CARD_THEMES[selectedQuoteTheme].accentColor}33`,
+                    position: 'relative',
+                    minHeight: '200px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <div style={{ fontSize: 48, lineHeight: 1, color: QUOTE_CARD_THEMES[selectedQuoteTheme].quoteMarkColor }}>
+                    “
+                  </div>
+                  <div
+                    style={{
+                      fontSize: `${computeQuoteCardFontSize((selectedQuoteText || activeBook?.title || '').length)}px`,
+                      fontStyle: 'italic',
+                      lineHeight: 1.5,
+                      margin: '12px 0 20px',
+                    }}
+                  >
+                    {selectedQuoteText || `Fragmento de ${activeBook?.title}`}
+                  </div>
+                  <div>
+                    <div
+                      style={{
+                        height: 1,
+                        width: 60,
+                        background: QUOTE_CARD_THEMES[selectedQuoteTheme].accentColor,
+                        marginBottom: 10,
+                      }}
+                    />
+                    <div style={{ fontSize: 13, fontWeight: 700, color: QUOTE_CARD_THEMES[selectedQuoteTheme].accentColor }}>
+                      {activeBook?.title}
+                    </div>
+                    <div style={{ fontSize: 11, color: QUOTE_CARD_THEMES[selectedQuoteTheme].subtextColor }}>
+                      {activeBook?.author} · {currentChapter}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                  <button
+                    onClick={async () => {
+                      const blob = await generateQuoteCardImage(selectedQuoteTheme);
+                      if (blob && navigator.clipboard) {
+                        try {
+                          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+                          setQuoteCardCopiedFeedback(true);
+                          setTimeout(() => setQuoteCardCopiedFeedback(false), 2500);
+                        } catch {
+                          // fallback
+                        }
+                      }
+                    }}
+                    style={{
+                      background: 'rgba(59, 130, 246, 0.25)',
+                      border: '1px solid rgba(59, 130, 246, 0.5)',
+                      color: '#60a5fa',
+                      padding: '8px 16px',
+                      borderRadius: 8,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {quoteCardCopiedFeedback ? '✓ ¡Imagen copiada!' : '📋 Copiar Imagen'}
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      const blob = await generateQuoteCardImage(selectedQuoteTheme);
+                      if (blob) {
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `cita-${activeBook?.title.slice(0, 20)}.png`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }
+                    }}
+                    style={{
+                      background: '#10b981',
+                      border: 'none',
+                      color: '#ffffff',
+                      padding: '8px 16px',
+                      borderRadius: 8,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    💾 Descargar PNG
                   </button>
                 </div>
               </div>
