@@ -66,20 +66,28 @@ fi
 # Copy package.json
 cp "${APP_DIR}/package.json" "${RESOURCES_APP}/"
 
+# Sync freshly compiled electron-renderer/dist into resources/web-static if available
+ELECTRON_RENDERER_DIST="/home/rousseau/Documents/GitHub/Affinite/packages/frontend/apps/electron-renderer/dist"
+if [ -d "${ELECTRON_RENDERER_DIST}" ]; then
+  echo "  Syncing electron-renderer/dist into resources/web-static..."
+  mkdir -p "${APP_DIR}/resources/web-static"
+  cp -r "${ELECTRON_RENDERER_DIST}/." "${APP_DIR}/resources/web-static/"
+fi
+
+# Ensure Anx Foliate-js reader is bundled into web-static/foliate
+ANX_FOLIATE_SRC="/home/rousseau/Documents/GitHub/Anx-Remix/assets/foliate-js"
+if [ -d "${ANX_FOLIATE_SRC}/dist" ]; then
+  mkdir -p "${APP_DIR}/resources/web-static/foliate"
+  cp -r "${ANX_FOLIATE_SRC}/dist" "${ANX_FOLIATE_SRC}/src" "${ANX_FOLIATE_SRC}/index.html" "${APP_DIR}/resources/web-static/foliate/"
+  echo "  Bundled Anx Foliate-js reader into resources/web-static/foliate"
+fi
+
 # Copy resources (strip source maps from web-static first)
 if [ -d "${APP_DIR}/resources/web-static" ]; then
   find "${APP_DIR}/resources/web-static" -name "*.map" -delete
 fi
 if [ -d "${APP_DIR}/resources" ]; then
   cp -r "${APP_DIR}/resources" "${RESOURCES_APP}/"
-fi
-
-# Ensure Anx Foliate-js reader is bundled into web-static/foliate
-ANX_FOLIATE_SRC="/home/rousseau/Documents/GitHub/Anx-Remix/assets/foliate-js"
-if [ -d "${ANX_FOLIATE_SRC}/dist" ]; then
-  mkdir -p "${RESOURCES_APP}/resources/web-static/foliate"
-  cp -r "${ANX_FOLIATE_SRC}/dist" "${ANX_FOLIATE_SRC}/src" "${ANX_FOLIATE_SRC}/index.html" "${RESOURCES_APP}/resources/web-static/foliate/"
-  echo "  Bundled Anx Foliate-js reader into resources/web-static/foliate"
 fi
 
 # Step 5: Copy node_modules (external runtime dependencies only)
