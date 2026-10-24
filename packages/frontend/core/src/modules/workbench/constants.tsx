@@ -2,9 +2,12 @@ import {
   AiIcon,
   AllDocsIcon,
   AttachmentIcon,
+  BookPanelIcon,
+  DateTimeIcon,
   DeleteIcon,
   EdgelessIcon,
   ExportToPdfIcon,
+  FirePanelIcon,
   PageIcon,
   TagIcon,
   TodayIcon,
@@ -24,6 +27,9 @@ export const iconNameToIcon = {
   attachment: <AttachmentIcon />,
   pdf: <ExportToPdfIcon />,
   ai: <AiIcon />,
+  library: <BookPanelIcon />,
+  streaks: <FirePanelIcon />,
+  calendar: <DateTimeIcon />,
 } satisfies Record<string, ReactNode>;
 
-export type ViewIconName = keyof typeof iconNameToIcon;
+export type ViewIconName = keyof typeof iconNameToIcon | (string & {});

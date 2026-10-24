@@ -1,19 +1,6 @@
 import { z } from 'zod';
 
-export const workbenchViewIconNameSchema = z.enum([
-  'trash',
-  'allDocs',
-  'collection',
-  'tag',
-  'doc', // refers to a doc whose mode is not yet being resolved
-  'page',
-  'edgeless',
-  'journal',
-  'attachment',
-  'pdf',
-  'ai',
-  'import',
-]);
+export const workbenchViewIconNameSchema = z.string();
 
 export const workbenchViewMetaSchema = z.object({
   id: z.string(),

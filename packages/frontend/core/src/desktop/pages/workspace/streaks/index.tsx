@@ -3,6 +3,7 @@ import dayjs from 'dayjs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { WorkspaceService } from '../../../../modules/workspace';
+import { ViewIcon, ViewTitle } from '../../../../modules/workbench';
 
 import {
   calculateStreakProgress,
@@ -288,6 +289,8 @@ export const Component = () => {
           'Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
       }}
     >
+      <ViewTitle title="Streaks" />
+      <ViewIcon icon="streaks" />
       {/* Header */}
       <div
         style={{
