@@ -21,8 +21,10 @@ import type { Store } from '@blocksuite/affine/store';
 import {
   AiOutlineIcon,
   AllDocsIcon,
+  BookPanelIcon,
   CheckBoxCheckSolidIcon,
   DateTimeIcon,
+  FirePanelIcon,
   ImportIcon,
   JournalIcon,
   PresentationIcon,
@@ -201,6 +203,50 @@ const HabitsButton = () => {
   );
 };
 
+const StreaksButton = () => {
+  const { workbenchService } = useServices({
+    WorkbenchService,
+  });
+  const workbench = workbenchService.workbench;
+  const streaksActive = useLiveData(
+    workbench.location$.selector(location =>
+      location.pathname.startsWith('/streaks')
+    )
+  );
+
+  return (
+    <MenuLinkItem
+      icon={<FirePanelIcon style={{ color: '#f59e0b' }} />}
+      active={streaksActive}
+      to={'/streaks'}
+    >
+      <span data-testid="streaks-page">Streaks</span>
+    </MenuLinkItem>
+  );
+};
+
+const LibraryButton = () => {
+  const { workbenchService } = useServices({
+    WorkbenchService,
+  });
+  const workbench = workbenchService.workbench;
+  const libraryActive = useLiveData(
+    workbench.location$.selector(location =>
+      location.pathname.startsWith('/library')
+    )
+  );
+
+  return (
+    <MenuLinkItem
+      icon={<BookPanelIcon style={{ color: '#6366f1' }} />}
+      active={libraryActive}
+      to={'/library'}
+    >
+      <span data-testid="library-page">Biblioteca</span>
+    </MenuLinkItem>
+  );
+};
+
 /**
  * This is for the whole affine app sidebar.
  * This component wraps the app sidebar in `@affine/component` with logic and data.
@@ -300,7 +346,9 @@ export const RootAppSidebar = memo((): ReactElement => {
         <AppSidebarJournalButton />
         <WeeklyReportsButton />
         <HabitsButton />
+        <StreaksButton />
         <CalendarButton />
+        <LibraryButton />
         {sessionStatus === 'authenticated' && <NotificationButton />}
         <AIChatButton />
         <BoardsButton />
