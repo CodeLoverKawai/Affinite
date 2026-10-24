@@ -14,6 +14,7 @@ const devServerBase = process.env.DEV_SERVER_URL;
 const localWhiteListDirs = [
   path.resolve(app.getPath('sessionData')).toLowerCase(),
   path.resolve(app.getPath('temp')).toLowerCase(),
+  path.resolve(app.getPath('userData')).toLowerCase(),
 ];
 
 function isPathInWhiteList(filepath: string) {
