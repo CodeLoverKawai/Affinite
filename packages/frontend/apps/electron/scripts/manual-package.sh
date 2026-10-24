@@ -74,6 +74,14 @@ if [ -d "${APP_DIR}/resources" ]; then
   cp -r "${APP_DIR}/resources" "${RESOURCES_APP}/"
 fi
 
+# Ensure Anx Foliate-js reader is bundled into web-static/foliate
+ANX_FOLIATE_SRC="/home/rousseau/Documents/GitHub/Anx-Remix/assets/foliate-js"
+if [ -d "${ANX_FOLIATE_SRC}/dist" ]; then
+  mkdir -p "${RESOURCES_APP}/resources/web-static/foliate"
+  cp -r "${ANX_FOLIATE_SRC}/dist" "${ANX_FOLIATE_SRC}/src" "${ANX_FOLIATE_SRC}/index.html" "${RESOURCES_APP}/resources/web-static/foliate/"
+  echo "  Bundled Anx Foliate-js reader into resources/web-static/foliate"
+fi
+
 # Step 5: Copy node_modules (external runtime dependencies only)
 echo "[5/6] Copying runtime node_modules..."
 TARGET_NODE_MODULES="${RESOURCES_APP}/node_modules"
