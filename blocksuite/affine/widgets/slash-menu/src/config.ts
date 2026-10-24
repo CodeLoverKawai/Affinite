@@ -152,11 +152,11 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
 
     const habitsList = getCachedHabits();
 
-    const insertHabitAsTodo = (
+    const insertHabitInteractiveBlock = (
       std: any,
       model: any,
       h: SlashMenuHabitItem,
-      checked = false
+      effectiveDate?: string
     ) => {
       const { host } = std;
       const parent = host.store.getParent(model);
@@ -164,18 +164,29 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
       const index = parent.children.indexOf(model);
       if (index === -1) return;
 
-      const targetStr = h.targetValue
-        ? ` (${h.targetValue} ${h.unit || ''})`
-        : '';
-      const checkSuffix = checked ? ' ✅' : '';
+      const journalInfo = getJournalDocInfo(std);
+      const todayDate = new Date();
+      const defaultToday = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+      const targetDate = effectiveDate || journalInfo.dateStr || defaultToday;
+
+      const cardData = {
+        habitId: h.id,
+        title: h.title,
+        icon: h.icon,
+        category: h.category,
+        type: h.type,
+        targetValue: h.targetValue,
+        unit: h.unit,
+        date: targetDate,
+      };
 
       host.store.captureSync();
       host.store.addBlock(
-        'affine:list',
+        'affine:code',
         {
-          type: 'todo',
-          text: new Text(`${h.icon} ${h.title}${targetStr}${checkSuffix}`),
-          checked,
+          language: 'habit',
+          preview: true,
+          text: new Text(JSON.stringify(cardData, null, 2)),
         },
         parent,
         index + 1
@@ -234,13 +245,15 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
     return [
       // Habits Suite (Only invocable inside Journal & Weekly notes)
       {
-        name: '🎯 Insertar Todos los Hábitos',
-        description: 'Checklist con todos los hábitos del día (Solo en Journal)',
+        name: '🎯 Tarjeta Interactiva de Hábitos (Insertar Todos los Hábitos)',
+        description: 'Widget interactivo con racha, tira semanal y check en vivo (Estilo Mermaid)',
         icon: CheckBoxCheckSolidIcon({ style: 'color: #3b82f6' }),
         searchAlias: [
           'habits',
           'habitos',
           'habito',
+          'tarjeta',
+          'widget',
           'todos',
           'todos los habitos',
           'rutina',
@@ -250,39 +263,20 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
         group: '5_Hábitos@0',
         when: ({ std }) => isJournalDoc(std),
         action: ({ std, model }) => {
-          const { host } = std;
-          const parent = host.store.getParent(model);
-          if (!parent) return;
-          const index = parent.children.indexOf(model);
-          if (index === -1) return;
-
-          host.store.captureSync();
-          let insertIdx = index + 1;
-          for (const h of habitsList) {
-            const targetStr = h.targetValue
-              ? ` (${h.targetValue} ${h.unit || ''})`
-              : '';
-            host.store.addBlock(
-              'affine:list',
-              {
-                type: 'todo',
-                text: new Text(`${h.icon} ${h.title}${targetStr}`),
-                checked: false,
-              },
-              parent,
-              insertIdx++
-            );
-          }
-          const currentText = model.text?.toString().trim() || '';
-          if (currentText.length === 0 || currentText.startsWith('/')) {
-            host.store.deleteBlock(model);
-          }
-          toast(std.host, `¡${habitsList.length} hábitos añadidos a la nota! 🎯`);
+          const firstHabit = habitsList[0] || {
+            id: 'h-read',
+            title: 'Lectura Diaria',
+            icon: '📚',
+            category: 'Mente',
+            type: 'boolean',
+          };
+          insertHabitInteractiveBlock(std, model, firstHabit);
+          toast(std.host, `¡Tarjeta de hábito interactiva insertada! 🎯`);
         },
       },
       ...habitsList.map((h, i) => ({
         name: `${h.icon} ${h.title}`,
-        description: `Hábito de ${h.category}${h.targetValue ? ` · Meta: ${h.targetValue} ${h.unit || ''}` : ''}`,
+        description: `Tarjeta de ${h.category}${h.targetValue ? ` · Meta: ${h.targetValue} ${h.unit || ''}` : ''}`,
         icon: html`<span style="font-size: 16px">${h.icon}</span>`,
         searchAlias: [
           'habito',
@@ -295,8 +289,8 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
         group: `5_Hábitos@${i + 1}` as const,
         when: ({ std }: any) => isJournalDoc(std),
         action: ({ std, model }: any) => {
-          insertHabitAsTodo(std, model, h, false);
-          toast(std.host, `Hábito "${h.title}" añadido.`);
+          insertHabitInteractiveBlock(std, model, h);
+          toast(std.host, `Tarjeta de hábito "${h.title}" añadida.`);
         },
       })),
       {
