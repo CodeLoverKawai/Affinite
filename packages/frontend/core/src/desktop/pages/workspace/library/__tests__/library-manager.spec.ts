@@ -1,16 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import {
   addBookmark,
+  addBookTag,
   addHighlight,
+  calculateReadingStatistics,
   createLibraryBook,
   filterBooks,
   formatBookSize,
   formatReadingProgress,
+  formatReadingTime,
   generateJournalQuoteMarkdown,
   LibraryBook,
   removeBookmark,
+  removeBookTag,
   removeHighlight,
   sortBooks,
+  updateBookRating,
 } from '../library-manager';
 
 describe('Library Manager & Anx Reader Helper Suite', () => {
@@ -93,5 +98,62 @@ describe('Library Manager & Anx Reader Helper Suite', () => {
 
     highlights = removeHighlight(highlights, highlights[0].id);
     expect(highlights.length).toBe(0);
+  });
+
+  it('calculates comprehensive reading statistics matching Anx Remix', () => {
+    const books: LibraryBook[] = [
+      {
+        ...createLibraryBook({ title: 'Book 1', filePath: '/path/1' }),
+        readingPercentage: 1.0,
+        readingTimeMinutes: 120,
+      },
+      {
+        ...createLibraryBook({ title: 'Book 2', filePath: '/path/2' }),
+        readingPercentage: 0.45,
+        readingTimeMinutes: 45,
+      },
+      {
+        ...createLibraryBook({ title: 'Book 3', filePath: '/path/3' }),
+        readingPercentage: 0,
+        readingTimeMinutes: 0,
+      },
+    ];
+
+    const highlights = [
+      { id: 'h1', bookId: 'b1', cfi: 'c1', text: 'Quote 1', createdAt: Date.now() },
+      { id: 'h2', bookId: 'b1', cfi: 'c2', text: 'Quote 2', createdAt: Date.now() },
+    ];
+
+    const stats = calculateReadingStatistics(books, highlights);
+    expect(stats.totalBooks).toBe(3);
+    expect(stats.completedBooks).toBe(1);
+    expect(stats.readingBooks).toBe(1);
+    expect(stats.unreadBooks).toBe(1);
+    expect(stats.totalReadingMinutes).toBe(165);
+    expect(stats.totalHighlights).toBe(2);
+    expect(formatReadingTime(165)).toBe('2h 45m');
+    expect(formatReadingTime(40)).toBe('40m');
+  });
+
+  it('updates book tags and ratings immutably', () => {
+    const book = createLibraryBook({ title: 'Book A', filePath: '/path/a' });
+    let books = [book];
+
+    books = addBookTag(books, book.id, 'Sci-Fi');
+    expect(books[0].tags).toContain('Sci-Fi');
+
+    // Duplicate tag is ignored
+    books = addBookTag(books, book.id, 'Sci-Fi');
+    expect(books[0].tags?.length).toBe(1);
+
+    books = addBookTag(books, book.id, 'Classic');
+    expect(books[0].tags?.length).toBe(2);
+
+    books = removeBookTag(books, book.id, 'Sci-Fi');
+    expect(books[0].tags).not.toContain('Sci-Fi');
+    expect(books[0].tags).toContain('Classic');
+
+    books = updateBookRating(books, book.id, 5);
+    expect(books[0].rating).toBe(5);
   });
 });

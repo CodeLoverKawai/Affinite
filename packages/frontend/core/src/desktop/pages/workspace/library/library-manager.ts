@@ -196,3 +196,110 @@ export function removeHighlight(
 ): LibraryHighlight[] {
   return highlights.filter(h => h.id !== highlightId);
 }
+
+export interface ReadingStatistics {
+  totalBooks: number;
+  completedBooks: number;
+  readingBooks: number;
+  unreadBooks: number;
+  totalReadingMinutes: number;
+  totalHighlights: number;
+}
+
+export function formatReadingTime(minutes: number): string {
+  if (minutes < 60) return `${Math.round(minutes)}m`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = Math.round(minutes % 60);
+  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+}
+
+export function calculateReadingStatistics(
+  books: LibraryBook[],
+  highlights: LibraryHighlight[]
+): ReadingStatistics {
+  const totalBooks = books.length;
+  const completedBooks = books.filter(b => b.readingPercentage >= 0.99).length;
+  const readingBooks = books.filter(
+    b => b.readingPercentage > 0 && b.readingPercentage < 0.99
+  ).length;
+  const unreadBooks = books.filter(b => b.readingPercentage === 0).length;
+  const totalReadingMinutes = books.reduce(
+    (acc, b) => acc + (b.readingTimeMinutes ?? 0),
+    0
+  );
+  const totalHighlights = highlights.length;
+
+  return {
+    totalBooks,
+    completedBooks,
+    readingBooks,
+    unreadBooks,
+    totalReadingMinutes,
+    totalHighlights,
+  };
+}
+
+export function addBookTag(
+  books: LibraryBook[],
+  bookId: string,
+  tag: string
+): LibraryBook[] {
+  const cleanTag = tag.trim();
+  if (!cleanTag) return books;
+  return books.map(b => {
+    if (b.id !== bookId) return b;
+    const currentTags = b.tags || [];
+    if (currentTags.includes(cleanTag)) return b;
+    return {
+      ...b,
+      tags: [...currentTags, cleanTag],
+      updateTime: Date.now(),
+    };
+  });
+}
+
+export function removeBookTag(
+  books: LibraryBook[],
+  bookId: string,
+  tag: string
+): LibraryBook[] {
+  return books.map(b => {
+    if (b.id !== bookId) return b;
+    return {
+      ...b,
+      tags: (b.tags || []).filter(t => t !== tag),
+      updateTime: Date.now(),
+    };
+  });
+}
+
+export function updateBookRating(
+  books: LibraryBook[],
+  bookId: string,
+  rating: number
+): LibraryBook[] {
+  const clampedRating = Math.max(0, Math.min(5, Math.round(rating)));
+  return books.map(b => {
+    if (b.id !== bookId) return b;
+    return {
+      ...b,
+      rating: clampedRating,
+      updateTime: Date.now(),
+    };
+  });
+}
+
+export function updateBookMetadata(
+  books: LibraryBook[],
+  bookId: string,
+  updates: Partial<Pick<LibraryBook, 'title' | 'author' | 'description' | 'cover' | 'rating' | 'tags'>>
+): LibraryBook[] {
+  return books.map(b => {
+    if (b.id !== bookId) return b;
+    return {
+      ...b,
+      ...updates,
+      updateTime: Date.now(),
+    };
+  });
+}
