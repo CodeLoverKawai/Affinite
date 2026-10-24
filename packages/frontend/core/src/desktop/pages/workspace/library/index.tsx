@@ -58,6 +58,7 @@ export const Component = () => {
   const [readerTheme, setReaderTheme] = useState<'dark' | 'light' | 'sepia' | 'oled'>('dark');
   const [readerFontSize, setReaderFontSize] = useState(18);
   const [showTocDrawer, setShowTocDrawer] = useState(false);
+  const [tocItems, setTocItems] = useState<any[]>([]);
   const [currentChapter, setCurrentChapter] = useState('Inicio');
   const [currentCfi, setCurrentCfi] = useState<string>('');
   const [currentPercentage, setCurrentPercentage] = useState(0);
@@ -282,13 +283,20 @@ export const Component = () => {
       if (!data || data.type !== 'anx-reader') return;
 
       switch (data.event) {
-        case 'onRelocate': {
+        case 'onRelocate':
+        case 'onRelocated': {
           const payload = data.data;
           if (payload) {
             const fraction = payload.fraction ?? payload.percentage ?? 0;
             const cfi = payload.cfi || payload.location;
             handleUpdateProgress(fraction, cfi);
             if (payload.chapter) setCurrentChapter(payload.chapter);
+          }
+          break;
+        }
+        case 'onSetToc': {
+          if (Array.isArray(data.data)) {
+            setTocItems(data.data);
           }
           break;
         }
@@ -324,6 +332,44 @@ export const Component = () => {
     window.addEventListener('message', handleWindowMessage);
     return () => window.removeEventListener('message', handleWindowMessage);
   }, [activeBook, books, handleUpdateProgress, saveBooksToYjs]);
+
+  // Compute safe iframe reader URL with JSON-encoded parameters
+  const readerIframeSrc = useMemo(() => {
+    if (!activeBook) return '';
+    const bookUrl = activeBook.filePath.startsWith('assets://')
+      ? activeBook.filePath
+      : `assets://local-file/${encodeURIComponent(activeBook.filePath)}`;
+
+    const params = new URLSearchParams({
+      url: JSON.stringify(bookUrl),
+      initialCfi: JSON.stringify(activeBook.lastReadPosition || null),
+      style: JSON.stringify({
+        backgroundColor:
+          readerTheme === 'dark'
+            ? '#0f172a'
+            : readerTheme === 'oled'
+              ? '#000000'
+              : readerTheme === 'sepia'
+                ? '#fbf0d9'
+                : '#ffffff',
+        fontColor:
+          readerTheme === 'dark'
+            ? '#f8fafc'
+            : readerTheme === 'oled'
+              ? '#ffffff'
+              : readerTheme === 'sepia'
+                ? '#5f4b32'
+                : '#0f172a',
+        fontSize: readerFontSize,
+        topMargin: 40,
+        bottomMargin: 40,
+        sideMargin: 8,
+        pageTurnStyle: 'scroll',
+        justify: true,
+      }),
+    });
+    return `assets://./foliate/index.html?${params.toString()}`;
+  }, [activeBook?.id, activeBook?.filePath]);
 
   // Reader commands sent to iframe
   const sendReaderCommand = useCallback((command: string, ...args: any[]) => {
@@ -558,6 +604,14 @@ export const Component = () => {
                     ◀ Estantería
                   </button>
 
+                  <button
+                    onClick={() => setShowTocDrawer(s => !s)}
+                    style={readerBtnStyle}
+                    title="Tabla de contenidos / Capítulos"
+                  >
+                    📑 Capítulos
+                  </button>
+
                   <div>
                     <div
                       style={{
@@ -695,14 +749,98 @@ export const Component = () => {
                   overflow: 'hidden',
                 }}
               >
+                {showTocDrawer && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      bottom: 0,
+                      width: 280,
+                      background: 'rgba(15, 23, 42, 0.95)',
+                      backdropFilter: 'blur(12px)',
+                      borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+                      zIndex: 50,
+                      overflowY: 'auto',
+                      padding: '16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginBottom: 8,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 700,
+                          color: '#f8fafc',
+                        }}
+                      >
+                        📑 Índice de Capítulos
+                      </span>
+                      <button
+                        onClick={() => setShowTocDrawer(false)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#94a3b8',
+                          cursor: 'pointer',
+                          fontSize: 16,
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                    {tocItems.length === 0 ? (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: '#64748b',
+                          padding: '12px 0',
+                        }}
+                      >
+                        No hay capítulos detectados
+                      </div>
+                    ) : (
+                      tocItems.map((item: any, idx: number) => (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            if (item.href) sendReaderCommand('goToCfi', item.href);
+                            setShowTocDrawer(false);
+                          }}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#cbd5e1',
+                            textAlign: 'left',
+                            padding: '6px 8px',
+                            borderRadius: 4,
+                            fontSize: 12,
+                            cursor: 'pointer',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title={item.label}
+                        >
+                          {item.label}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
                 <iframe
                   ref={iframeRef}
                   title="Foliate Reader"
-                  src={`assets://./foliate/index.html?url=${encodeURIComponent(
-                    activeBook.filePath
-                  )}&initialCfi=${encodeURIComponent(
-                    activeBook.lastReadPosition || ''
-                  )}`}
+                  src={readerIframeSrc}
                   style={{
                     width: '100%',
                     height: '100%',

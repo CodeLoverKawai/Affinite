@@ -109,7 +109,7 @@ async function handleFileRequest(request: Request) {
       filepath = join(webStaticDir, 'index.html');
     }
   } else {
-    filepath = decodeURIComponent(urlObject.pathname);
+    filepath = path.resolve(decodeURIComponent(urlObject.pathname));
     // on windows, the path could be start with '/'
     if (isWindows()) {
       filepath = path.resolve(filepath.replace(/^\//, ''));
@@ -254,12 +254,10 @@ export function registerProtocol() {
 
           // Adjust CORS for assets responses and allow blob redirects on affine domains
           if (protocol === 'assets:') {
-            delete responseHeaders['access-control-allow-origin'];
-            delete responseHeaders['access-control-allow-headers'];
-            delete responseHeaders['Access-Control-Allow-Origin'];
-            delete responseHeaders['Access-Control-Allow-Headers'];
-            setHeader(responseHeaders, 'X-Frame-Options', 'SAMEORIGIN');
-            ensureFrameAncestors(responseHeaders, "'self' http://localhost:7337 http://localhost:1337");
+            delete responseHeaders['x-frame-options'];
+            delete responseHeaders['X-Frame-Options'];
+            ensureFrameAncestors(responseHeaders, "'self' assets:");
+            allowCors(responseHeaders, '*');
           } else if (isLocalhostResponse) {
             // Allow localhost services (e.g. Planka) to be embedded in iframes
             delete responseHeaders['x-frame-options'];
