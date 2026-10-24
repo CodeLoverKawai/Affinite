@@ -1,7 +1,8 @@
-import { WorkspaceService } from '@toeverything/infra';
 import { useService } from '@toeverything/infra';
 import dayjs from 'dayjs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+
+import { WorkspaceService } from '../../../../modules/workspace';
 
 import {
   calculateStreakProgress,
