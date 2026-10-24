@@ -67,7 +67,7 @@ export const Component = () => {
   // Active Reader View State
   const [activeBook, setActiveBook] = useState<LibraryBook | null>(null);
   const [readerTheme, setReaderTheme] = useState<'dark' | 'light' | 'sepia' | 'oled'>('dark');
-  const [readerFontSize, setReaderFontSize] = useState(18);
+  const [readerFontSize, setReaderFontSize] = useState(16);
   const [readerFontFamily, setReaderFontFamily] = useState<'sans' | 'serif' | 'mono'>('sans');
   const [readerPageTurn, setReaderPageTurn] = useState<'scroll' | 'paginated'>('scroll');
   const [showTocDrawer, setShowTocDrawer] = useState(false);
@@ -372,7 +372,9 @@ export const Component = () => {
               : readerTheme === 'sepia'
                 ? '#5f4b32'
                 : '#0f172a',
-        fontSize: readerFontSize,
+        fontSize: Number((readerFontSize / 16).toFixed(2)),
+        paragraphSpacing: 0.5,
+        headingFontSize: 1.0,
         topMargin: 40,
         bottomMargin: 40,
         sideMargin: 12,
@@ -1088,7 +1090,13 @@ export const Component = () => {
                       </div>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button
-                          onClick={() => setReaderFontSize(s => Math.max(12, s - 2))}
+                          onClick={() => {
+                            const newSize = Math.max(12, readerFontSize - 1);
+                            setReaderFontSize(newSize);
+                            sendReaderCommand('changeStyle', {
+                              fontSize: Number((newSize / 16).toFixed(2)),
+                            });
+                          }}
                           style={readerBtnStyle}
                         >
                           A-
@@ -1096,13 +1104,25 @@ export const Component = () => {
                         <input
                           type="range"
                           min={12}
-                          max={36}
+                          max={26}
                           value={readerFontSize}
-                          onChange={e => setReaderFontSize(Number(e.target.value))}
+                          onChange={e => {
+                            const newSize = Number(e.target.value);
+                            setReaderFontSize(newSize);
+                            sendReaderCommand('changeStyle', {
+                              fontSize: Number((newSize / 16).toFixed(2)),
+                            });
+                          }}
                           style={{ flex: 1 }}
                         />
                         <button
-                          onClick={() => setReaderFontSize(s => Math.min(36, s + 2))}
+                          onClick={() => {
+                            const newSize = Math.min(26, readerFontSize + 1);
+                            setReaderFontSize(newSize);
+                            sendReaderCommand('changeStyle', {
+                              fontSize: Number((newSize / 16).toFixed(2)),
+                            });
+                          }}
                           style={readerBtnStyle}
                         >
                           A+
@@ -2201,7 +2221,7 @@ export const Component = () => {
                       <input
                         type="range"
                         min={12}
-                        max={32}
+                        max={26}
                         value={readerFontSize}
                         onChange={e => setReaderFontSize(Number(e.target.value))}
                         style={{ width: 140 }}
