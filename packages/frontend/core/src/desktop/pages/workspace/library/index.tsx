@@ -81,6 +81,9 @@ export const Component = () => {
     'bookshelf' | 'statistics' | 'ai' | 'notes' | 'settings'
   >('bookshelf');
 
+  // Display Mode: 'anx' (Authentic Anx-Remix embedded app) or 'integrated' (AFFiNITe view)
+  const [displayMode, setDisplayMode] = useState<'anx' | 'integrated'>('anx');
+
   // Persistence State
   const [books, setBooks] = useState<LibraryBook[]>([]);
   const [bookmarks, setBookmarks] = useState<LibraryBookmark[]>([]);
@@ -993,7 +996,7 @@ export const Component = () => {
   return (
     <>
       <ViewTitle title="Biblioteca" />
-      <ViewIcon icon="library" />
+      <ViewIcon icon="allDocs" />
       <ViewHeader>
         <div style={{ display: 'none' }} />
       </ViewHeader>
@@ -1009,8 +1012,70 @@ export const Component = () => {
             overflow: 'hidden',
           }}
         >
-          {/* ==================== ACTIVE IMMERSIVE READER VIEW ==================== */}
-          {activeBook ? (
+          {/* ==================== ANX REMIX AUTHENTIC EMBEDDED APP ==================== */}
+          {!activeBook && displayMode === 'anx' ? (
+            <div
+              style={{
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+                width: '100%',
+                background: '#090d16',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '6px 16px',
+                  background: 'rgba(15, 23, 42, 0.95)',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                  fontSize: 12,
+                  zIndex: 10,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontWeight: 600, color: '#38bdf8' }}>📖 Anx Remix</span>
+                  <span style={{ color: 'rgba(255, 255, 255, 0.4)' }}>· App Oficial Embebida</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    onClick={() => setDisplayMode('integrated')}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      borderRadius: 6,
+                      color: '#cbd5e1',
+                      padding: '4px 10px',
+                      fontSize: 11,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <span>📚 Cambiar a Vista Integrada AFFiNITe</span>
+                  </button>
+                </div>
+              </div>
+              <iframe
+                src="assets://./anx/index.html"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  border: 'none',
+                  flex: 1,
+                  display: 'block',
+                  background: '#090d16',
+                }}
+                title="Anx Remix"
+                allow="fullscreen; autoplay; clipboard-read; clipboard-write"
+              />
+            </div>
+          ) : activeBook ? (
             <div
               style={{
                 display: 'flex',
@@ -2774,6 +2839,25 @@ export const Component = () => {
                         gap: '10px',
                       }}
                     >
+                      <button
+                        onClick={() => setDisplayMode('anx')}
+                        title="Cambiar a Anx Remix App Oficial"
+                        style={{
+                          background: 'rgba(56, 189, 248, 0.15)',
+                          border: '1px solid rgba(56, 189, 248, 0.4)',
+                          borderRadius: '18px',
+                          color: '#38bdf8',
+                          padding: '6px 14px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <span>📖 Anx Remix App</span>
+                      </button>
                       <button
                         onClick={syncFromDisk}
                         title="Sincronizar biblioteca local"

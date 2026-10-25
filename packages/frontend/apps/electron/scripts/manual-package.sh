@@ -82,6 +82,14 @@ if [ -d "${ANX_FOLIATE_SRC}/dist" ]; then
   echo "  Bundled Anx Foliate-js reader into resources/web-static/foliate"
 fi
 
+# Ensure Anx-Remix Web build is bundled into web-static/anx
+ANX_WEB_SRC="/home/rousseau/Documents/GitHub/Anx-Remix/build/web"
+if [ -d "${ANX_WEB_SRC}" ]; then
+  mkdir -p "${APP_DIR}/resources/web-static/anx"
+  cp -r "${ANX_WEB_SRC}/." "${APP_DIR}/resources/web-static/anx/"
+  echo "  Bundled Anx-Remix Web into resources/web-static/anx"
+fi
+
 # Copy resources (strip source maps from web-static first)
 if [ -d "${APP_DIR}/resources/web-static" ]; then
   find "${APP_DIR}/resources/web-static" -name "*.map" -delete

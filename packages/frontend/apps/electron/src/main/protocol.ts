@@ -95,9 +95,24 @@ async function handleFileRequest(request: Request) {
 
   // for relative path, load the file in resources
   if (!isAbsolutePath) {
-    if (urlObject.pathname.split('/').at(-1)?.includes('.')) {
+    const pathname = urlObject.pathname;
+    const isAnx = pathname.startsWith('/anx/') || pathname === '/anx';
+    const lastSegment = pathname.split('/').at(-1);
+    const hasExtension = lastSegment?.includes('.');
+
+    if (isAnx) {
+      if (hasExtension) {
+        const decodedPath = decodeURIComponent(pathname);
+        const normalizedPath = join(webStaticDir, decodedPath).normalize();
+        filepath = normalizedPath.startsWith(webStaticDir)
+          ? normalizedPath
+          : join(webStaticDir, 'anx', 'index.html');
+      } else {
+        filepath = join(webStaticDir, 'anx', 'index.html');
+      }
+    } else if (hasExtension) {
       // Sanitize pathname to prevent path traversal attacks
-      const decodedPath = decodeURIComponent(urlObject.pathname);
+      const decodedPath = decodeURIComponent(pathname);
       const normalizedPath = join(webStaticDir, decodedPath).normalize();
       if (!normalizedPath.startsWith(webStaticDir)) {
         // Attempted path traversal - reject by using empty path
