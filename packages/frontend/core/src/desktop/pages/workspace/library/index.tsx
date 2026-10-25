@@ -396,6 +396,28 @@ export const Component = () => {
     setActiveBook(null);
   }, []);
 
+  // Update Reading Progress
+  const handleUpdateProgress = useCallback(
+    (percentage: number, cfi?: string) => {
+      if (!activeBook) return;
+      setCurrentPercentage(percentage);
+      if (cfi) setCurrentCfi(cfi);
+      const next = books.map(b =>
+        b.id === activeBook.id
+          ? {
+              ...b,
+              readingPercentage: percentage,
+              lastReadPosition: cfi || b.lastReadPosition,
+              readingTimeMinutes: (b.readingTimeMinutes || 0) + 1,
+              updateTime: Date.now(),
+            }
+          : b
+      );
+      saveBooksToYjs(next);
+    },
+    [activeBook, books, saveBooksToYjs]
+  );
+
   // Bi-directional Bridge with embedded Anx-Remix Flutter application
   const formatBooksForAnx = useCallback((bookList: LibraryBook[]) => {
     return bookList.map(b => ({
@@ -528,28 +550,6 @@ export const Component = () => {
   useEffect(() => {
     sendBooksToAnx(books);
   }, [books, sendBooksToAnx]);
-
-  // Update Reading Progress
-  const handleUpdateProgress = useCallback(
-    (percentage: number, cfi?: string) => {
-      if (!activeBook) return;
-      setCurrentPercentage(percentage);
-      if (cfi) setCurrentCfi(cfi);
-      const next = books.map(b =>
-        b.id === activeBook.id
-          ? {
-              ...b,
-              readingPercentage: percentage,
-              lastReadPosition: cfi || b.lastReadPosition,
-              readingTimeMinutes: (b.readingTimeMinutes || 0) + 1,
-              updateTime: Date.now(),
-            }
-          : b
-      );
-      saveBooksToYjs(next);
-    },
-    [activeBook, books, saveBooksToYjs]
-  );
 
   // Quote Excerpt into Today's Daily Note
   const handleQuoteInDailyJournal = useCallback(() => {
