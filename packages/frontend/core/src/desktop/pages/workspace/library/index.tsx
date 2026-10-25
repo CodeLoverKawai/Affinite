@@ -95,6 +95,10 @@ export const Component = () => {
 
   // Persistence State
   const [books, setBooks] = useState<LibraryBook[]>([]);
+  const booksRef = useRef<LibraryBook[]>(books);
+  useEffect(() => {
+    booksRef.current = books;
+  }, [books]);
   const [bookmarks, setBookmarks] = useState<LibraryBookmark[]>([]);
   const [highlights, setHighlights] = useState<LibraryHighlight[]>([]);
 
@@ -440,7 +444,7 @@ export const Component = () => {
       }
       const type = data.type;
       if (type === 'anx-request-books') {
-        sendBooksToAnx(books);
+        sendBooksToAnx(booksRef.current);
       } else if (type === 'anx-request-import') {
         try {
           const electronApi = (window as any).__apis?.handler?.library;
@@ -450,12 +454,14 @@ export const Component = () => {
               const newBook = createLibraryBook(imported);
               const updated = [
                 newBook,
-                ...books.filter(b => b.filePath !== newBook.filePath),
+                ...booksRef.current.filter(b => b.filePath !== newBook.filePath),
               ];
               setBooks(updated);
               saveBooksToYjs(updated);
               sendBooksToAnx(updated);
             }
+          } else {
+            handlePickAndImportBook();
           }
         } catch (err) {
           console.error('[Library] Failed to import book from Anx request', err);
@@ -463,10 +469,11 @@ export const Component = () => {
       } else if (type === 'anx-open-book') {
         const filePath = data.filePath;
         const bookId = data.id;
+        const currentBooks = booksRef.current;
         const target =
-          books.find(b => b.filePath === filePath) ||
-          books.find(b => getNumericId(b.id || b.filePath) === bookId) ||
-          books.find(b => b.title === data.title);
+          currentBooks.find(b => b.filePath === filePath) ||
+          currentBooks.find(b => getNumericId(b.id || b.filePath) === bookId) ||
+          currentBooks.find(b => b.title === data.title);
         if (target) {
           handleOpenReader(target);
         } else if (filePath) {
@@ -483,7 +490,8 @@ export const Component = () => {
         }
       } else if (type === 'anx-delete-book') {
         const filePath = data.filePath;
-        const target = books.find(
+        const currentBooks = booksRef.current;
+        const target = currentBooks.find(
           b =>
             b.filePath === filePath ||
             getNumericId(b.id || b.filePath) === data.id
@@ -492,7 +500,8 @@ export const Component = () => {
           handleDeleteBook(target);
         }
       } else if (type === 'anx-update-progress') {
-        const target = books.find(
+        const currentBooks = booksRef.current;
+        const target = currentBooks.find(
           b =>
             b.filePath === data.filePath ||
             getNumericId(b.id || b.filePath) === data.id
@@ -508,9 +517,9 @@ export const Component = () => {
       window.removeEventListener('message', handleHostMessage);
     };
   }, [
-    books,
     handleDeleteBook,
     handleOpenReader,
+    handlePickAndImportBook,
     handleUpdateProgress,
     saveBooksToYjs,
     sendBooksToAnx,
