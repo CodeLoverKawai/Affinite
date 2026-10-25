@@ -109,7 +109,7 @@ export function filterBooks(
 
 export function sortBooks(
   books: LibraryBook[],
-  sortBy: 'recent' | 'title' | 'progress' | 'rating'
+  sortBy: 'recent' | 'title' | 'progress' | 'rating' | 'size'
 ): LibraryBook[] {
   const list = [...books];
   switch (sortBy) {
@@ -119,6 +119,8 @@ export function sortBooks(
       return list.sort((a, b) => b.readingPercentage - a.readingPercentage);
     case 'rating':
       return list.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+    case 'size':
+      return list.sort((a, b) => (b.size ?? 0) - (a.size ?? 0));
     case 'recent':
     default:
       return list.sort((a, b) => b.updateTime - a.updateTime);
@@ -416,4 +418,99 @@ export function computeQuoteCardFontSize(textLength: number): number {
   if (textLength < 280) return 16;
   return 14;
 }
+
+export type ReadingStatusFilter = 'all' | 'reading' | 'finished' | 'notStarted';
+
+export function filterBooksByStatus(
+  books: LibraryBook[],
+  status: ReadingStatusFilter
+): LibraryBook[] {
+  switch (status) {
+    case 'reading':
+      return books.filter(b => b.readingPercentage > 0 && b.readingPercentage < 0.99);
+    case 'finished':
+      return books.filter(b => b.readingPercentage >= 0.99);
+    case 'notStarted':
+      return books.filter(b => b.readingPercentage === 0);
+    case 'all':
+    default:
+      return books;
+  }
+}
+
+export interface ReadingHeatmapDay {
+  date: string;
+  minutes: number;
+  level: 0 | 1 | 2 | 3 | 4;
+}
+
+export function computeReadingHeatmap(
+  books: LibraryBook[],
+  daysCount: number = 365
+): ReadingHeatmapDay[] {
+  const result: ReadingHeatmapDay[] = [];
+  const now = new Date();
+
+  const activityMap = new Map<string, number>();
+  for (const book of books) {
+    if (book.updateTime && book.readingTimeMinutes) {
+      const d = new Date(book.updateTime).toISOString().slice(0, 10);
+      activityMap.set(d, (activityMap.get(d) || 0) + book.readingTimeMinutes);
+    }
+  }
+
+  for (let i = daysCount - 1; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const minutes = activityMap.get(dateStr) || 0;
+    let level: 0 | 1 | 2 | 3 | 4 = 0;
+    if (minutes > 60) level = 4;
+    else if (minutes > 30) level = 3;
+    else if (minutes > 15) level = 2;
+    else if (minutes > 0) level = 1;
+
+    result.push({
+      date: dateStr,
+      minutes,
+      level,
+    });
+  }
+
+  return result;
+}
+
+export function exportBookNotesToMarkdown(
+  book: LibraryBook,
+  highlights: LibraryHighlight[]
+): string {
+  const bookHighlights = highlights.filter(h => h.bookId === book.id);
+  const lines: string[] = [
+    `# Notas y Citas: ${book.title}`,
+    `**Autor:** ${book.author}`,
+    `**Progreso:** ${formatReadingProgress(book.readingPercentage)} | **Tiempo leído:** ${formatReadingTime(book.readingTimeMinutes ?? 0)}`,
+    `**Exportado desde AFFiNITe Biblioteca (Anx-Remix)**`,
+    `---`,
+    '',
+  ];
+
+  if (bookHighlights.length === 0) {
+    lines.push('*No hay notas ni citas guardadas para este libro.*');
+    return lines.join('\n');
+  }
+
+  lines.push(`## Citas y Subrayados (${bookHighlights.length})`, '');
+
+  for (const [idx, hl] of bookHighlights.entries()) {
+    lines.push(`### ${idx + 1}. ${hl.chapter || 'Cita'}`);
+    lines.push(`> "${hl.text}"`);
+    if (hl.note) {
+      lines.push('', `**Comentario:** ${hl.note}`);
+    }
+    lines.push('', `*Fecha: ${new Date(hl.createdAt).toLocaleDateString()}*`, '---', '');
+  }
+
+  return lines.join('\n');
+}
+
 

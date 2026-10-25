@@ -15,6 +15,7 @@ const localWhiteListDirs = [
   path.resolve(app.getPath('sessionData')).toLowerCase(),
   path.resolve(app.getPath('temp')).toLowerCase(),
   path.resolve(app.getPath('userData')).toLowerCase(),
+  path.resolve(app.getPath('home')).toLowerCase(),
 ];
 
 function isPathInWhiteList(filepath: string) {
