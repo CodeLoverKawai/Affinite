@@ -489,26 +489,28 @@ export const Component = () => {
           console.error('[Library] Failed to import book from Anx request', err);
         }
       } else if (type === 'anx-open-book') {
-        const filePath = data.filePath;
-        const bookId = data.id;
-        const currentBooks = booksRef.current;
-        const target =
-          currentBooks.find(b => b.filePath === filePath) ||
-          currentBooks.find(b => getNumericId(b.id || b.filePath) === bookId) ||
-          currentBooks.find(b => b.title === data.title);
-        if (target) {
-          handleOpenReader(target);
-        } else if (filePath) {
-          const tempBook = createLibraryBook({
-            title: data.title || 'Libro',
-            author: data.author || 'Desconocido',
-            filePath,
-            lastReadPosition: data.lastReadPosition,
-            readingPercentage: data.readingPercentage
-              ? data.readingPercentage * 100
-              : 0,
-          });
-          handleOpenReader(tempBook);
+        if (displayMode === 'integrated') {
+          const filePath = data.filePath;
+          const bookId = data.id;
+          const currentBooks = booksRef.current;
+          const target =
+            currentBooks.find(b => b.filePath === filePath) ||
+            currentBooks.find(b => getNumericId(b.id || b.filePath) === bookId) ||
+            currentBooks.find(b => b.title === data.title);
+          if (target) {
+            handleOpenReader(target);
+          } else if (filePath) {
+            const tempBook = createLibraryBook({
+              title: data.title || 'Libro',
+              author: data.author || 'Desconocido',
+              filePath,
+              lastReadPosition: data.lastReadPosition,
+              readingPercentage: data.readingPercentage
+                ? data.readingPercentage * 100
+                : 0,
+            });
+            handleOpenReader(tempBook);
+          }
         }
       } else if (type === 'anx-delete-book') {
         const filePath = data.filePath;
