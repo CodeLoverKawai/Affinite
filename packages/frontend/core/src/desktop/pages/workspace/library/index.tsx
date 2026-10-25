@@ -71,6 +71,15 @@ function getAnxProceduralCover(title: string): string {
   return `linear-gradient(145deg, hsl(${hue}, 45%, 22%) 0%, hsl(${hue}, 60%, 11%) 100%)`;
 }
 
+function getNumericId(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash) || 1;
+}
+
 export const Component = () => {
   const workspaceService = useService(WorkspaceService);
   const journalService = useService(JournalService);
@@ -209,6 +218,7 @@ export const Component = () => {
   >('all');
 
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const anxIframeRef = useRef<HTMLIFrameElement | null>(null);
 
   // 1. Sync Books and Reading Data with Root Workspace Yjs
   useEffect(() => {
@@ -381,6 +391,134 @@ export const Component = () => {
   const handleCloseReader = useCallback(() => {
     setActiveBook(null);
   }, []);
+
+  // Bi-directional Bridge with embedded Anx-Remix Flutter application
+  const formatBooksForAnx = useCallback((bookList: LibraryBook[]) => {
+    return bookList.map(b => ({
+      id: getNumericId(b.id || b.filePath),
+      title: b.title,
+      author: b.author || 'Desconocido',
+      coverPath: b.cover || '',
+      filePath: b.filePath,
+      readingPercentage: (b.readingPercentage || 0) / 100,
+      lastReadPosition: b.lastReadPosition || '',
+      rating: b.rating || 0,
+      isDeleted: false,
+      description: b.description || '',
+      createTime: new Date(b.createTime || Date.now()).toISOString(),
+      updateTime: new Date(b.updateTime || Date.now()).toISOString(),
+    }));
+  }, []);
+
+  const sendBooksToAnx = useCallback(
+    (bookList: LibraryBook[]) => {
+      if (anxIframeRef.current?.contentWindow) {
+        try {
+          const payload = JSON.stringify({
+            type: 'anx-sync-books',
+            books: formatBooksForAnx(bookList),
+          });
+          anxIframeRef.current.contentWindow.postMessage(payload, '*');
+        } catch (err) {
+          console.warn('[Library] Failed to postMessage to Anx iframe', err);
+        }
+      }
+    },
+    [formatBooksForAnx]
+  );
+
+  useEffect(() => {
+    const handleHostMessage = async (event: MessageEvent) => {
+      if (!event.data) return;
+      let data = event.data;
+      if (typeof data === 'string') {
+        try {
+          data = JSON.parse(data);
+        } catch {
+          return;
+        }
+      }
+      const type = data.type;
+      if (type === 'anx-request-books') {
+        sendBooksToAnx(books);
+      } else if (type === 'anx-request-import') {
+        try {
+          const electronApi = (window as any).__apis?.handler?.library;
+          if (electronApi?.importBook) {
+            const imported = await electronApi.importBook();
+            if (imported && imported.filePath) {
+              const newBook = createLibraryBook(imported);
+              const updated = [
+                newBook,
+                ...books.filter(b => b.filePath !== newBook.filePath),
+              ];
+              setBooks(updated);
+              saveBooksToYjs(updated);
+              sendBooksToAnx(updated);
+            }
+          }
+        } catch (err) {
+          console.error('[Library] Failed to import book from Anx request', err);
+        }
+      } else if (type === 'anx-open-book') {
+        const filePath = data.filePath;
+        const bookId = data.id;
+        const target =
+          books.find(b => b.filePath === filePath) ||
+          books.find(b => getNumericId(b.id || b.filePath) === bookId) ||
+          books.find(b => b.title === data.title);
+        if (target) {
+          handleOpenReader(target);
+        } else if (filePath) {
+          const tempBook = createLibraryBook({
+            title: data.title || 'Libro',
+            author: data.author || 'Desconocido',
+            filePath,
+            lastReadPosition: data.lastReadPosition,
+            readingPercentage: data.readingPercentage
+              ? data.readingPercentage * 100
+              : 0,
+          });
+          handleOpenReader(tempBook);
+        }
+      } else if (type === 'anx-delete-book') {
+        const filePath = data.filePath;
+        const target = books.find(
+          b =>
+            b.filePath === filePath ||
+            getNumericId(b.id || b.filePath) === data.id
+        );
+        if (target) {
+          handleDeleteBook(target);
+        }
+      } else if (type === 'anx-update-progress') {
+        const target = books.find(
+          b =>
+            b.filePath === data.filePath ||
+            getNumericId(b.id || b.filePath) === data.id
+        );
+        if (target) {
+          handleUpdateProgress(data.percentage * 100, data.cfi);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleHostMessage);
+    return () => {
+      window.removeEventListener('message', handleHostMessage);
+    };
+  }, [
+    books,
+    handleDeleteBook,
+    handleOpenReader,
+    handleUpdateProgress,
+    saveBooksToYjs,
+    sendBooksToAnx,
+  ]);
+
+  useEffect(() => {
+    sendBooksToAnx(books);
+  }, [books, sendBooksToAnx]);
 
   // Update Reading Progress
   const handleUpdateProgress = useCallback(
@@ -1062,6 +1200,8 @@ export const Component = () => {
                 </div>
               </div>
               <iframe
+                ref={anxIframeRef}
+                onLoad={() => sendBooksToAnx(books)}
                 src="assets://./anx/index.html"
                 style={{
                   width: '100%',

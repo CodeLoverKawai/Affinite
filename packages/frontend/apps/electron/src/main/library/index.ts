@@ -124,4 +124,67 @@ export const libraryHandlers = {
       return false;
     }
   },
+
+  /**
+   * Lists all local books currently saved in userData/library/books.
+   */
+  listBooks: async (
+    _e: IpcMainInvokeEvent
+  ): Promise<
+    Array<{
+      id: string;
+      title: string;
+      author: string;
+      filePath: string;
+      format: string;
+      size: number;
+    }>
+  > => {
+    try {
+      const libraryDir = getLibraryDir();
+      if (!fs.existsSync(libraryDir)) return [];
+      const files = fs.readdirSync(libraryDir);
+      const books: Array<{
+        id: string;
+        title: string;
+        author: string;
+        filePath: string;
+        format: string;
+        size: number;
+      }> = [];
+
+      for (const file of files) {
+        const fullPath = path.join(libraryDir, file);
+        try {
+          const stat = fs.statSync(fullPath);
+          if (!stat.isFile()) continue;
+          const ext = path.extname(file).replace('.', '').toLowerCase();
+          if (!['epub', 'pdf', 'mobi', 'azw3', 'txt', 'fb2', 'md'].includes(ext)) continue;
+
+          let cleanName = path.basename(file, path.extname(file));
+          cleanName = cleanName.replace(/^\d+-/, '');
+          let title = cleanName;
+          let author = 'Autor desconocido';
+          if (cleanName.includes(' - ')) {
+            const parts = cleanName.split(' - ');
+            title = parts[0].trim();
+            author = parts.slice(1).join(' - ').trim();
+          }
+
+          books.push({
+            id: `book-${file}`,
+            title,
+            author,
+            filePath: fullPath,
+            format: ext,
+            size: stat.size,
+          });
+        } catch (_) {}
+      }
+      return books;
+    } catch (err) {
+      logger.error('[Library] Failed to list books', err);
+      return [];
+    }
+  },
 };
