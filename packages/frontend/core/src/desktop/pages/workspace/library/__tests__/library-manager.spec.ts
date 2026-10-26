@@ -3,13 +3,18 @@ import {
   addBookmark,
   addBookTag,
   addHighlight,
+  AnxWebNote,
   calculateReadingStatistics,
+  convertAnxNotesToHighlights,
   createLibraryBook,
+  exportAnxNotesToMarkdown,
   filterBooks,
+  formatBooksForAnxBridge,
   formatBookSize,
   formatReadingProgress,
   formatReadingTime,
   generateJournalQuoteMarkdown,
+  getNumericBookId,
   LibraryBook,
   removeBookmark,
   removeBookTag,
@@ -155,5 +160,61 @@ describe('Library Manager & Anx Reader Helper Suite', () => {
 
     books = updateBookRating(books, book.id, 5);
     expect(books[0].rating).toBe(5);
+  });
+
+  it('transforms books and notes across the Anx-Remix Full Bridge protocol', () => {
+    const book = createLibraryBook({
+      title: 'Meditaciones',
+      author: 'Marco Aurelio',
+      filePath: '/books/meditaciones.epub',
+    });
+    book.readingPercentage = 45;
+    book.lastReadPosition = 'epubcfi(/6/4!/4/2)';
+
+    const numericId = getNumericBookId(book.id || book.filePath);
+    expect(numericId).toBeGreaterThan(0);
+
+    const formatted = formatBooksForAnxBridge([book]);
+    expect(formatted.length).toBe(1);
+    expect(formatted[0].id).toBe(numericId);
+    expect(formatted[0].readingPercentage).toBeCloseTo(0.45, 2);
+
+    const anxNotes: AnxWebNote[] = [
+      {
+        id: 101,
+        bookId: numericId,
+        content: 'La felicidad de tu vida depende de la calidad de tus pensamientos.',
+        cfi: 'epubcfi(/6/4!/4/2)',
+        chapter: 'Libro IV',
+        type: 'highlight',
+        color: 'FFF176',
+        readerNote: 'Principio estoico clave.',
+        createTime: '2026-10-25T10:00:00.000Z',
+        updateTime: '2026-10-25T10:00:00.000Z',
+      },
+      {
+        id: 102,
+        bookId: numericId,
+        content: 'Marcador de página',
+        cfi: 'epubcfi(/6/8!/4/2)',
+        chapter: 'Libro V',
+        type: 'bookmark',
+        color: '000000',
+        createTime: '2026-10-25T11:00:00.000Z',
+        updateTime: '2026-10-25T11:00:00.000Z',
+      },
+    ];
+
+    const highlights = convertAnxNotesToHighlights(anxNotes, [book]);
+    expect(highlights.length).toBe(1);
+    expect(highlights[0].bookId).toBe(book.id);
+    expect(highlights[0].text).toContain('felicidad de tu vida');
+    expect(highlights[0].note).toBe('Principio estoico clave.');
+
+    const exportedMd = exportAnxNotesToMarkdown('Meditaciones', 'Marco Aurelio', anxNotes);
+    expect(exportedMd).toContain('# Notas y Citas: Meditaciones');
+    expect(exportedMd).toContain('Marco Aurelio');
+    expect(exportedMd).toContain('La felicidad de tu vida depende de la calidad de tus pensamientos.');
+    expect(exportedMd).toContain('Principio estoico clave.');
   });
 });

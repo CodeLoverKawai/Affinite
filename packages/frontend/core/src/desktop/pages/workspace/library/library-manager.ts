@@ -11,6 +11,7 @@ export interface LibraryBook {
   readingTimeMinutes?: number;
   tags?: string[];
   rating?: number;
+  groupId?: number;
   description?: string;
   createTime: number;
   updateTime: number;
@@ -513,4 +514,137 @@ export function exportBookNotesToMarkdown(
   return lines.join('\n');
 }
 
+// ---------------------------------------------------------------------------
+// Anx-Remix Full Bridge Data Models & Transformers
+// ---------------------------------------------------------------------------
 
+export interface AnxWebNote {
+  id: number;
+  bookId: number;
+  content: string;
+  cfi: string;
+  chapter: string;
+  type: string;
+  color: string;
+  readerNote?: string;
+  createTime: string;
+  updateTime: string;
+}
+
+export interface AnxWebReadingTime {
+  id?: number;
+  bookId: number;
+  date: string;
+  readingTime: number;
+}
+
+export interface AnxWebGroup {
+  id: number;
+  name: string;
+  parentId?: number | null;
+  isDeleted?: number;
+  createTime?: string;
+  updateTime?: string;
+}
+
+export interface AnxWebTag {
+  id: number;
+  name: string;
+  color?: number | null;
+}
+
+export interface AnxWebBookTag {
+  id: number;
+  bookId: number;
+  tagId: number;
+}
+
+export function getNumericBookId(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash) || 1;
+}
+
+export function formatBooksForAnxBridge(bookList: LibraryBook[]) {
+  return bookList.map(b => {
+    const rawPct = b.readingPercentage || 0;
+    const normalizedPct = rawPct > 1 ? rawPct / 100 : rawPct;
+    return {
+      id: getNumericBookId(b.id || b.filePath),
+      title: b.title,
+      author: b.author || 'Desconocido',
+      coverPath: b.cover || '',
+      filePath: b.filePath,
+      readingPercentage: Math.max(0, Math.min(1, normalizedPct)),
+      lastReadPosition: b.lastReadPosition || '',
+      rating: b.rating || 0,
+      groupId: b.groupId || 0,
+      isDeleted: false,
+      description: b.description || '',
+      createTime: new Date(b.createTime || Date.now()).toISOString(),
+      updateTime: new Date(b.updateTime || Date.now()).toISOString(),
+    };
+  });
+}
+
+export function convertAnxNotesToHighlights(
+  notes: AnxWebNote[],
+  books: LibraryBook[]
+): LibraryHighlight[] {
+  return notes
+    .filter(n => n.type !== 'bookmark')
+    .map(n => {
+      const matchingBook = books.find(
+        b => getNumericBookId(b.id || b.filePath) === Number(n.bookId)
+      );
+      return {
+        id: `anx-note-${n.id}`,
+        bookId: matchingBook ? matchingBook.id : String(n.bookId),
+        cfi: n.cfi || '',
+        text: n.content || '',
+        note: n.readerNote || undefined,
+        color: n.color?.startsWith('#') ? n.color : `#${n.color || 'FFF176'}`,
+        chapter: n.chapter || undefined,
+        createdAt: Date.parse(n.createTime) || Date.now(),
+      };
+    });
+}
+
+export function exportAnxNotesToMarkdown(
+  bookTitle: string,
+  author: string,
+  notes: AnxWebNote[]
+): string {
+  const highlightsOnly = notes.filter(n => n.type !== 'bookmark');
+  const lines: string[] = [
+    `# Notas y Citas: ${bookTitle}`,
+    `**Autor:** ${author || 'Desconocido'}`,
+    `**Exportado desde AFFiNITe Biblioteca (Anx-Remix)**`,
+    `---`,
+    '',
+  ];
+
+  if (highlightsOnly.length === 0) {
+    lines.push('*No hay notas ni citas guardadas para este libro.*');
+    return lines.join('\n');
+  }
+
+  lines.push(`## Citas y Subrayados (${highlightsOnly.length})`, '');
+
+  for (const [idx, n] of highlightsOnly.entries()) {
+    lines.push(`### ${idx + 1}. ${n.chapter || 'Cita'}`);
+    lines.push(`> "${n.content}"`);
+    if (n.readerNote && n.readerNote.trim()) {
+      lines.push('', `**Nota de lectura:** ${n.readerNote.trim()}`);
+    }
+    const dateStr = n.createTime
+      ? new Date(n.createTime).toLocaleDateString()
+      : new Date().toLocaleDateString();
+    lines.push('', `*Fecha: ${dateStr}*`, '---', '');
+  }
+
+  return lines.join('\n');
+}

@@ -59,7 +59,46 @@ if (!process.env.SKIP_WEB_BUILD) {
     shell: true,
   });
 
+  const anxBackupDir = path.join(publicDistDir, '.anx-backup');
+  const foliateBackupDir = path.join(publicDistDir, '.foliate-backup');
+  if (await fs.pathExists(path.join(publicAffineOutDir, 'anx'))) {
+    await fs.copy(path.join(publicAffineOutDir, 'anx'), anxBackupDir, {
+      overwrite: true,
+    });
+  }
+  if (await fs.pathExists(path.join(publicAffineOutDir, 'foliate'))) {
+    await fs.copy(path.join(publicAffineOutDir, 'foliate'), foliateBackupDir, {
+      overwrite: true,
+    });
+  }
+
   await fs.move(affineWebOutDir, publicAffineOutDir, { overwrite: true });
+
+  const externalAnxBuild = path.resolve(repoRootDir, '..', 'Anx-Remix', 'build', 'web');
+  const externalFoliate = path.resolve(repoRootDir, '..', 'Anx-Remix', 'assets', 'foliate-js');
+
+  if (await fs.pathExists(externalAnxBuild)) {
+    await fs.copy(externalAnxBuild, path.join(publicAffineOutDir, 'anx'), {
+      overwrite: true,
+    });
+  } else if (await fs.pathExists(anxBackupDir)) {
+    await fs.copy(anxBackupDir, path.join(publicAffineOutDir, 'anx'), {
+      overwrite: true,
+    });
+  }
+
+  if (await fs.pathExists(externalFoliate)) {
+    await fs.copy(externalFoliate, path.join(publicAffineOutDir, 'foliate'), {
+      overwrite: true,
+    });
+  } else if (await fs.pathExists(foliateBackupDir)) {
+    await fs.copy(foliateBackupDir, path.join(publicAffineOutDir, 'foliate'), {
+      overwrite: true,
+    });
+  }
+
+  await fs.remove(anxBackupDir);
+  await fs.remove(foliateBackupDir);
 }
 
 // step 2: update app-updater.yml content with build type in resources folder

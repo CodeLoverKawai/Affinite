@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path, { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -68,6 +69,21 @@ async function handleFileRequest(request: Request) {
   }
 
   const isAbsolutePath = urlObject.host !== '.';
+  if (!isAbsolutePath && urlObject.pathname === '/api/anx-tts') {
+    const q = (urlObject.searchParams.get('q') ?? '').trim();
+    const tl = (urlObject.searchParams.get('tl') ?? 'es').trim() || 'es';
+    if (!q) {
+      return new Response('Missing q', { status: 400 });
+    }
+    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${encodeURIComponent(tl)}&q=${encodeURIComponent(q)}`;
+    return net.fetch(ttsUrl, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+      },
+    });
+  }
+
   const isApiRequest =
     !isAbsolutePath &&
     (urlObject.pathname.startsWith('/api/') ||
@@ -95,7 +111,10 @@ async function handleFileRequest(request: Request) {
 
   // for relative path, load the file in resources
   if (!isAbsolutePath) {
-    const pathname = urlObject.pathname;
+    let pathname = urlObject.pathname;
+    if (pathname.startsWith('/foliate-js/')) {
+      pathname = pathname.replace(/^\/foliate-js\//, '/foliate/');
+    }
     const isAnx = pathname.startsWith('/anx/') || pathname === '/anx';
     const lastSegment = pathname.split('/').at(-1);
     const hasExtension = lastSegment?.includes('.');
@@ -125,15 +144,27 @@ async function handleFileRequest(request: Request) {
       filepath = join(webStaticDir, 'index.html');
     }
   } else {
-    filepath = path.resolve(decodeURIComponent(urlObject.pathname));
+    let rawPathname = decodeURIComponent(urlObject.pathname);
+    try {
+      if (rawPathname.includes('%2F') || rawPathname.includes('%2f')) {
+        rawPathname = decodeURIComponent(rawPathname);
+      }
+    } catch (_) {}
+    if (!isWindows() && rawPathname.startsWith('//')) {
+      rawPathname = rawPathname.replace(/^\/+/, '/');
+    }
+    filepath = path.resolve(rawPathname);
     // on windows, the path could be start with '/'
     if (isWindows()) {
       filepath = path.resolve(filepath.replace(/^\//, ''));
     }
     // security check if the filepath is within app.getPath('sessionData')
     if (urlObject.host !== 'local-file' || !isPathInWhiteList(filepath)) {
-      throw new Error('Invalid filepath');
+      return new Response('Forbidden', { status: 403 });
     }
+  }
+  if (!filepath || !fs.existsSync(filepath)) {
+    return new Response('Not Found', { status: 404 });
   }
   return net.fetch(pathToFileURL(filepath).toString(), clonedRequest);
 }
