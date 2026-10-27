@@ -25,6 +25,12 @@ import {
   WorkbenchService,
 } from '../../../../modules/workbench';
 import { WorkspaceService } from '../../../../modules/workspace';
+import {
+  calculateDragTimeRange,
+  computeEventPosition,
+  formatEventTimeRange,
+  isEventAllDay,
+} from './calendar-timeblock-helpers';
 
 dayjs.extend(isLeapYear);
 dayjs.extend(isoWeek);
@@ -34,7 +40,11 @@ export interface CalendarTask {
   id: string;
   title: string;
   date: string; // YYYY-MM-DD
-  time?: string; // HH:mm
+  time?: string; // HH:mm legacy / shorthand
+  startTime?: string; // HH:mm
+  endTime?: string; // HH:mm
+  isAllDay?: boolean;
+  color?: string; // Google Calendar color tint
   completed: boolean;
   priority: 'high' | 'medium' | 'low';
   category?: string;
@@ -54,7 +64,7 @@ export interface BoardCardCalendarItem {
   isDoneColumn: boolean;
 }
 
-type CalendarViewMode = 'month' | 'week' | 'agenda';
+type CalendarViewMode = 'month' | 'week' | 'day' | 'agenda';
 
 const PRIORITY_META: Record<
   CalendarTask['priority'],
@@ -79,6 +89,16 @@ const PRIORITY_META: Record<
     border: 'rgba(59, 130, 246, 0.38)',
   },
 };
+
+const COLOR_PRESETS = [
+  { id: '#3b82f6', label: 'Azul', name: 'Predeterminado' },
+  { id: '#10b981', label: 'Verde', name: 'Esmeralda' },
+  { id: '#f59e0b', label: 'Ámbar', name: 'Atención' },
+  { id: '#ef4444', label: 'Rojo', name: 'Urgente' },
+  { id: '#8b5cf6', label: 'Púrpura', name: 'Creativo' },
+  { id: '#ec4899', label: 'Rosa', name: 'Personal' },
+  { id: '#06b6d4', label: 'Cian', name: 'Estudio' },
+];
 
 const WEEKDAY_HEADERS = [
   'Lunes',
@@ -105,6 +125,14 @@ const MONTH_NAMES_ES = [
   'Diciembre',
 ];
 
+const GRID_START_HOUR = 6;
+const GRID_END_HOUR = 23;
+const PIXELS_PER_HOUR = 60;
+const HOURS_ARRAY = Array.from(
+  { length: GRID_END_HOUR - GRID_START_HOUR + 1 },
+  (_, i) => GRID_START_HOUR + i
+);
+
 function isDoneColName(name: string): boolean {
   const n = name.trim().toLowerCase();
   return (
@@ -127,7 +155,7 @@ export const Component = () => {
   const allDocs = useLiveData(docsService.list.docs$);
   const allJournalDates = useLiveData(journalService.allJournalDates$);
 
-  const [viewMode, setViewMode] = useState<CalendarViewMode>('month');
+  const [viewMode, setViewMode] = useState<CalendarViewMode>('week');
   const [cursorDate, setCursorDate] = useState<dayjs.Dayjs>(() => dayjs());
   const [tasks, setTasks] = useState<CalendarTask[]>([]);
   const [boardCards, setBoardCards] = useState<BoardCardCalendarItem[]>([]);
@@ -136,6 +164,16 @@ export const Component = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
   const [selectedSource, setSelectedSource] = useState<'all' | 'tasks' | 'boards'>('all');
 
+  // Mini Calendar Navigator state
+  const [miniCalMonth, setMiniCalMonth] = useState<dayjs.Dayjs>(() => dayjs());
+
+  // Vertical Drag-to-Create Timeblock State
+  const [timeblockDrag, setTimeblockDrag] = useState<{
+    date: string;
+    startY: number;
+    currentY: number;
+  } | null>(null);
+
   // Task Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<CalendarTask | null>(null);
@@ -143,7 +181,10 @@ export const Component = () => {
   const [formDate, setFormDate] = useState(() =>
     dayjs().format(JOURNAL_DATE_FORMAT)
   );
-  const [formTime, setFormTime] = useState('');
+  const [formIsAllDay, setFormIsAllDay] = useState(false);
+  const [formStartTime, setFormStartTime] = useState('');
+  const [formEndTime, setFormEndTime] = useState('');
+  const [formColor, setFormColor] = useState('#3b82f6');
   const [formPriority, setFormPriority] =
     useState<CalendarTask['priority']>('medium');
   const [formCategory, setFormCategory] = useState('General');
@@ -154,12 +195,17 @@ export const Component = () => {
     {}
   );
 
-  // Drag payload state
+  // Drag payload state (for cards / tasks dragged to date headers)
   const [dragItem, setDragItem] = useState<
     | { type: 'task'; id: string }
     | { type: 'board-card'; boardId: string; cardId: string }
     | null
   >(null);
+
+  // Sync cursor month to mini calendar
+  useEffect(() => {
+    setMiniCalMonth(cursorDate);
+  }, [cursorDate]);
 
   // 1. Sync Native Calendar Tasks from root workspace Yjs map
   useEffect(() => {
@@ -379,22 +425,38 @@ export const Component = () => {
   );
 
   // Task CRUD Handlers
-  const openCreateTaskModal = useCallback((defaultDate?: string) => {
-    setEditingTask(null);
-    setFormTitle('');
-    setFormDate(defaultDate || dayjs().format(JOURNAL_DATE_FORMAT));
-    setFormTime('');
-    setFormPriority('medium');
-    setFormCategory('General');
-    setFormNotes('');
-    setModalOpen(true);
-  }, []);
+  const openCreateTaskModal = useCallback(
+    (defaultDate?: string, defaultStartTime?: string, defaultEndTime?: string) => {
+      setEditingTask(null);
+      setFormTitle('');
+      setFormDate(defaultDate || dayjs().format(JOURNAL_DATE_FORMAT));
+      if (defaultStartTime) {
+        setFormIsAllDay(false);
+        setFormStartTime(defaultStartTime);
+        setFormEndTime(defaultEndTime || '');
+      } else {
+        setFormIsAllDay(true);
+        setFormStartTime('09:00');
+        setFormEndTime('10:00');
+      }
+      setFormColor('#3b82f6');
+      setFormPriority('medium');
+      setFormCategory('General');
+      setFormNotes('');
+      setModalOpen(true);
+    },
+    []
+  );
 
   const openEditTaskModal = useCallback((task: CalendarTask) => {
     setEditingTask(task);
     setFormTitle(task.title);
     setFormDate(task.date);
-    setFormTime(task.time || '');
+    const allDay = isEventAllDay(task);
+    setFormIsAllDay(allDay);
+    setFormStartTime(task.startTime || task.time || '09:00');
+    setFormEndTime(task.endTime || '');
+    setFormColor(task.color || '#3b82f6');
     setFormPriority(task.priority);
     setFormCategory(task.category || 'General');
     setFormNotes(task.notes || '');
@@ -403,42 +465,44 @@ export const Component = () => {
 
   const handleSaveTaskModal = useCallback(() => {
     if (!formTitle.trim()) return;
+    const taskData: Partial<CalendarTask> = {
+      title: formTitle.trim(),
+      date: formDate,
+      isAllDay: formIsAllDay,
+      startTime: !formIsAllDay ? formStartTime : undefined,
+      endTime: !formIsAllDay ? formEndTime || undefined : undefined,
+      time: !formIsAllDay ? formStartTime : undefined,
+      color: formColor,
+      priority: formPriority,
+      category: formCategory.trim() || undefined,
+      notes: formNotes.trim() || undefined,
+    };
+
     if (editingTask) {
       const next = tasks.map(t =>
-        t.id === editingTask.id
-          ? {
-              ...t,
-              title: formTitle.trim(),
-              date: formDate,
-              time: formTime || undefined,
-              priority: formPriority,
-              category: formCategory.trim() || undefined,
-              notes: formNotes.trim() || undefined,
-            }
-          : t
+        t.id === editingTask.id ? { ...t, ...taskData } : t
       );
       saveTasksToYjs(next);
     } else {
       const created: CalendarTask = {
         id: `cal-task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        title: formTitle.trim(),
-        date: formDate,
-        time: formTime || undefined,
         completed: false,
-        priority: formPriority,
-        category: formCategory.trim() || undefined,
-        notes: formNotes.trim() || undefined,
-      };
+        priority: 'medium',
+        ...taskData,
+      } as CalendarTask;
       saveTasksToYjs([...tasks, created]);
     }
     setModalOpen(false);
   }, [
     editingTask,
     formCategory,
+    formColor,
     formDate,
+    formEndTime,
+    formIsAllDay,
     formNotes,
     formPriority,
-    formTime,
+    formStartTime,
     formTitle,
     saveTasksToYjs,
     tasks,
@@ -471,8 +535,10 @@ export const Component = () => {
         id: `cal-task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         title: text,
         date: dateStr,
+        isAllDay: true,
         completed: false,
         priority: 'medium',
+        color: '#3b82f6',
       };
       saveTasksToYjs([...tasks, created]);
       setInlineDayInput(prev => ({ ...prev, [dateStr]: '' }));
@@ -655,7 +721,6 @@ export const Component = () => {
       }
     }
 
-    // Count Daily and Weekly notes created in this month
     let journalsCreatedCount = 0;
     allJournalDates.forEach(j => {
       if (j && j.startsWith(monthPrefix)) {
@@ -689,6 +754,16 @@ export const Component = () => {
   const todayStr = dayjs().format(JOURNAL_DATE_FORMAT);
   const currentMonthLabel = `${MONTH_NAMES_ES[cursorDate.month()]} ${cursorDate.year()}`;
 
+  // Real-time red indicator line position
+  const now = dayjs();
+  const nowHour = now.hour();
+  const nowMinute = now.minute();
+  const isNowInGrid = nowHour >= GRID_START_HOUR && nowHour <= GRID_END_HOUR;
+  const nowTop = isNowInGrid
+    ? (nowHour - GRID_START_HOUR) * PIXELS_PER_HOUR +
+      nowMinute * (PIXELS_PER_HOUR / 60)
+    : null;
+
   const handlePrevPeriod = () => {
     if (viewMode === 'day') {
       setCursorDate(d => d.subtract(1, 'day'));
@@ -711,6 +786,40 @@ export const Component = () => {
 
   const handleGoToday = () => {
     setCursorDate(dayjs());
+  };
+
+  // Timeblock Drag Handlers
+  const handleGridMouseDown = (
+    dateStr: string,
+    e: React.MouseEvent<HTMLDivElement>
+  ) => {
+    if ((e.target as HTMLElement).closest('[data-event-card]')) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    setTimeblockDrag({ date: dateStr, startY: y, currentY: y });
+  };
+
+  const handleGridMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!timeblockDrag) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
+    setTimeblockDrag(prev => (prev ? { ...prev, currentY: y } : null));
+  };
+
+  const handleGridMouseUp = (dateStr: string) => {
+    if (!timeblockDrag || timeblockDrag.date !== dateStr) {
+      setTimeblockDrag(null);
+      return;
+    }
+    const range = calculateDragTimeRange(
+      timeblockDrag.startY,
+      timeblockDrag.currentY,
+      GRID_START_HOUR,
+      PIXELS_PER_HOUR
+    );
+    const date = timeblockDrag.date;
+    setTimeblockDrag(null);
+    openCreateTaskModal(date, range.startTime, range.endTime);
   };
 
   return (
@@ -825,7 +934,7 @@ export const Component = () => {
             </button>
           </div>
 
-          {/* Center: 3 View Mode Switcher */}
+          {/* Center: 4 View Mode Switcher */}
           <div
             style={{
               display: 'flex',
@@ -905,9 +1014,9 @@ export const Component = () => {
                 fontWeight: 600,
                 cursor: 'pointer',
               }}
-              title="Mostrar/ocultar tarjetas de Boards sin fecha asignada"
+              title="Mostrar/ocultar panel lateral"
             >
-              📌 Boards ({unscheduledBoardCards.length})
+              📌 Lateral ({unscheduledBoardCards.length})
             </button>
             <button
               onClick={() => openCreateTaskModal(todayStr)}
@@ -951,10 +1060,10 @@ export const Component = () => {
               flex: 1,
               height: '100%',
               overflowY: 'auto',
-              padding: '20px',
+              padding: '16px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '16px',
+              gap: '12px',
             }}
           >
             {/* Quick KPI & Filter Control Bar */}
@@ -1350,7 +1459,7 @@ export const Component = () => {
                                 }}
                               >
                                 {dayTasks.map(task => {
-                                  const pMeta = PRIORITY_META[task.priority];
+                                  const color = task.color || '#3b82f6';
                                   return (
                                     <div
                                       key={task.id}
@@ -1370,12 +1479,13 @@ export const Component = () => {
                                         borderRadius: '6px',
                                         background: task.completed
                                           ? 'rgba(255,255,255,0.03)'
-                                          : pMeta.bg,
+                                          : `${color}25`,
                                         border: `1px solid ${
                                           task.completed
                                             ? 'rgba(255,255,255,0.07)'
-                                            : pMeta.border
+                                            : `${color}80`
                                         }`,
+                                        borderLeft: `3px solid ${color}`,
                                         fontSize: '11px',
                                         cursor: 'pointer',
                                         opacity: task.completed ? 0.55 : 1,
@@ -1390,7 +1500,7 @@ export const Component = () => {
                                         }
                                         style={{
                                           cursor: 'pointer',
-                                          accentColor: '#10b981',
+                                          accentColor: color,
                                           margin: 0,
                                         }}
                                       />
@@ -1406,7 +1516,9 @@ export const Component = () => {
                                           flex: 1,
                                         }}
                                       >
-                                        {task.time ? `${task.time} ` : ''}
+                                        {!isEventAllDay(task) && (task.startTime || task.time)
+                                          ? `${task.startTime || task.time} `
+                                          : ''}
                                         {task.title}
                                       </span>
                                     </div>
@@ -1498,14 +1610,15 @@ export const Component = () => {
               </div>
             )}
 
-            {/* ==================== MODE 2: 7-DAY WEEKLY PLANNER VIEW ==================== */}
+            {/* ==================== MODE 2: 7-DAY WEEKLY PLANNER VIEW (GOOGLE CALENDAR STYLE) ==================== */}
             {viewMode === 'week' && (
               <div
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '16px',
+                  gap: '12px',
                   flex: 1,
+                  minHeight: '700px',
                 }}
               >
                 {/* Weekly Note Banner */}
@@ -1514,57 +1627,38 @@ export const Component = () => {
                     background:
                       'linear-gradient(135deg, rgba(30, 58, 138, 0.45), rgba(15, 23, 42, 0.85))',
                     border: '1px solid rgba(59, 130, 246, 0.35)',
-                    borderRadius: '14px',
-                    padding: '16px 20px',
+                    borderRadius: '12px',
+                    padding: '12px 18px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     flexWrap: 'wrap',
-                    gap: '12px',
+                    gap: '10px',
                   }}
                 >
-                  <div>
-                    <div
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
+                        background: '#2563eb',
+                        color: '#fff',
+                        fontWeight: 800,
+                        fontSize: '11px',
+                        padding: '2px 8px',
+                        borderRadius: '999px',
                       }}
                     >
-                      <span
-                        style={{
-                          background: '#2563eb',
-                          color: '#fff',
-                          fontWeight: 800,
-                          fontSize: '12px',
-                          padding: '3px 10px',
-                          borderRadius: '999px',
-                        }}
-                      >
-                        {currentWeekInfo.weekKey}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: '17px',
-                          fontWeight: 700,
-                          color: '#f8fafc',
-                        }}
-                      >
-                        Planificador de la Semana {currentWeekInfo.weekNumber} (
-                        {currentWeekInfo.start.format('DD MMM')} –{' '}
-                        {currentWeekInfo.end.format('DD MMM YYYY')})
-                      </span>
-                    </div>
-                    <div
+                      {currentWeekInfo.weekKey}
+                    </span>
+                    <span
                       style={{
-                        fontSize: '13px',
-                        color: '#94a3b8',
-                        marginTop: '4px',
+                        fontSize: '15px',
+                        fontWeight: 700,
+                        color: '#f8fafc',
                       }}
                     >
-                      Define tus objetivos semanales en la Nota Semanal y
-                      organiza las entregas día por día.
-                    </div>
+                      Semana {currentWeekInfo.weekNumber} ({currentWeekInfo.start.format('DD MMM')} –{' '}
+                      {currentWeekInfo.end.format('DD MMM YYYY')})
+                    </span>
                   </div>
 
                   <button
@@ -1575,315 +1669,464 @@ export const Component = () => {
                       background: 'linear-gradient(135deg, #10b981, #059669)',
                       border: 'none',
                       color: '#ffffff',
-                      padding: '9px 16px',
-                      borderRadius: '10px',
-                      fontSize: '13px',
+                      padding: '7px 14px',
+                      borderRadius: '8px',
+                      fontSize: '12px',
                       fontWeight: 700,
                       cursor: 'pointer',
                       boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)',
                     }}
                   >
                     {allJournalDates.has(currentWeekInfo.weekKey)
-                      ? `🗓️ Abrir Nota Semanal (${currentWeekInfo.weekKey})`
-                      : `✨ Crear Nota Semanal (${currentWeekInfo.weekKey})`}
+                      ? `🗓️ Abrir Nota Semanal`
+                      : `✨ Crear Nota Semanal`}
                   </button>
                 </div>
 
-                {/* 7-Day Columns */}
+                {/* Google Calendar Time-Blocking Grid */}
                 <div
                   style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(7, minmax(175px, 1fr))',
-                    gap: '10px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    background: 'rgba(15, 23, 42, 0.75)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '14px',
+                    overflow: 'hidden',
                     flex: 1,
-                    overflowX: 'auto',
                   }}
                 >
-                  {currentWeekInfo.days.map((day, idx) => {
-                    const dateStr = day.format(JOURNAL_DATE_FORMAT);
-                    const isToday = dateStr === todayStr;
-                    const hasDailyJournal = allJournalDates.has(dateStr);
-                    const dayTasks = tasksByDate.get(dateStr) || [];
-                    const dayCards = boardCardsByDate.get(dateStr) || [];
+                  {/* Top Column Headers (Day names and dates) */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '60px repeat(7, minmax(0, 1fr))',
+                      background: 'rgba(30, 41, 59, 0.8)',
+                      borderBottom: '1px solid rgba(255,255,255,0.1)',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 20,
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: '10px 6px',
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        color: '#94a3b8',
+                        textAlign: 'center',
+                        borderRight: '1px solid rgba(255,255,255,0.08)',
+                      }}
+                    >
+                      GMT
+                    </div>
+                    {currentWeekInfo.days.map((day, idx) => {
+                      const dateStr = day.format(JOURNAL_DATE_FORMAT);
+                      const isToday = dateStr === todayStr;
+                      const hasDailyJournal = allJournalDates.has(dateStr);
 
-                    return (
-                      <div
-                        key={dateStr}
-                        onDragOver={e => e.preventDefault()}
-                        onDrop={() => handleDropOnDate(dateStr)}
-                        style={{
-                          background: isToday
-                            ? 'rgba(30, 58, 138, 0.25)'
-                            : 'rgba(15, 23, 42, 0.65)',
-                          border: isToday
-                            ? '1px solid rgba(59, 130, 246, 0.5)'
-                            : '1px solid rgba(255,255,255,0.08)',
-                          borderRadius: '12px',
-                          padding: '12px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '10px',
-                        }}
-                      >
+                      return (
                         <div
+                          key={dateStr}
                           style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            borderBottom: '1px solid rgba(255,255,255,0.07)',
-                            paddingBottom: '8px',
+                            padding: '8px 6px',
+                            textAlign: 'center',
+                            borderRight: '1px solid rgba(255,255,255,0.06)',
+                            background: isToday
+                              ? 'rgba(37, 99, 235, 0.15)'
+                              : 'transparent',
                           }}
                         >
-                          <div>
-                            <div
-                              style={{
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                color: isToday ? '#60a5fa' : '#94a3b8',
-                                textTransform: 'uppercase',
-                              }}
-                            >
-                              {WEEKDAY_HEADERS[idx]}
-                            </div>
-                            <div
-                              style={{
-                                fontSize: '16px',
-                                fontWeight: 800,
-                                color: '#f8fafc',
-                              }}
-                            >
-                              {day.format('DD MMM')}
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={() => handleOpenDailyJournal(dateStr)}
+                          <div
                             style={{
-                              background: hasDailyJournal
-                                ? 'rgba(16, 185, 129, 0.2)'
-                                : 'rgba(255,255,255,0.06)',
-                              border: hasDailyJournal
-                                ? '1px solid rgba(16, 185, 129, 0.45)'
-                                : '1px solid rgba(255,255,255,0.1)',
-                              color: hasDailyJournal ? '#6ee7b7' : '#cbd5e1',
-                              borderRadius: '7px',
-                              padding: '4px 8px',
                               fontSize: '11px',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            📖 Nota
-                          </button>
-                        </div>
-
-                        {/* Quick inline add task for this day */}
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          <input
-                            type="text"
-                            placeholder="+ Tarea rápida..."
-                            value={inlineDayInput[dateStr] || ''}
-                            onChange={e =>
-                              setInlineDayInput(prev => ({
-                                ...prev,
-                                [dateStr]: e.target.value,
-                              }))
-                            }
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') {
-                                handleAddInlineDayTask(dateStr);
-                              }
-                            }}
-                            style={{
-                              flex: 1,
-                              minWidth: 0,
-                              background: 'rgba(2, 6, 23, 0.5)',
-                              border: '1px solid rgba(255,255,255,0.1)',
-                              borderRadius: '6px',
-                              padding: '5px 8px',
-                              color: '#f8fafc',
-                              fontSize: '11px',
-                              outline: 'none',
-                            }}
-                          />
-                          <button
-                            onClick={() => handleAddInlineDayTask(dateStr)}
-                            style={{
-                              background: '#2563eb',
-                              border: 'none',
-                              color: '#fff',
-                              borderRadius: '6px',
-                              padding: '0 8px',
                               fontWeight: 700,
-                              cursor: 'pointer',
+                              color: isToday ? '#60a5fa' : '#94a3b8',
+                              textTransform: 'uppercase',
                             }}
                           >
-                            +
-                          </button>
+                            {WEEKDAY_HEADERS[idx].slice(0, 3)}
+                          </div>
+                          <div
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '50%',
+                              background: isToday ? '#2563eb' : 'transparent',
+                              color: '#ffffff',
+                              fontSize: '14px',
+                              fontWeight: 800,
+                              marginTop: '2px',
+                            }}
+                          >
+                            {day.date()}
+                          </div>
+                          <div>
+                            <button
+                              onClick={() => handleOpenDailyJournal(dateStr)}
+                              title={hasDailyJournal ? 'Abrir Nota Diaria' : 'Crear Nota Diaria'}
+                              style={{
+                                background: hasDailyJournal
+                                  ? 'rgba(16, 185, 129, 0.2)'
+                                  : 'rgba(255,255,255,0.05)',
+                                border: hasDailyJournal
+                                  ? '1px solid rgba(16, 185, 129, 0.4)'
+                                  : '1px solid rgba(255,255,255,0.08)',
+                                color: hasDailyJournal ? '#6ee7b7' : '#94a3b8',
+                                borderRadius: '4px',
+                                padding: '1px 5px',
+                                fontSize: '9px',
+                                cursor: 'pointer',
+                                marginTop: '2px',
+                              }}
+                            >
+                              📖 {hasDailyJournal ? 'Diario' : '+ Diario'}
+                            </button>
+                          </div>
                         </div>
+                      );
+                    })}
+                  </div>
 
-                        {/* Day's Tasks & Board Cards */}
+                  {/* All-Day Events Strip */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '60px repeat(7, minmax(0, 1fr))',
+                      background: 'rgba(15, 23, 42, 0.9)',
+                      borderBottom: '2px solid rgba(255,255,255,0.12)',
+                      minHeight: '44px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: '6px',
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        color: '#94a3b8',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRight: '1px solid rgba(255,255,255,0.08)',
+                      }}
+                    >
+                      Todo el día
+                    </div>
+
+                    {currentWeekInfo.days.map(day => {
+                      const dateStr = day.format(JOURNAL_DATE_FORMAT);
+                      const dayTasks = tasksByDate.get(dateStr) || [];
+                      const dayCards = boardCardsByDate.get(dateStr) || [];
+                      const allDayTasks = dayTasks.filter(t => isEventAllDay(t));
+
+                      return (
                         <div
+                          key={dateStr}
+                          onDragOver={e => e.preventDefault()}
+                          onDrop={() => handleDropOnDate(dateStr)}
                           style={{
+                            padding: '4px',
+                            borderRight: '1px solid rgba(255,255,255,0.06)',
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: '6px',
-                            flex: 1,
-                            overflowY: 'auto',
+                            gap: '3px',
                           }}
                         >
-                          {dayTasks.map(task => {
-                            const pMeta = PRIORITY_META[task.priority];
+                          {allDayTasks.map(t => {
+                            const color = t.color || '#3b82f6';
                             return (
                               <div
-                                key={task.id}
-                                draggable
-                                onDragStart={() =>
-                                  setDragItem({ type: 'task', id: task.id })
-                                }
-                                onClick={() => openEditTaskModal(task)}
+                                key={t.id}
+                                onClick={() => openEditTaskModal(t)}
                                 style={{
-                                  padding: '8px',
-                                  borderRadius: '8px',
-                                  background: task.completed
-                                    ? 'rgba(255,255,255,0.03)'
-                                    : pMeta.bg,
-                                  border: `1px solid ${
-                                    task.completed
-                                      ? 'rgba(255,255,255,0.07)'
-                                      : pMeta.border
-                                  }`,
+                                  background: t.completed ? 'rgba(255,255,255,0.04)' : `${color}30`,
+                                  border: `1px solid ${t.completed ? 'rgba(255,255,255,0.08)' : `${color}80`}`,
+                                  borderLeft: `3px solid ${color}`,
+                                  borderRadius: '4px',
+                                  padding: '2px 5px',
+                                  fontSize: '10px',
+                                  fontWeight: 600,
+                                  color: '#f8fafc',
                                   cursor: 'pointer',
-                                  opacity: task.completed ? 0.55 : 1,
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  textDecoration: t.completed ? 'line-through' : 'none',
+                                }}
+                              >
+                                {t.title}
+                              </div>
+                            );
+                          })}
+
+                          {dayCards.map(c => (
+                            <div
+                              key={`${c.boardId}-${c.id}`}
+                              onClick={() => handleOpenBoard(c.boardId)}
+                              style={{
+                                background: c.isDoneColumn
+                                  ? 'rgba(16, 185, 129, 0.15)'
+                                  : 'rgba(168, 85, 247, 0.25)',
+                                border: '1px solid rgba(168, 85, 247, 0.4)',
+                                borderRadius: '4px',
+                                padding: '2px 5px',
+                                fontSize: '10px',
+                                fontWeight: 600,
+                                color: '#f3e8ff',
+                                cursor: 'pointer',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                              }}
+                            >
+                              📌 {c.title}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* 18-Hour Vertical Time-Grid Area */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '60px repeat(7, minmax(0, 1fr))',
+                      position: 'relative',
+                      overflowY: 'auto',
+                      height: `${HOURS_ARRAY.length * PIXELS_PER_HOUR}px`,
+                    }}
+                  >
+                    {/* Time Column (06:00 to 23:00) */}
+                    <div
+                      style={{
+                        borderRight: '1px solid rgba(255,255,255,0.08)',
+                        background: 'rgba(15, 23, 42, 0.5)',
+                      }}
+                    >
+                      {HOURS_ARRAY.map(hour => (
+                        <div
+                          key={hour}
+                          style={{
+                            height: `${PIXELS_PER_HOUR}px`,
+                            borderBottom: '1px solid rgba(255,255,255,0.05)',
+                            padding: '4px 6px',
+                            fontSize: '10px',
+                            fontWeight: 600,
+                            color: '#94a3b8',
+                            textAlign: 'right',
+                            boxSizing: 'border-box',
+                          }}
+                        >
+                          {String(hour).padStart(2, '0')}:00
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 7 Day Vertical Columns */}
+                    {currentWeekInfo.days.map(day => {
+                      const dateStr = day.format(JOURNAL_DATE_FORMAT);
+                      const isToday = dateStr === todayStr;
+                      const dayTasks = tasksByDate.get(dateStr) || [];
+                      const timedTasks = dayTasks.filter(t => !isEventAllDay(t));
+
+                      return (
+                        <div
+                          key={dateStr}
+                          onMouseDown={e => handleGridMouseDown(dateStr, e)}
+                          onMouseMove={handleGridMouseMove}
+                          onMouseUp={() => handleGridMouseUp(dateStr)}
+                          style={{
+                            position: 'relative',
+                            borderRight: '1px solid rgba(255,255,255,0.06)',
+                            background: isToday
+                              ? 'rgba(37, 99, 235, 0.05)'
+                              : 'transparent',
+                            userSelect: 'none',
+                          }}
+                        >
+                          {/* Hour lines */}
+                          {HOURS_ARRAY.map(hour => (
+                            <div
+                              key={hour}
+                              style={{
+                                height: `${PIXELS_PER_HOUR}px`,
+                                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                boxSizing: 'border-box',
+                              }}
+                            />
+                          ))}
+
+                          {/* Red Current Time Bar if Today */}
+                          {isToday && nowTop !== null && (
+                            <div
+                              style={{
+                                position: 'absolute',
+                                top: `${nowTop}px`,
+                                left: 0,
+                                right: 0,
+                                height: '2px',
+                                background: '#ef4444',
+                                zIndex: 10,
+                                pointerEvents: 'none',
+                                boxShadow: '0 0 6px rgba(239, 68, 68, 0.8)',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  left: '-4px',
+                                  top: '-4px',
+                                  width: '10px',
+                                  height: '10px',
+                                  borderRadius: '50%',
+                                  background: '#ef4444',
+                                }}
+                              />
+                            </div>
+                          )}
+
+                          {/* Timed Event Blocks */}
+                          {timedTasks.map(t => {
+                            const pos = computeEventPosition(
+                              t.startTime || t.time,
+                              t.endTime,
+                              GRID_START_HOUR,
+                              PIXELS_PER_HOUR
+                            );
+                            const timeLabel = formatEventTimeRange(
+                              t.startTime || t.time,
+                              t.endTime
+                            );
+                            const color = t.color || '#3b82f6';
+
+                            return (
+                              <div
+                                key={t.id}
+                                data-event-card="true"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  openEditTaskModal(t);
+                                }}
+                                style={{
+                                  position: 'absolute',
+                                  top: `${pos.top}px`,
+                                  height: `${pos.height}px`,
+                                  left: '3px',
+                                  right: '3px',
+                                  background: t.completed
+                                    ? 'rgba(255,255,255,0.05)'
+                                    : `${color}25`,
+                                  border: `1px solid ${
+                                    t.completed ? 'rgba(255,255,255,0.1)' : `${color}80`
+                                  }`,
+                                  borderLeft: `4px solid ${color}`,
+                                  borderRadius: '6px',
+                                  padding: '4px 6px',
+                                  overflow: 'hidden',
+                                  fontSize: '11px',
+                                  cursor: 'pointer',
+                                  zIndex: 2,
                                   display: 'flex',
                                   flexDirection: 'column',
-                                  gap: '4px',
+                                  gap: '2px',
+                                  boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+                                  opacity: t.completed ? 0.6 : 1,
                                 }}
                               >
                                 <div
                                   style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '6px',
+                                    gap: '5px',
                                   }}
                                 >
                                   <input
                                     type="checkbox"
-                                    checked={task.completed}
+                                    checked={t.completed}
                                     onClick={e => e.stopPropagation()}
-                                    onChange={() => handleToggleTask(task.id)}
+                                    onChange={() => handleToggleTask(t.id)}
                                     style={{
+                                      accentColor: color,
                                       cursor: 'pointer',
-                                      accentColor: '#10b981',
                                       margin: 0,
                                     }}
                                   />
                                   <span
                                     style={{
-                                      fontSize: '12px',
-                                      fontWeight: 600,
+                                      fontWeight: 700,
                                       color: '#f8fafc',
-                                      textDecoration: task.completed
+                                      whiteSpace: 'nowrap',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      textDecoration: t.completed
                                         ? 'line-through'
                                         : 'none',
                                     }}
                                   >
-                                    {task.title}
+                                    {t.title}
                                   </span>
                                 </div>
                                 <div
                                   style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
                                     fontSize: '10px',
-                                    color: pMeta.color,
+                                    color: '#cbd5e1',
+                                    opacity: 0.85,
                                   }}
                                 >
-                                  <span>Prioridad {pMeta.label}</span>
-                                  {task.time && <span>🕒 {task.time}</span>}
+                                  🕒 {timeLabel}
                                 </div>
                               </div>
                             );
                           })}
 
-                          {dayCards.map(card => (
+                          {/* Drag-to-Create Ghost Timeblock */}
+                          {timeblockDrag && timeblockDrag.date === dateStr && (
                             <div
-                              key={`${card.boardId}-${card.id}`}
-                              draggable
-                              onDragStart={() =>
-                                setDragItem({
-                                  type: 'board-card',
-                                  boardId: card.boardId,
-                                  cardId: card.id,
-                                })
-                              }
-                              onClick={() => handleOpenBoard(card.boardId)}
                               style={{
-                                padding: '8px',
-                                borderRadius: '8px',
-                                background: card.isDoneColumn
-                                  ? 'rgba(16, 185, 129, 0.12)'
-                                  : 'rgba(168, 85, 247, 0.16)',
-                                border: card.isDoneColumn
-                                  ? '1px solid rgba(16, 185, 129, 0.3)'
-                                  : '1px solid rgba(168, 85, 247, 0.4)',
-                                cursor: 'pointer',
-                                opacity: card.isDoneColumn ? 0.6 : 1,
+                                position: 'absolute',
+                                top: `${Math.min(
+                                  timeblockDrag.startY,
+                                  timeblockDrag.currentY
+                                )}px`,
+                                height: `${Math.max(
+                                  15,
+                                  Math.abs(
+                                    timeblockDrag.currentY - timeblockDrag.startY
+                                  )
+                                )}px`,
+                                left: '3px',
+                                right: '3px',
+                                background: 'rgba(59, 130, 246, 0.35)',
+                                border: '2px dashed #60a5fa',
+                                borderRadius: '6px',
+                                pointerEvents: 'none',
+                                zIndex: 10,
                                 display: 'flex',
-                                flexDirection: 'column',
-                                gap: '4px',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#ffffff',
+                                fontSize: '11px',
+                                fontWeight: 700,
                               }}
                             >
-                              <div
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '6px',
-                                }}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={card.isDoneColumn}
-                                  onClick={e => e.stopPropagation()}
-                                  onChange={() =>
-                                    toggleBoardCardDone(card.boardId, card.id)
-                                  }
-                                  style={{
-                                    cursor: 'pointer',
-                                    accentColor: '#a855f7',
-                                    margin: 0,
-                                  }}
-                                />
-                                <span
-                                  style={{
-                                    fontSize: '12px',
-                                    fontWeight: 600,
-                                    color: '#f3e8ff',
-                                    textDecoration: card.isDoneColumn
-                                      ? 'line-through'
-                                      : 'none',
-                                  }}
-                                >
-                                  {card.title}
-                                </span>
-                              </div>
-                              <div
-                                style={{
-                                  fontSize: '10px',
-                                  color: '#d8b4fe',
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                }}
-                              >
-                                <span>📌 {card.boardTitle}</span>
-                                <span>{card.columnTitle}</span>
-                              </div>
+                              {(() => {
+                                const range = calculateDragTimeRange(
+                                  timeblockDrag.startY,
+                                  timeblockDrag.currentY,
+                                  GRID_START_HOUR,
+                                  PIXELS_PER_HOUR
+                                );
+                                return `${range.startTime} – ${range.endTime}`;
+                              })()}
                             </div>
-                          ))}
+                          )}
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
@@ -1894,11 +2137,11 @@ export const Component = () => {
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '16px',
+                  gap: '12px',
                   background: 'rgba(15, 23, 42, 0.65)',
                   border: '1px solid rgba(255,255,255,0.08)',
                   borderRadius: '14px',
-                  padding: '20px',
+                  padding: '16px',
                   backdropFilter: 'blur(12px)',
                 }}
               >
@@ -1909,7 +2152,7 @@ export const Component = () => {
                     flexWrap: 'wrap',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    padding: '14px 18px',
+                    padding: '12px 16px',
                     borderRadius: '10px',
                     background: cursorDate.isSame(dayjs(), 'day')
                       ? 'rgba(37, 99, 235, 0.15)'
@@ -1921,21 +2164,21 @@ export const Component = () => {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ fontSize: '28px' }}>🕒</span>
+                    <span style={{ fontSize: '24px' }}>🕒</span>
                     <div>
                       <div
                         style={{
-                          fontSize: '18px',
+                          fontSize: '17px',
                           fontWeight: 800,
                           color: '#f8fafc',
                         }}
                       >
                         {cursorDate.format('dddd, DD [de] MMMM YYYY')}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+                      <div style={{ fontSize: '11px', color: '#94a3b8' }}>
                         {cursorDate.isSame(dayjs(), 'day')
-                          ? '🌟 Hoy · Time-Blocking de tu jornada diaria'
-                          : 'Planificación por horas para el día'}
+                          ? '🌟 Time-Blocking diario interactivo con arrastre'
+                          : 'Planificación por horas para el día seleccionado'}
                       </div>
                     </div>
                   </div>
@@ -2009,255 +2252,142 @@ export const Component = () => {
                   </div>
                 </div>
 
-                {/* All-Day Tasks & Board Deadlines */}
-                {(() => {
-                  const dayStr = cursorDate.format(JOURNAL_DATE_FORMAT);
-                  const dayTasks = tasksByDate.get(dayStr) || [];
-                  const dayCards = boardCardsByDate.get(dayStr) || [];
-                  const allDayTasks = dayTasks.filter(t => !t.time);
-
-                  if (allDayTasks.length === 0 && dayCards.length === 0)
-                    return null;
-
-                  return (
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '8px',
-                        background: 'rgba(30, 41, 59, 0.4)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        borderRadius: '10px',
-                        padding: '12px 16px',
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          color: '#93c5fd',
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        📌 Tareas del Día (Todo el Día / Entregables)
-                      </div>
-                      <div
-                        style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}
-                      >
-                        {allDayTasks.map(t => {
-                          const pMeta = PRIORITY_META[t.priority];
-                          return (
-                            <div
-                              key={t.id}
-                              onClick={() => openEditTaskModal(t)}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                padding: '6px 12px',
-                                borderRadius: '8px',
-                                background: t.completed
-                                  ? 'rgba(255,255,255,0.03)'
-                                  : pMeta.bg,
-                                border: `1px solid ${
-                                  t.completed
-                                    ? 'rgba(255,255,255,0.08)'
-                                    : pMeta.border
-                                }`,
-                                cursor: 'pointer',
-                                opacity: t.completed ? 0.6 : 1,
-                              }}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={t.completed}
-                                onClick={e => e.stopPropagation()}
-                                onChange={() => handleToggleTask(t.id)}
-                                style={{
-                                  accentColor: '#10b981',
-                                  cursor: 'pointer',
-                                }}
-                              />
-                              <span
-                                style={{
-                                  fontSize: '12px',
-                                  fontWeight: 600,
-                                  textDecoration: t.completed
-                                    ? 'line-through'
-                                    : 'none',
-                                }}
-                              >
-                                {t.title}
-                              </span>
-                              {t.category && (
-                                <span
-                                  style={{
-                                    fontSize: '10px',
-                                    background: 'rgba(255,255,255,0.1)',
-                                    padding: '2px 6px',
-                                    borderRadius: 6,
-                                  }}
-                                >
-                                  {t.category}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-
-                        {dayCards.map(c => (
-                          <div
-                            key={`${c.boardId}-${c.id}`}
-                            onClick={() => handleOpenBoard(c.boardId)}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 6,
-                              padding: '6px 12px',
-                              borderRadius: '8px',
-                              background: 'rgba(168, 85, 247, 0.18)',
-                              border: '1px solid rgba(168, 85, 247, 0.4)',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={c.isDoneColumn}
-                              onClick={e => e.stopPropagation()}
-                              onChange={() =>
-                                toggleBoardCardDone(c.boardId, c.id)
-                              }
-                              style={{
-                                accentColor: '#a855f7',
-                                cursor: 'pointer',
-                              }}
-                            />
-                            <span
-                              style={{
-                                fontSize: '12px',
-                                fontWeight: 600,
-                                color: '#f3e8ff',
-                              }}
-                            >
-                              [Board] {c.title}
-                            </span>
-                            <span style={{ fontSize: '10px', color: '#d8b4fe' }}>
-                              ({c.boardTitle})
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* 18-Hour Time-Blocking Grid (06:00 to 23:00) */}
+                {/* Day Vertical Grid with Drag-to-Create */}
                 <div
                   style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    display: 'grid',
+                    gridTemplateColumns: '70px 1fr',
+                    position: 'relative',
+                    border: '1px solid rgba(255,255,255,0.08)',
                     borderRadius: '10px',
                     overflow: 'hidden',
                   }}
                 >
-                  {[
-                    '06:00',
-                    '07:00',
-                    '08:00',
-                    '09:00',
-                    '10:00',
-                    '11:00',
-                    '12:00',
-                    '13:00',
-                    '14:00',
-                    '15:00',
-                    '16:00',
-                    '17:00',
-                    '18:00',
-                    '19:00',
-                    '20:00',
-                    '21:00',
-                    '22:00',
-                    '23:00',
-                  ].map(slotTime => {
+                  {/* Hours column */}
+                  <div
+                    style={{
+                      borderRight: '1px solid rgba(255,255,255,0.08)',
+                      background: 'rgba(15, 23, 42, 0.5)',
+                    }}
+                  >
+                    {HOURS_ARRAY.map(hour => (
+                      <div
+                        key={hour}
+                        style={{
+                          height: `${PIXELS_PER_HOUR}px`,
+                          borderBottom: '1px solid rgba(255,255,255,0.05)',
+                          padding: '6px 8px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          color: '#94a3b8',
+                          textAlign: 'right',
+                          boxSizing: 'border-box',
+                        }}
+                      >
+                        {String(hour).padStart(2, '0')}:00
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Day grid track */}
+                  {(() => {
                     const dayStr = cursorDate.format(JOURNAL_DATE_FORMAT);
+                    const isToday = dayStr === todayStr;
                     const dayTasks = tasksByDate.get(dayStr) || [];
-                    const hourPrefix = slotTime.slice(0, 3);
-                    const slotTasks = dayTasks.filter(
-                      t => t.time && t.time.startsWith(hourPrefix)
-                    );
+                    const timedTasks = dayTasks.filter(t => !isEventAllDay(t));
 
                     return (
                       <div
-                        key={slotTime}
-                        onClick={() => openCreateTaskModal(dayStr, slotTime)}
+                        onMouseDown={e => handleGridMouseDown(dayStr, e)}
+                        onMouseMove={handleGridMouseMove}
+                        onMouseUp={() => handleGridMouseUp(dayStr)}
                         style={{
-                          display: 'flex',
-                          minHeight: '52px',
-                          borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                          background:
-                            slotTasks.length > 0
-                              ? 'rgba(30, 41, 59, 0.35)'
-                              : 'transparent',
-                          cursor: 'pointer',
-                          transition: 'background 0.15s',
+                          position: 'relative',
+                          background: isToday
+                            ? 'rgba(37, 99, 235, 0.03)'
+                            : 'transparent',
+                          userSelect: 'none',
                         }}
                       >
-                        {/* Time Label */}
-                        <div
-                          style={{
-                            width: '80px',
-                            padding: '10px 14px',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            color: '#94a3b8',
-                            borderRight:
-                              '1px solid rgba(255, 255, 255, 0.08)',
-                            background: 'rgba(15, 23, 42, 0.4)',
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                          }}
-                        >
-                          {slotTime}
-                        </div>
+                        {HOURS_ARRAY.map(hour => (
+                          <div
+                            key={hour}
+                            style={{
+                              height: `${PIXELS_PER_HOUR}px`,
+                              borderBottom: '1px solid rgba(255,255,255,0.04)',
+                              boxSizing: 'border-box',
+                            }}
+                          />
+                        ))}
 
-                        {/* Slot Content */}
-                        <div
-                          style={{
-                            flex: 1,
-                            padding: '6px 12px',
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            alignItems: 'center',
-                            gap: '8px',
-                          }}
-                        >
-                          {slotTasks.map(t => {
-                            const pMeta = PRIORITY_META[t.priority];
-                            return (
+                        {/* Red Line if today */}
+                        {isToday && nowTop !== null && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              top: `${nowTop}px`,
+                              left: 0,
+                              right: 0,
+                              height: '2px',
+                              background: '#ef4444',
+                              zIndex: 10,
+                              pointerEvents: 'none',
+                              boxShadow: '0 0 6px rgba(239, 68, 68, 0.8)',
+                            }}
+                          />
+                        )}
+
+                        {/* Timed Tasks */}
+                        {timedTasks.map(t => {
+                          const pos = computeEventPosition(
+                            t.startTime || t.time,
+                            t.endTime,
+                            GRID_START_HOUR,
+                            PIXELS_PER_HOUR
+                          );
+                          const color = t.color || '#3b82f6';
+                          const timeRange = formatEventTimeRange(
+                            t.startTime || t.time,
+                            t.endTime
+                          );
+
+                          return (
+                            <div
+                              key={t.id}
+                              data-event-card="true"
+                              onClick={e => {
+                                e.stopPropagation();
+                                openEditTaskModal(t);
+                              }}
+                              style={{
+                                position: 'absolute',
+                                top: `${pos.top}px`,
+                                height: `${pos.height}px`,
+                                left: '10px',
+                                right: '10px',
+                                background: t.completed
+                                  ? 'rgba(255,255,255,0.04)'
+                                  : `${color}25`,
+                                border: `1px solid ${
+                                  t.completed ? 'rgba(255,255,255,0.08)' : `${color}80`
+                                }`,
+                                borderLeft: `5px solid ${color}`,
+                                borderRadius: '8px',
+                                padding: '6px 12px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                cursor: 'pointer',
+                                zIndex: 2,
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                                opacity: t.completed ? 0.6 : 1,
+                              }}
+                            >
                               <div
-                                key={t.id}
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  openEditTaskModal(t);
-                                }}
                                 style={{
                                   display: 'flex',
                                   alignItems: 'center',
-                                  gap: 8,
-                                  padding: '6px 12px',
-                                  borderRadius: '8px',
-                                  background: t.completed
-                                    ? 'rgba(255,255,255,0.03)'
-                                    : pMeta.bg,
-                                  border: `1px solid ${
-                                    t.completed
-                                      ? 'rgba(255,255,255,0.08)'
-                                      : pMeta.border
-                                  }`,
-                                  cursor: 'pointer',
-                                  opacity: t.completed ? 0.6 : 1,
+                                  gap: '10px',
                                 }}
                               >
                                 <input
@@ -2266,63 +2396,82 @@ export const Component = () => {
                                   onClick={e => e.stopPropagation()}
                                   onChange={() => handleToggleTask(t.id)}
                                   style={{
-                                    accentColor: '#10b981',
+                                    accentColor: color,
                                     cursor: 'pointer',
                                   }}
                                 />
-                                <span
-                                  style={{
-                                    fontSize: '11px',
-                                    color: '#94a3b8',
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  {t.time}
-                                </span>
-                                <span
-                                  style={{
-                                    fontSize: '12px',
-                                    fontWeight: 700,
-                                    color: '#f8fafc',
-                                    textDecoration: t.completed
-                                      ? 'line-through'
-                                      : 'none',
-                                  }}
-                                >
-                                  {t.title}
-                                </span>
-                                {t.category && (
-                                  <span
+                                <div>
+                                  <div
                                     style={{
-                                      fontSize: '10px',
-                                      padding: '2px 6px',
-                                      borderRadius: 6,
-                                      background: 'rgba(255,255,255,0.1)',
-                                      color: '#cbd5e1',
+                                      fontSize: '13px',
+                                      fontWeight: 700,
+                                      color: '#f8fafc',
+                                      textDecoration: t.completed
+                                        ? 'line-through'
+                                        : 'none',
                                     }}
                                   >
-                                    {t.category}
-                                  </span>
-                                )}
+                                    {t.title}
+                                  </div>
+                                  <div
+                                    style={{
+                                      fontSize: '11px',
+                                      color: '#cbd5e1',
+                                      marginTop: '2px',
+                                    }}
+                                  >
+                                    🕒 {timeRange} {t.category ? `· 🏷️ ${t.category}` : ''}
+                                  </div>
+                                </div>
                               </div>
-                            );
-                          })}
+                            </div>
+                          );
+                        })}
 
-                          {slotTasks.length === 0 && (
-                            <span
-                              style={{
-                                fontSize: '11px',
-                                color: 'rgba(148, 163, 184, 0.4)',
-                                fontStyle: 'italic',
-                              }}
-                            >
-                              + Clic para programar tarea a las {slotTime}
-                            </span>
-                          )}
-                        </div>
+                        {/* Drag Ghost */}
+                        {timeblockDrag && timeblockDrag.date === dayStr && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              top: `${Math.min(
+                                timeblockDrag.startY,
+                                timeblockDrag.currentY
+                              )}px`,
+                              height: `${Math.max(
+                                15,
+                                Math.abs(
+                                  timeblockDrag.currentY - timeblockDrag.startY
+                                )
+                              )}px`,
+                              left: '10px',
+                              right: '10px',
+                              background: 'rgba(59, 130, 246, 0.35)',
+                              border: '2px dashed #60a5fa',
+                              borderRadius: '8px',
+                              pointerEvents: 'none',
+                              zIndex: 10,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#ffffff',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                            }}
+                          >
+                            {(() => {
+                              const range = calculateDragTimeRange(
+                                timeblockDrag.startY,
+                                timeblockDrag.currentY,
+                                GRID_START_HOUR,
+                                PIXELS_PER_HOUR
+                              );
+                              return `${range.startTime} – ${range.endTime}`;
+                            })()}
+                          </div>
+                        )}
                       </div>
                     );
-                  })}
+                  })()}
                 </div>
               </div>
             )}
@@ -2522,7 +2671,9 @@ export const Component = () => {
                                         }}
                                       >
                                         📅 {t.date}{' '}
-                                        {t.time ? `· 🕒 ${t.time}` : ''}
+                                        {t.startTime || t.time
+                                          ? `· 🕒 ${formatEventTimeRange(t.startTime || t.time, t.endTime)}`
+                                          : ''}
                                       </div>
                                     </div>
                                   </div>
@@ -2627,20 +2778,153 @@ export const Component = () => {
             )}
           </div>
 
-          {/* Right Collapsible Sidebar: Unscheduled Board Cards */}
+          {/* Right Collapsible Sidebar: Mini Calendar Navigator + Unscheduled Boards */}
           {showUnscheduledPanel && (
             <div
               style={{
-                width: '285px',
+                width: '290px',
                 borderLeft: '1px solid rgba(255,255,255,0.08)',
                 background: 'rgba(15, 23, 42, 0.85)',
                 padding: '16px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '12px',
+                gap: '16px',
                 overflowY: 'auto',
               }}
             >
+              {/* Mini Calendar Monthly Navigator */}
+              <div
+                style={{
+                  background: 'rgba(30, 41, 59, 0.65)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '12px',
+                  padding: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      color: '#f8fafc',
+                    }}
+                  >
+                    {MONTH_NAMES_ES[miniCalMonth.month()]} {miniCalMonth.year()}
+                  </span>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button
+                      onClick={() => setMiniCalMonth(m => m.subtract(1, 'month'))}
+                      style={navBtnStyle}
+                      title="Mes anterior"
+                    >
+                      ◀
+                    </button>
+                    <button
+                      onClick={() => setMiniCalMonth(dayjs())}
+                      style={{ ...navBtnStyle, fontSize: '10px', fontWeight: 600 }}
+                    >
+                      Hoy
+                    </button>
+                    <button
+                      onClick={() => setMiniCalMonth(m => m.add(1, 'month'))}
+                      style={navBtnStyle}
+                      title="Mes siguiente"
+                    >
+                      ▶
+                    </button>
+                  </div>
+                </div>
+
+                {/* 7-day mini headers */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(7, 1fr)',
+                    textAlign: 'center',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    color: '#94a3b8',
+                  }}
+                >
+                  {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d, i) => (
+                    <span key={i}>{d}</span>
+                  ))}
+                </div>
+
+                {/* Mini day cells */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(7, 1fr)',
+                    gap: '2px',
+                  }}
+                >
+                  {(() => {
+                    const start = miniCalMonth.startOf('month').startOf('isoWeek');
+                    const end = miniCalMonth.endOf('month').endOf('isoWeek');
+                    const cells: dayjs.Dayjs[] = [];
+                    let cur = start;
+                    while (cur.isBefore(end) || cur.isSame(end, 'day')) {
+                      cells.push(cur);
+                      cur = cur.add(1, 'day');
+                    }
+                    return cells.map(day => {
+                      const dStr = day.format(JOURNAL_DATE_FORMAT);
+                      const isCurrentMonth = day.month() === miniCalMonth.month();
+                      const isSelected = dStr === cursorDate.format(JOURNAL_DATE_FORMAT);
+                      const isDayToday = dStr === todayStr;
+
+                      return (
+                        <button
+                          key={dStr}
+                          onClick={() => {
+                            setCursorDate(day);
+                            if (viewMode === 'month') {
+                              setViewMode('week');
+                            }
+                          }}
+                          style={{
+                            background: isSelected
+                              ? '#2563eb'
+                              : isDayToday
+                                ? 'rgba(59, 130, 246, 0.25)'
+                                : 'transparent',
+                            border: isDayToday ? '1px solid #3b82f6' : 'none',
+                            color: isSelected
+                              ? '#ffffff'
+                              : isCurrentMonth
+                                ? '#e2e8f0'
+                                : '#64748b',
+                            borderRadius: '50%',
+                            width: '26px',
+                            height: '26px',
+                            fontSize: '11px',
+                            fontWeight: isSelected || isDayToday ? 700 : 500,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: 'auto',
+                          }}
+                        >
+                          {day.date()}
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+
+              {/* Unscheduled Board Cards section */}
               <div>
                 <div
                   style={{
@@ -2802,7 +3086,7 @@ export const Component = () => {
           )}
         </div>
 
-        {/* Create / Edit Task Modal */}
+        {/* Create / Edit Task Modal (Google Calendar Style) */}
         {modalOpen && (
           <div
             onClick={() => setModalOpen(false)}
@@ -2820,7 +3104,7 @@ export const Component = () => {
             <div
               onClick={e => e.stopPropagation()}
               style={{
-                width: '440px',
+                width: '460px',
                 maxWidth: '92vw',
                 background: '#0f172a',
                 border: '1px solid rgba(255,255,255,0.14)',
@@ -2859,6 +3143,7 @@ export const Component = () => {
                 </button>
               </div>
 
+              {/* Title */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <label style={modalLabelStyle}>Título</label>
                 <input
@@ -2871,16 +3156,54 @@ export const Component = () => {
                 />
               </div>
 
+              {/* Color Preset Palette */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={modalLabelStyle}>Color de Evento</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  {COLOR_PRESETS.map(c => {
+                    const isSelected = formColor === c.id;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setFormColor(c.id)}
+                        title={c.label}
+                        style={{
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '50%',
+                          background: c.id,
+                          border: isSelected
+                            ? '2px solid #ffffff'
+                            : '2px solid transparent',
+                          boxShadow: isSelected
+                            ? `0 0 10px ${c.id}`
+                            : 'none',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {isSelected && (
+                          <span style={{ fontSize: '11px', color: '#fff' }}>✓</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Date & All-Day Toggle */}
               <div
                 style={{
                   display: 'grid',
                   gridTemplateColumns: '1fr 1fr',
                   gap: '10px',
+                  alignItems: 'end',
                 }}
               >
-                <div
-                  style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
-                >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <label style={modalLabelStyle}>Fecha</label>
                   <input
                     type="date"
@@ -2890,38 +3213,65 @@ export const Component = () => {
                   />
                 </div>
                 <div
-                  style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    paddingBottom: '8px',
+                  }}
                 >
-                  <label style={modalLabelStyle}>Hora (opcional)</label>
                   <input
-                    type="time"
-                    value={formTime}
-                    onChange={e => setFormTime(e.target.value)}
-                    style={{ ...modalInputStyle, colorScheme: 'dark' }}
+                    type="checkbox"
+                    id="allDayCheckbox"
+                    checked={formIsAllDay}
+                    onChange={e => setFormIsAllDay(e.target.checked)}
+                    style={{ accentColor: '#3b82f6', cursor: 'pointer' }}
                   />
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {['09:00', '12:00', '15:00', '18:00', '20:00'].map(t => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setFormTime(t)}
-                        style={{
-                          background: 'rgba(255,255,255,0.06)',
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          color: '#93c5fd',
-                          borderRadius: 4,
-                          padding: '2px 5px',
-                          fontSize: '10px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
+                  <label
+                    htmlFor="allDayCheckbox"
+                    style={{
+                      fontSize: '13px',
+                      color: '#cbd5e1',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Todo el día
+                  </label>
                 </div>
               </div>
 
+              {/* Start & End Times (when not all-day) */}
+              {!formIsAllDay && (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '10px',
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={modalLabelStyle}>Hora Inicio</label>
+                    <input
+                      type="time"
+                      value={formStartTime}
+                      onChange={e => setFormStartTime(e.target.value)}
+                      style={{ ...modalInputStyle, colorScheme: 'dark' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={modalLabelStyle}>Hora Fin</label>
+                    <input
+                      type="time"
+                      value={formEndTime}
+                      onChange={e => setFormEndTime(e.target.value)}
+                      style={{ ...modalInputStyle, colorScheme: 'dark' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Priority & Category */}
               <div
                 style={{
                   display: 'grid',
@@ -2958,34 +3308,6 @@ export const Component = () => {
                     placeholder="General, Estudio, Proyecto..."
                     style={modalInputStyle}
                   />
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {['General', 'Trabajo', 'Personal', 'Estudio', 'Salud'].map(
-                      cat => (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => setFormCategory(cat)}
-                          style={{
-                            background:
-                              formCategory === cat
-                                ? 'rgba(59, 130, 246, 0.3)'
-                                : 'rgba(255,255,255,0.06)',
-                            border:
-                              formCategory === cat
-                                ? '1px solid #3b82f6'
-                                : '1px solid rgba(255,255,255,0.1)',
-                            color: formCategory === cat ? '#93c5fd' : '#94a3b8',
-                            borderRadius: 4,
-                            padding: '2px 5px',
-                            fontSize: '10px',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {cat}
-                        </button>
-                      )
-                    )}
-                  </div>
                 </div>
               </div>
 
@@ -2997,7 +3319,7 @@ export const Component = () => {
                   placeholder="Detalles, enlaces o criterios de entrega..."
                   style={{
                     ...modalInputStyle,
-                    minHeight: '72px',
+                    minHeight: '64px',
                     resize: 'vertical',
                   }}
                 />
