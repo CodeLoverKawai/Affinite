@@ -74,8 +74,24 @@ if (!process.env.SKIP_WEB_BUILD) {
 
   await fs.move(affineWebOutDir, publicAffineOutDir, { overwrite: true });
 
-  const externalAnxBuild = path.resolve(repoRootDir, '..', 'Anx-Remix', 'build', 'web');
-  const externalFoliate = path.resolve(repoRootDir, '..', 'Anx-Remix', 'assets', 'foliate-js');
+  const externalAnxBuild = path.resolve(
+    repoRootDir,
+    'packages',
+    'frontend',
+    'apps',
+    'anx-remix',
+    'build',
+    'web'
+  );
+  const externalFoliate = path.resolve(
+    repoRootDir,
+    'packages',
+    'frontend',
+    'apps',
+    'anx-remix',
+    'assets',
+    'foliate-js'
+  );
 
   if (await fs.pathExists(externalAnxBuild)) {
     await fs.copy(externalAnxBuild, path.join(publicAffineOutDir, 'anx'), {

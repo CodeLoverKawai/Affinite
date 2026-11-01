@@ -1,0 +1,29 @@
+name: mongol_demo_app
+description: A demo app for mongol library.
+publish_to: none
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  mongol:
+    path: ../
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: any
+
+flutter:
+  uses-material-design: true
+  fonts:
+    - family: MenksoftQagan
+      fonts:
+        - asset: assets/fonts/MQG8F02.ttf
+    - family: MenksoftAmuguleng
+      fonts:
+        - asset: assets/fonts/MAM8102.ttf

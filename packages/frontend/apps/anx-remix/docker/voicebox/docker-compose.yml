@@ -1,0 +1,18 @@
+services:
+  voicebox:
+    image: voicebox-voicebox:latest # Imagen local de Voicebox
+    container_name: voicebox-ai
+    restart: unless-stopped
+    ports:
+      - "17493:17493"
+    volumes:
+      - ./output:/app/data/generations
+      - ./data:/app/data
+      - ./huggingface:/home/voicebox/.cache/huggingface
+    environment:
+      - LOG_LEVEL=info
+    deploy:
+      resources:
+        limits:
+          cpus: '8' # Usamos todos tus núcleos para que la CPU sea rápida
+          memory: 16G

@@ -1,0 +1,16 @@
+{
+    email {$SSL_EMAIL}
+}
+
+{$DOMAIN} {
+    # Proxy to Ollama running on Host GPU
+    route /ollama/* {
+        uri strip_prefix /ollama
+        reverse_proxy host.docker.internal:11434
+    }
+
+    # Proxy to Voicebox (TTS)
+    route /voicebox/* {
+        reverse_proxy host.docker.internal:5002
+    }
+}
