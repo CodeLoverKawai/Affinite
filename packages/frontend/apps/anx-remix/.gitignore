@@ -45,6 +45,7 @@ app.*.map.json
 /android/app/release
 
 # riverpod generated files
+!lib/
 lib/gen/
 release.sh
 *.g.dart

@@ -78,6 +78,7 @@ target
 *.node
 tsconfig.node.tsbuildinfo
 lib
+!packages/frontend/apps/anx-remix/**/lib/
 affine.db
 apps/web/next-routes.conf
 .nx
