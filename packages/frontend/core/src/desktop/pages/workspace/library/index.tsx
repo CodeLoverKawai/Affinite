@@ -202,6 +202,12 @@ export const Component = () => {
   const sanitizeBooksForYjs = (bookList: LibraryBook[]): LibraryBook[] => {
     return bookList.map(b => {
       if (b.cover && (b.cover.startsWith('data:') || b.cover.length > 2048)) {
+        globalDiagnosticLogger.log(
+          'warn',
+          'Sync',
+          'Sanitizing oversized book cover for Yjs',
+          { bookTitle: b.title, bookId: b.id }
+        );
         const { cover: _cover, ...clean } = b;
         return clean;
       }

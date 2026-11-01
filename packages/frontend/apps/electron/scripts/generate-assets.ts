@@ -116,16 +116,24 @@ if (await fs.pathExists(externalAnxBuild)) {
   console.log('Synced external Anx-Remix Web build to', path.join(publicAffineOutDir, 'anx'));
 }
 
+const copyFoliateAssets = async (destDir: string) => {
+  await fs.ensureDir(destDir);
+  for (const item of ['dist', 'src', 'index.html']) {
+    const itemSrc = path.join(externalFoliate, item);
+    if (await fs.pathExists(itemSrc)) {
+      await fs.copy(itemSrc, path.join(destDir, item), { overwrite: true });
+    }
+  }
+};
+
 if (await fs.pathExists(externalFoliate)) {
-  await fs.copy(externalFoliate, path.join(publicAffineOutDir, 'foliate'), {
-    overwrite: true,
-  });
-  console.log('Synced external Foliate assets to', path.join(publicAffineOutDir, 'foliate'));
+  const foliateDest = path.join(publicAffineOutDir, 'foliate');
+  await copyFoliateAssets(foliateDest);
+  console.log('Synced external Foliate assets to', foliateDest);
+
   const anxInternalFoliate = path.join(publicAffineOutDir, 'anx', 'assets', 'assets', 'foliate-js');
   if (await fs.pathExists(path.join(publicAffineOutDir, 'anx'))) {
-    await fs.copy(externalFoliate, anxInternalFoliate, {
-      overwrite: true,
-    });
+    await copyFoliateAssets(anxInternalFoliate);
     console.log('Synced Foliate assets to internal Anx assets at', anxInternalFoliate);
   }
 }
