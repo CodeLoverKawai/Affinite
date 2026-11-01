@@ -1,7 +1,9 @@
+import { Text } from '@blocksuite/affine/store';
 import { useService } from '@toeverything/infra';
 import dayjs from 'dayjs';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { DocsService } from '../../../../modules/doc';
 import {
   JOURNAL_DATE_FORMAT,
   JournalService,
@@ -14,24 +16,29 @@ import {
   WorkbenchService,
 } from '../../../../modules/workbench';
 import { WorkspaceService } from '../../../../modules/workspace';
-import {
+import type {
   AnxWebBookTag,
   AnxWebGroup,
   AnxWebNote,
   AnxWebReadingTime,
   AnxWebTag,
+  LibraryBook,
+} from './library-manager';
+import {
   convertAnxNotesToHighlights,
   createLibraryBook,
   exportAnxNotesToMarkdown,
   formatBooksForAnxBridge,
   generateJournalQuoteMarkdown,
   getNumericBookId,
-  LibraryBook,
 } from './library-manager';
+import { DiagnosticModal } from './diagnostic-modal';
+import { globalDiagnosticLogger, normalizeNoteColor } from './diagnostic-logger';
 
 export const Component = () => {
   const workspaceService = useService(WorkspaceService);
   const journalService = useService(JournalService);
+  const docsService = useService(DocsService);
   const workbench = useService(WorkbenchService).workbench;
 
   const [books, setBooks] = useState<LibraryBook[]>([]);
@@ -43,6 +50,21 @@ export const Component = () => {
   const [anxTags, setAnxTags] = useState<AnxWebTag[]>([]);
   const [anxBookTags, setAnxBookTags] = useState<AnxWebBookTag[]>([]);
   const [bridgeBanner, setBridgeBanner] = useState<string | null>(null);
+  const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
+  const [diagBadge, setDiagBadge] = useState<{ errors: number; warns: number }>({
+    errors: 0,
+    warns: 0,
+  });
+
+  useEffect(() => {
+    const unsub = globalDiagnosticLogger.subscribe(() => {
+      const all = globalDiagnosticLogger.getEntries();
+      const errors = all.filter(e => e.level === 'error' || e.level === 'fatal').length;
+      const warns = all.filter(e => e.level === 'warn').length;
+      setDiagBadge({ errors, warns });
+    });
+    return unsub;
+  }, []);
 
   const booksRef = useRef<LibraryBook[]>(books);
   const anxNotesRef = useRef<AnxWebNote[]>(anxNotes);
@@ -51,6 +73,9 @@ export const Component = () => {
   const anxTagsRef = useRef<AnxWebTag[]>(anxTags);
   const anxBookTagsRef = useRef<AnxWebBookTag[]>(anxBookTags);
   const anxIframeRef = useRef<HTMLIFrameElement | null>(null);
+  const isSyncingRef = useRef(false);
+  const isOriginAnxRef = useRef(false);
+  const lastCatalogFingerprintRef = useRef<string>('');
 
   useEffect(() => {
     booksRef.current = books;
@@ -89,6 +114,10 @@ export const Component = () => {
     const yMap = rootYDoc.getMap('affinite_library_v1');
 
     const syncFromYjs = () => {
+      if (isOriginAnxRef.current) {
+        isOriginAnxRef.current = false;
+        return;
+      }
       try {
         const rawBooks = yMap.get('books') as string | undefined;
         if (rawBooks) {
@@ -98,7 +127,42 @@ export const Component = () => {
         const rawAnxNotes = yMap.get('anx_notes') as string | undefined;
         if (rawAnxNotes) {
           const parsed = JSON.parse(rawAnxNotes);
-          if (Array.isArray(parsed)) setAnxNotes(parsed);
+          if (Array.isArray(parsed)) {
+            const normalized = parsed.map((n: AnxWebNote) => ({
+              ...n,
+              color: normalizeNoteColor(n.color),
+            }));
+            setAnxNotes(normalized);
+          }
+        } else {
+          const rawHighlights = yMap.get('highlights') as string | undefined;
+          if (rawHighlights) {
+            try {
+              const legacy = JSON.parse(rawHighlights);
+              if (Array.isArray(legacy) && legacy.length > 0) {
+                const migrated: AnxWebNote[] = legacy.map((h: any, idx: number) => ({
+                  id: typeof h.id === 'number' ? h.id : idx + 1,
+                  bookId: typeof h.bookId === 'number' ? h.bookId : 1,
+                  content: h.text || '',
+                  cfi: h.cfi || '',
+                  chapter: h.chapter || '',
+                  type: 'highlight',
+                  color: h.color || 'yellow',
+                  readerNote: h.note || '',
+                  createTime: h.createdAt
+                    ? new Date(h.createdAt).toISOString()
+                    : new Date().toISOString(),
+                  updateTime: h.createdAt
+                    ? new Date(h.createdAt).toISOString()
+                    : new Date().toISOString(),
+                }));
+                setAnxNotes(migrated);
+                yMap.set('anx_notes', JSON.stringify(migrated));
+              }
+            } catch {
+              // ignore
+            }
+          }
         }
         const rawReadingTimes = yMap.get('anx_reading_times') as
           | string
@@ -135,26 +199,43 @@ export const Component = () => {
     };
   }, [workspaceService.workspace.rootYDoc]);
 
+  const sanitizeBooksForYjs = (bookList: LibraryBook[]): LibraryBook[] => {
+    return bookList.map(b => {
+      if (b.cover && (b.cover.startsWith('data:') || b.cover.length > 2048)) {
+        const { cover: _cover, ...clean } = b;
+        return clean;
+      }
+      return b;
+    });
+  };
+
   const saveBooksToYjs = useCallback(
     (newBooks: LibraryBook[]) => {
-      setBooks(newBooks);
-      booksRef.current = newBooks;
+      const sanitized = sanitizeBooksForYjs(newBooks);
+      setBooks(sanitized);
+      booksRef.current = sanitized;
       const rootYDoc = workspaceService.workspace.rootYDoc;
       const yMap = rootYDoc.getMap('affinite_library_v1');
-      yMap.set('books', JSON.stringify(newBooks));
+      yMap.set('books', JSON.stringify(sanitized));
     },
     [workspaceService.workspace.rootYDoc]
   );
 
   const saveAnxNotesToYjs = useCallback(
     (newNotes: AnxWebNote[]) => {
-      setAnxNotes(newNotes);
-      anxNotesRef.current = newNotes;
+      const normalized = newNotes.map(n => ({
+        ...n,
+        color: normalizeNoteColor(n.color),
+      }));
+      setAnxNotes(normalized);
+      anxNotesRef.current = normalized;
       const rootYDoc = workspaceService.workspace.rootYDoc;
       const yMap = rootYDoc.getMap('affinite_library_v1');
-      yMap.set('anx_notes', JSON.stringify(newNotes));
-      const converted = convertAnxNotesToHighlights(newNotes, booksRef.current);
-      yMap.set('highlights', JSON.stringify(converted));
+      const converted = convertAnxNotesToHighlights(normalized, booksRef.current);
+      rootYDoc.transact(() => {
+        yMap.set('anx_notes', JSON.stringify(normalized));
+        yMap.set('highlights', JSON.stringify(converted));
+      });
     },
     [workspaceService.workspace.rootYDoc]
   );
@@ -189,8 +270,10 @@ export const Component = () => {
       anxBookTagsRef.current = newBookTags;
       const rootYDoc = workspaceService.workspace.rootYDoc;
       const yMap = rootYDoc.getMap('affinite_library_v1');
-      yMap.set('anx_tags', JSON.stringify(newTags));
-      yMap.set('anx_book_tags', JSON.stringify(newBookTags));
+      rootYDoc.transact(() => {
+        yMap.set('anx_tags', JSON.stringify(newTags));
+        yMap.set('anx_book_tags', JSON.stringify(newBookTags));
+      });
     },
     [workspaceService.workspace.rootYDoc]
   );
@@ -208,21 +291,34 @@ export const Component = () => {
               const existingIdx = merged.findIndex(
                 b => b.filePath === dBook.filePath
               );
+              const safeCover =
+                dBook.cover &&
+                !dBook.cover.startsWith('data:') &&
+                dBook.cover.length < 2048
+                  ? dBook.cover
+                  : undefined;
               if (existingIdx === -1) {
-                merged.push(createLibraryBook(dBook));
+                const newB = createLibraryBook(dBook);
+                if (safeCover) {
+                  newB.cover = safeCover;
+                } else {
+                  delete newB.cover;
+                }
+                merged.push(newB);
               } else {
                 merged[existingIdx] = {
                   ...merged[existingIdx],
                   size: dBook.size || merged[existingIdx].size,
-                  cover: dBook.cover || merged[existingIdx].cover,
+                  cover: safeCover || merged[existingIdx].cover,
                 };
               }
             }
+            const sanitized = sanitizeBooksForYjs(merged);
             const rootYDoc = workspaceService.workspace.rootYDoc;
             const yMap = rootYDoc.getMap('affinite_library_v1');
-            yMap.set('books', JSON.stringify(merged));
-            booksRef.current = merged;
-            return merged;
+            yMap.set('books', JSON.stringify(sanitized));
+            booksRef.current = sanitized;
+            return sanitized;
           });
         }
       }
@@ -247,6 +343,9 @@ export const Component = () => {
     ) => {
       if (anxIframeRef.current?.contentWindow) {
         try {
+          lastCatalogFingerprintRef.current = bookList
+            .map(b => `${b.id}:${b.filePath}:${b.title}`)
+            .join('|');
           const payload = JSON.stringify({
             type: 'anx-full-sync',
             books: formatBooksForAnxBridge(bookList),
@@ -265,25 +364,35 @@ export const Component = () => {
     []
   );
 
-  // Keep Anx-Remix synchronized whenever books update
+  // Keep Anx-Remix synchronized whenever book catalog updates (excluding active reading progress)
   useEffect(() => {
+    if (isSyncingRef.current) {
+      isSyncingRef.current = false;
+      return;
+    }
+    if (isOriginAnxRef.current) {
+      isOriginAnxRef.current = false;
+      return;
+    }
+
+    const currentFingerprint = books
+      .map(b => `${b.id}:${b.filePath}:${b.title}`)
+      .join('|');
+    if (currentFingerprint === lastCatalogFingerprintRef.current) {
+      // Books catalog has not changed (e.g. only reading percentage/position updated during active reading)
+      return;
+    }
+    lastCatalogFingerprintRef.current = currentFingerprint;
+
     sendFullSyncToAnx(
       books,
-      anxNotes,
-      anxReadingTimes,
-      anxGroups,
-      anxTags,
-      anxBookTags
+      anxNotesRef.current,
+      anxReadingTimesRef.current,
+      anxGroupsRef.current,
+      anxTagsRef.current,
+      anxBookTagsRef.current
     );
-  }, [
-    anxBookTags,
-    anxGroups,
-    anxNotes,
-    anxReadingTimes,
-    anxTags,
-    books,
-    sendFullSyncToAnx,
-  ]);
+  }, [books, sendFullSyncToAnx]);
 
   // 4. Native AFFiNITe Actions (Daily Journal Quote & BlockSuite Doc Export)
   const handleQuoteToDailyJournal = useCallback(
@@ -312,32 +421,38 @@ export const Component = () => {
 
       navigator.clipboard?.writeText(mdQuote).catch(() => {});
 
-      const doc = journalService.ensureJournalByDate(todayStr);
+      const docRecord = journalService.ensureJournalByDate(todayStr);
       try {
-        doc.load();
-        const noteBlock =
-          doc.getBlocksByFlavour('affine:note')[0]?.id ||
-          doc.addBlock('affine:note', {}, doc.root?.id);
-        if (noteBlock) {
-          doc.addBlock(
-            'affine:paragraph',
-            {
-              type: 'quote',
-              text: new doc.Text(
-                `${text}\n— ${payload.bookTitle || 'Libro'} (${payload.author || 'Desconocido'}${payload.chapter ? `, ${payload.chapter}` : ''})`
-              ),
-            },
-            noteBlock
-          );
-          if (payload.note?.trim()) {
-            doc.addBlock(
+        const { doc, release } = docsService.open(docRecord.id);
+        try {
+          doc.blockSuiteDoc.load();
+          const rootBlockId = doc.blockSuiteDoc.root?.id;
+          const noteBlock =
+            doc.blockSuiteDoc.getBlocksByFlavour('affine:note')[0]?.id ||
+            doc.blockSuiteDoc.addBlock('affine:note', {}, rootBlockId);
+          if (noteBlock) {
+            doc.blockSuiteDoc.addBlock(
               'affine:paragraph',
               {
-                text: new doc.Text(`💡 ${payload.note.trim()}`),
+                type: 'quote',
+                text: new Text(
+                  `${text}\n— ${payload.bookTitle || 'Libro'} (${payload.author || 'Desconocido'}${payload.chapter ? `, ${payload.chapter}` : ''})`
+                ),
               },
               noteBlock
             );
+            if (payload.note?.trim()) {
+              doc.blockSuiteDoc.addBlock(
+                'affine:paragraph',
+                {
+                  text: new Text(`💡 ${payload.note.trim()}`),
+                },
+                noteBlock
+              );
+            }
           }
+        } finally {
+          release();
         }
       } catch (err) {
         console.warn('[Library] Could not append block to journal doc', err);
@@ -346,9 +461,9 @@ export const Component = () => {
       showBridgeNotification(
         `📅 Cita añadida al Diario de hoy (${todayStr}) y copiada al portapapeles`
       );
-      workbench.openDoc(doc.id, { at: 'active' });
+      workbench.openDoc(docRecord.id, { at: 'active' });
     },
-    [journalService, showBridgeNotification, workbench]
+    [docsService, journalService, showBridgeNotification, workbench]
   );
 
   const handleExportBookNotesToDoc = useCallback(
@@ -385,24 +500,32 @@ export const Component = () => {
           );
 
       const md = exportAnxNotesToMarkdown(targetBook, incomingNotes);
-      const doc = workspaceService.workspace.createDoc({
+      const docRecord = docsService.createDoc({
         title: `Notas: ${targetBook.title}`,
       });
-      doc.load();
-      const noteBlockId = doc.addBlock('affine:note', {}, doc.root?.id);
-      doc.addBlock(
-        'affine:paragraph',
-        {
-          text: new doc.Text(md),
-        },
-        noteBlockId
-      );
+      const { doc, release } = docsService.open(docRecord.id);
+      try {
+        doc.blockSuiteDoc.load();
+        const rootBlockId = doc.blockSuiteDoc.root?.id;
+        const noteBlockId =
+          doc.blockSuiteDoc.getBlocksByFlavour('affine:note')[0]?.id ||
+          doc.blockSuiteDoc.addBlock('affine:note', {}, rootBlockId);
+        doc.blockSuiteDoc.addBlock(
+          'affine:paragraph',
+          {
+            text: new Text(md),
+          },
+          noteBlockId
+        );
+      } finally {
+        release();
+      }
       showBridgeNotification(
         `📄 Documento "Notas: ${targetBook.title}" creado en AFFiNITe`
       );
-      workbench.openDoc(doc.id, { at: 'active' });
+      workbench.openDoc(docRecord.id, { at: 'active' });
     },
-    [showBridgeNotification, workbench, workspaceService.workspace]
+    [docsService, showBridgeNotification, workbench]
   );
 
   // 5. Bi-Directional Message Listener from Anx-Remix WebBridge
@@ -492,16 +615,33 @@ export const Component = () => {
               ...b,
               readingPercentage: pct,
               lastReadPosition: data.cfi || b.lastReadPosition,
-              lastCfi: data.cfi || b.lastCfi,
               updateTime: Date.now(),
             };
           });
+          isOriginAnxRef.current = true;
+          isSyncingRef.current = true;
           saveBooksToYjs(next);
+          break;
+        }
+
+        case 'anx-diagnostic-log': {
+          const level = data.level || 'info';
+          const source = data.source || 'Foliate';
+          const msg = data.message || '';
+          const details = data.details;
+          globalDiagnosticLogger.log(level, source, msg, details);
           break;
         }
 
         case 'anx-sync-notes': {
           if (Array.isArray(data.notes)) {
+            isOriginAnxRef.current = true;
+            isSyncingRef.current = true;
+            globalDiagnosticLogger.log(
+              'info',
+              'Sync',
+              `Sincronizando ${data.notes.length} notas desde Anx Reader`
+            );
             saveAnxNotesToYjs(data.notes);
           }
           break;
@@ -509,6 +649,8 @@ export const Component = () => {
 
         case 'anx-sync-reading-times': {
           if (Array.isArray(data.readingTimes)) {
+            isOriginAnxRef.current = true;
+            isSyncingRef.current = true;
             saveAnxReadingTimesToYjs(data.readingTimes);
           }
           break;
@@ -516,6 +658,8 @@ export const Component = () => {
 
         case 'anx-sync-groups': {
           if (Array.isArray(data.groups)) {
+            isOriginAnxRef.current = true;
+            isSyncingRef.current = true;
             saveAnxGroupsToYjs(data.groups);
           }
           break;
@@ -542,7 +686,10 @@ export const Component = () => {
                   ? data.author.trim()
                   : b.author,
               cover:
-                typeof data.coverPath === 'string' && data.coverPath.trim()
+                typeof data.coverPath === 'string' &&
+                data.coverPath.trim() &&
+                !data.coverPath.startsWith('data:') &&
+                data.coverPath.length < 2048
                   ? data.coverPath.trim()
                   : b.cover,
               description:
@@ -563,6 +710,8 @@ export const Component = () => {
               updateTime: Date.now(),
             };
           });
+          isOriginAnxRef.current = true;
+          isSyncingRef.current = true;
           saveBooksToYjs(next);
           break;
         }
@@ -574,6 +723,8 @@ export const Component = () => {
           const nextBookTags = Array.isArray(data.bookTags)
             ? data.bookTags
             : anxBookTagsRef.current;
+          isOriginAnxRef.current = true;
+          isSyncingRef.current = true;
           saveAnxTagsToYjs(nextTags, nextBookTags);
           break;
         }
@@ -647,6 +798,7 @@ export const Component = () => {
     saveAnxGroupsToYjs,
     saveAnxNotesToYjs,
     saveAnxReadingTimesToYjs,
+    saveAnxTagsToYjs,
     saveBooksToYjs,
     sendFullSyncToAnx,
     showBridgeNotification,
@@ -657,7 +809,56 @@ export const Component = () => {
       <ViewTitle title="Biblioteca" />
       <ViewIcon icon="allDocs" />
       <ViewHeader>
-        <div style={{ display: 'none' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 12px' }}>
+          <button
+            onClick={() => setIsDiagnosticOpen(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              background: diagBadge.errors > 0 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(15, 23, 42, 0.75)',
+              border: `1px solid ${diagBadge.errors > 0 ? '#ef4444' : 'rgba(56, 189, 248, 0.35)'}`,
+              color: diagBadge.errors > 0 ? '#fca5a5' : '#e2e8f0',
+              padding: '4px 12px',
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.3)',
+              transition: 'all 0.2s ease',
+            }}
+            title="Abrir panel de diagnóstico y registro de errores"
+          >
+            <span>🩺 Diagnóstico</span>
+            {diagBadge.errors > 0 ? (
+              <span
+                style={{
+                  background: '#ef4444',
+                  color: '#fff',
+                  borderRadius: 10,
+                  padding: '1px 6px',
+                  fontSize: 10,
+                  fontWeight: 700,
+                }}
+              >
+                {diagBadge.errors}
+              </span>
+            ) : diagBadge.warns > 0 ? (
+              <span
+                style={{
+                  background: '#f59e0b',
+                  color: '#fff',
+                  borderRadius: 10,
+                  padding: '1px 6px',
+                  fontSize: 10,
+                  fontWeight: 700,
+                }}
+              >
+                {diagBadge.warns}
+              </span>
+            ) : null}
+          </button>
+        </div>
       </ViewHeader>
 
       <ViewBody>
@@ -707,6 +908,17 @@ export const Component = () => {
             }}
             title="Anx Remix"
             allow="fullscreen; autoplay; clipboard-read; clipboard-write"
+          />
+
+          <DiagnosticModal
+            isOpen={isDiagnosticOpen}
+            onClose={() => setIsDiagnosticOpen(false)}
+            books={books}
+            notes={anxNotes}
+            onRepairNotes={repaired => {
+              saveAnxNotesToYjs(repaired);
+              sendFullSyncToAnx(booksRef.current, repaired);
+            }}
           />
         </div>
       </ViewBody>

@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import type {
+  LibraryBook,
+  LibraryHighlight,
+} from '../library-manager';
 import {
   computeReadingHeatmap,
   filterBooksByStatus,
   exportBookNotesToMarkdown,
-  LibraryBook,
-  LibraryHighlight,
 } from '../library-manager';
 
 describe('Anx UI & Feature Helpers', () => {

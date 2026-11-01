@@ -49,6 +49,7 @@ export function detectBookFormat(
 }
 
 export function createLibraryBook(params: {
+  id?: string;
   title: string;
   filePath: string;
   author?: string;
@@ -61,8 +62,18 @@ export function createLibraryBook(params: {
     (params.format as LibraryBook['format']) ||
     detectBookFormat(params.filePath || params.title);
 
+  let stableId = params.id;
+  if (!stableId) {
+    if (params.filePath) {
+      const cleanPath = params.filePath.replace(/[^a-zA-Z0-9_-]/g, '_');
+      stableId = `book-${cleanPath}`;
+    } else {
+      stableId = `book-${now}-${Math.random().toString(36).slice(2, 7)}`;
+    }
+  }
+
   return {
-    id: `book-${now}-${Math.random().toString(36).slice(2, 7)}`,
+    id: stableId,
     title: params.title.trim() || 'Libro sin título',
     author: params.author?.trim() || 'Autor desconocido',
     filePath: params.filePath,
@@ -614,13 +625,27 @@ export function convertAnxNotesToHighlights(
 }
 
 export function exportAnxNotesToMarkdown(
-  bookTitle: string,
-  author: string,
-  notes: AnxWebNote[]
+  bookOrTitle: LibraryBook | string,
+  authorOrNotes?: string | AnxWebNote[],
+  notes?: AnxWebNote[]
 ): string {
-  const highlightsOnly = notes.filter(n => n.type !== 'bookmark');
+  let title = 'Libro';
+  let author = 'Desconocido';
+  let noteList: AnxWebNote[] = [];
+
+  if (typeof bookOrTitle === 'object' && bookOrTitle !== null) {
+    title = bookOrTitle.title || 'Libro';
+    author = bookOrTitle.author || 'Desconocido';
+    noteList = Array.isArray(authorOrNotes) ? authorOrNotes : [];
+  } else {
+    title = String(bookOrTitle || 'Libro');
+    author = typeof authorOrNotes === 'string' ? authorOrNotes : 'Desconocido';
+    noteList = Array.isArray(notes) ? notes : [];
+  }
+
+  const highlightsOnly = noteList.filter(n => n.type !== 'bookmark');
   const lines: string[] = [
-    `# Notas y Citas: ${bookTitle}`,
+    `# Notas y Citas: ${title}`,
     `**Autor:** ${author || 'Desconocido'}`,
     `**Exportado desde AFFiNITe Biblioteca (Anx-Remix)**`,
     `---`,

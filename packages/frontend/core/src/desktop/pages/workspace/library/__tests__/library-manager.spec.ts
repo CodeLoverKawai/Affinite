@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import type {
+  AnxWebNote,
+  LibraryBook,
+} from '../library-manager';
 import {
   addBookmark,
   addBookTag,
   addHighlight,
-  AnxWebNote,
   calculateReadingStatistics,
   convertAnxNotesToHighlights,
   createLibraryBook,
@@ -15,7 +18,6 @@ import {
   formatReadingTime,
   generateJournalQuoteMarkdown,
   getNumericBookId,
-  LibraryBook,
   removeBookmark,
   removeBookTag,
   removeHighlight,
@@ -24,7 +26,7 @@ import {
 } from '../library-manager';
 
 describe('Library Manager & Anx Reader Helper Suite', () => {
-  it('creates a validated library book model with sensible defaults', () => {
+  it('creates a validated library book model with sensible defaults and deterministic id', () => {
     const book = createLibraryBook({
       title: 'El Quijote',
       filePath: '/home/user/.config/affinite/library/books/el-quijote.epub',
@@ -32,12 +34,19 @@ describe('Library Manager & Anx Reader Helper Suite', () => {
       size: 1548200,
     });
 
-    expect(book.id).toBeDefined();
+    expect(book.id).toBe('book-_home_user__config_affinite_library_books_el-quijote_epub');
     expect(book.title).toBe('El Quijote');
     expect(book.author).toBe('Miguel de Cervantes');
     expect(book.format).toBe('epub');
     expect(book.readingPercentage).toBe(0);
     expect(book.createTime).toBeGreaterThan(0);
+
+    const bookWithExplicitId = createLibraryBook({
+      id: 'custom-book-id-123',
+      title: 'Odisea',
+      filePath: '/books/odisea.epub',
+    });
+    expect(bookWithExplicitId.id).toBe('custom-book-id-123');
   });
 
   it('formats progress and size cleanly', () => {
@@ -52,9 +61,9 @@ describe('Library Manager & Anx Reader Helper Suite', () => {
 
   it('filters and sorts books collection', () => {
     const books: LibraryBook[] = [
-      createLibraryBook({ title: 'Dune', author: 'Frank Herbert', size: 1000 }),
-      createLibraryBook({ title: 'Foundation', author: 'Isaac Asimov', size: 2000 }),
-      createLibraryBook({ title: 'Hyperion', author: 'Dan Simmons', size: 3000 }),
+      createLibraryBook({ title: 'Dune', author: 'Frank Herbert', filePath: '/books/dune.epub', size: 1000 }),
+      createLibraryBook({ title: 'Foundation', author: 'Isaac Asimov', filePath: '/books/foundation.epub', size: 2000 }),
+      createLibraryBook({ title: 'Hyperion', author: 'Dan Simmons', filePath: '/books/hyperion.epub', size: 3000 }),
     ];
     books[0].readingPercentage = 0.8;
     books[1].readingPercentage = 0.2;
@@ -216,5 +225,34 @@ describe('Library Manager & Anx Reader Helper Suite', () => {
     expect(exportedMd).toContain('Marco Aurelio');
     expect(exportedMd).toContain('La felicidad de tu vida depende de la calidad de tus pensamientos.');
     expect(exportedMd).toContain('Principio estoico clave.');
+
+    // Also verify overload supporting book object directly: exportAnxNotesToMarkdown(book, notes)
+    const exportedFromBookObj = exportAnxNotesToMarkdown(book, anxNotes);
+    expect(exportedFromBookObj).toContain('# Notas y Citas: Meditaciones');
+    expect(exportedFromBookObj).toContain('Marco Aurelio');
+    expect(exportedFromBookObj).toContain('La felicidad de tu vida depende de la calidad de tus pensamientos.');
+  });
+
+  it('preserves note IDs and book bindings accurately without drift', () => {
+    const books = [
+      createLibraryBook({ id: 'book-1', title: 'Test Book', filePath: '/path/test.epub' }),
+    ];
+    const numId = getNumericBookId(books[0].id);
+    const note: AnxWebNote = {
+      id: 101,
+      bookId: numId,
+      content: 'A test quote',
+      cfi: 'epubcfi(/6/2!/4/2/1:0)',
+      chapter: 'Chapter 1',
+      type: 'highlight',
+      color: '#FFD700',
+      createTime: new Date().toISOString(),
+      updateTime: new Date().toISOString(),
+    };
+    const highlights = convertAnxNotesToHighlights([note], books);
+    expect(highlights).toHaveLength(1);
+    expect(highlights[0].bookId).toBe('book-1');
+    expect(highlights[0].text).toBe('A test quote');
   });
 });
+
