@@ -42,7 +42,7 @@ node -e "
       console.log('  Updated: ' + file);
     }
   }
-  const flutterPubspec = 'packages/frontend/apps/mobile-flutter/pubspec.yaml';
+  const flutterPubspec = 'packages/frontend/apps/anx-remix/pubspec.yaml';
   if (fs.existsSync(flutterPubspec)) {
     let content = fs.readFileSync(flutterPubspec, 'utf8');
     content = content.replace(/^version:\s*.*$/m, 'version: $NEW_VERSION+1');
