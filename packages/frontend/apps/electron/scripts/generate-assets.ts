@@ -74,47 +74,60 @@ if (!process.env.SKIP_WEB_BUILD) {
 
   await fs.move(affineWebOutDir, publicAffineOutDir, { overwrite: true });
 
-  const externalAnxBuild = path.resolve(
-    repoRootDir,
-    'packages',
-    'frontend',
-    'apps',
-    'anx-remix',
-    'build',
-    'web'
-  );
-  const externalFoliate = path.resolve(
-    repoRootDir,
-    'packages',
-    'frontend',
-    'apps',
-    'anx-remix',
-    'assets',
-    'foliate-js'
-  );
-
-  if (await fs.pathExists(externalAnxBuild)) {
-    await fs.copy(externalAnxBuild, path.join(publicAffineOutDir, 'anx'), {
-      overwrite: true,
-    });
-  } else if (await fs.pathExists(anxBackupDir)) {
+  if (await fs.pathExists(anxBackupDir)) {
     await fs.copy(anxBackupDir, path.join(publicAffineOutDir, 'anx'), {
       overwrite: true,
     });
+    await fs.remove(anxBackupDir);
   }
 
-  if (await fs.pathExists(externalFoliate)) {
-    await fs.copy(externalFoliate, path.join(publicAffineOutDir, 'foliate'), {
-      overwrite: true,
-    });
-  } else if (await fs.pathExists(foliateBackupDir)) {
+  if (await fs.pathExists(foliateBackupDir)) {
     await fs.copy(foliateBackupDir, path.join(publicAffineOutDir, 'foliate'), {
       overwrite: true,
     });
+    await fs.remove(foliateBackupDir);
   }
+}
 
-  await fs.remove(anxBackupDir);
-  await fs.remove(foliateBackupDir);
+// step 1.5: sync external Anx-Remix build and foliate assets if available
+const externalAnxBuild = path.resolve(
+  repoRootDir,
+  'packages',
+  'frontend',
+  'apps',
+  'anx-remix',
+  'build',
+  'web'
+);
+const externalFoliate = path.resolve(
+  repoRootDir,
+  'packages',
+  'frontend',
+  'apps',
+  'anx-remix',
+  'assets',
+  'foliate-js'
+);
+
+if (await fs.pathExists(externalAnxBuild)) {
+  await fs.copy(externalAnxBuild, path.join(publicAffineOutDir, 'anx'), {
+    overwrite: true,
+  });
+  console.log('Synced external Anx-Remix Web build to', path.join(publicAffineOutDir, 'anx'));
+}
+
+if (await fs.pathExists(externalFoliate)) {
+  await fs.copy(externalFoliate, path.join(publicAffineOutDir, 'foliate'), {
+    overwrite: true,
+  });
+  console.log('Synced external Foliate assets to', path.join(publicAffineOutDir, 'foliate'));
+  const anxInternalFoliate = path.join(publicAffineOutDir, 'anx', 'assets', 'assets', 'foliate-js');
+  if (await fs.pathExists(path.join(publicAffineOutDir, 'anx'))) {
+    await fs.copy(externalFoliate, anxInternalFoliate, {
+      overwrite: true,
+    });
+    console.log('Synced Foliate assets to internal Anx assets at', anxInternalFoliate);
+  }
 }
 
 // step 2: update app-updater.yml content with build type in resources folder
