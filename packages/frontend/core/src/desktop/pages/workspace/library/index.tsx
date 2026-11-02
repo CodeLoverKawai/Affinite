@@ -34,6 +34,7 @@ import {
 } from './library-manager';
 import { DiagnosticModal } from './diagnostic-modal';
 import { globalDiagnosticLogger, normalizeNoteColor } from './diagnostic-logger';
+import { LibraryReader } from './library-reader';
 
 export const Component = () => {
   const workspaceService = useService(WorkspaceService);
@@ -42,6 +43,7 @@ export const Component = () => {
   const workbench = useService(WorkbenchService).workbench;
 
   const [books, setBooks] = useState<LibraryBook[]>([]);
+  const [activeReadingBook, setActiveReadingBook] = useState<LibraryBook | null>(null);
   const [anxNotes, setAnxNotes] = useState<AnxWebNote[]>([]);
   const [anxReadingTimes, setAnxReadingTimes] = useState<AnxWebReadingTime[]>(
     []
@@ -544,6 +546,46 @@ export const Component = () => {
     [docsService, showBridgeNotification, workbench]
   );
 
+  const handleCloseReader = useCallback(
+    (progress: { lastReadPosition: string; readingPercentage: number }) => {
+      if (activeReadingBook) {
+        const nextBooks = booksRef.current.map(b => {
+          if (
+            b.id === activeReadingBook.id ||
+            b.filePath === activeReadingBook.filePath ||
+            getNumericBookId(b.id || b.filePath) ===
+              getNumericBookId(activeReadingBook.id || activeReadingBook.filePath)
+          ) {
+            return {
+              ...b,
+              lastReadPosition: progress.lastReadPosition || b.lastReadPosition,
+              readingPercentage: progress.readingPercentage,
+              updateTime: Date.now(),
+            };
+          }
+          return b;
+        });
+
+        isOriginAnxRef.current = true;
+        saveBooksToYjs(nextBooks);
+
+        anxIframeRef.current?.contentWindow?.postMessage(
+          JSON.stringify({
+            type: 'anx-update-progress',
+            bookId: getNumericBookId(
+              activeReadingBook.id || activeReadingBook.filePath
+            ),
+            readingPercentage: progress.readingPercentage,
+            lastReadPosition: progress.lastReadPosition,
+          }),
+          '*'
+        );
+      }
+      setActiveReadingBook(null);
+    },
+    [activeReadingBook, saveBooksToYjs]
+  );
+
   // 5. Bi-Directional Message Listener from Anx-Remix WebBridge
   useEffect(() => {
     const handleHostMessage = async (event: MessageEvent) => {
@@ -745,6 +787,37 @@ export const Component = () => {
           break;
         }
 
+        case 'anx-open-book': {
+          const bookId = data.id;
+          const target = booksRef.current.find(
+            b =>
+              b.id === String(bookId) ||
+              getNumericBookId(b.id || b.filePath) === Number(bookId) ||
+              (data.filePath && b.filePath === data.filePath)
+          );
+          if (target) {
+            setActiveReadingBook({
+              ...target,
+              lastReadPosition: data.lastReadPosition || target.lastReadPosition,
+              readingPercentage:
+                typeof data.readingPercentage === 'number'
+                  ? data.readingPercentage
+                  : target.readingPercentage,
+            });
+          } else {
+            setActiveReadingBook(
+              createLibraryBook({
+                id: String(data.id || Date.now()),
+                title: data.title || 'Libro',
+                filePath: data.filePath || '',
+                author: data.author || '',
+                cover: data.cover,
+              })
+            );
+          }
+          break;
+        }
+
         case 'anx-quote-to-journal': {
           handleQuoteToDailyJournal(data);
           break;
@@ -936,6 +1009,17 @@ export const Component = () => {
               sendFullSyncToAnx(booksRef.current, repaired);
             }}
           />
+
+          {activeReadingBook && (
+            <LibraryReader
+              book={activeReadingBook}
+              initialCfi={activeReadingBook.lastReadPosition}
+              notes={anxNotes}
+              onClose={handleCloseReader}
+              onSaveNotes={saveAnxNotesToYjs}
+              onQuoteToJournal={handleQuoteToDailyJournal}
+            />
+          )}
         </div>
       </ViewBody>
     </>
