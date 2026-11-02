@@ -55,8 +55,8 @@ import {
   isEventAllDay,
 } from './calendar-timeblock-helpers';
 import {
-  GOOGLE_SECRET_FIELDS,
   loadGoogleSecrets,
+  persistGoogleCredentials,
   saveGoogleSecrets,
   splitGoogleConfig,
   stripSecretsFromYjsConfig,
@@ -467,22 +467,19 @@ export const Component = () => {
   const saveGoogleConfigToYjs = useCallback(
     (nextConfig: GoogleCalendarConfig) => {
       const workspaceId = workspaceService.workspace.id;
-      const { publicConfig, secrets } = splitGoogleConfig(
-        nextConfig as unknown as Record<string, unknown>
-      );
-      for (const field of GOOGLE_SECRET_FIELDS) {
-        if (
-          field in nextConfig &&
-          (nextConfig as Record<string, unknown>)[field] === ''
-        ) {
-          secrets[field] = '';
-        }
-      }
-
       const storage =
         typeof window !== 'undefined' ? window.localStorage : undefined;
+      let publicConfig: Record<string, unknown>;
       if (storage) {
-        saveGoogleSecrets(storage, workspaceId, secrets);
+        publicConfig = persistGoogleCredentials(
+          storage,
+          workspaceId,
+          nextConfig as unknown as Record<string, unknown>
+        );
+      } else {
+        publicConfig = splitGoogleConfig(
+          nextConfig as unknown as Record<string, unknown>
+        ).publicConfig;
       }
 
       const rootYDoc = workspaceService.workspace.rootYDoc;
@@ -4172,6 +4169,7 @@ export const Component = () => {
                         accessToken: e.target.value,
                       }))
                     }
+                    onBlur={() => saveGoogleConfigToYjs(googleConfig)}
                     placeholder="ya29.a0AfH6SM..."
                     className={styles.formInput}
                   />
@@ -4191,6 +4189,7 @@ export const Component = () => {
                           calendarId: e.target.value,
                         }))
                       }
+                      onBlur={() => saveGoogleConfigToYjs(googleConfig)}
                       placeholder="primary o tu-correo@gmail.com"
                       className={styles.formInput}
                     />
@@ -4208,6 +4207,7 @@ export const Component = () => {
                           clientId: e.target.value,
                         }))
                       }
+                      onBlur={() => saveGoogleConfigToYjs(googleConfig)}
                       placeholder="123456-abc.apps.googleusercontent.com"
                       className={styles.formInput}
                     />

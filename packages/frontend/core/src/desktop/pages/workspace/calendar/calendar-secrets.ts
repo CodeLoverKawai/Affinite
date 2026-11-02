@@ -75,6 +75,9 @@ export function saveGoogleSecrets(
     }
     const current = loadGoogleSecrets(storage, workspaceId);
     for (const [k, v] of Object.entries(secrets)) {
+      if (!(GOOGLE_SECRET_FIELDS as readonly string[]).includes(k)) {
+        continue;
+      }
       if (v === '') {
         delete current[k];
       } else if (typeof v === 'string') {
@@ -90,4 +93,18 @@ export function saveGoogleSecrets(
   } catch {
     // swallow storage exceptions like quota/private-mode
   }
+}
+
+export function persistGoogleCredentials(
+  storage: SecretsStorage,
+  workspaceId: string,
+  config: Record<string, unknown>
+): Record<string, unknown> {
+  const { publicConfig, secrets } = splitGoogleConfig(config);
+  const secretsToSave: Record<string, string> = {};
+  for (const field of GOOGLE_SECRET_FIELDS) {
+    secretsToSave[field] = secrets[field] ?? '';
+  }
+  saveGoogleSecrets(storage, workspaceId, secretsToSave);
+  return publicConfig;
 }

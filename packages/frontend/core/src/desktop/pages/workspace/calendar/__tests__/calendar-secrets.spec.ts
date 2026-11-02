@@ -3,6 +3,7 @@ import {
   GOOGLE_SECRET_FIELDS,
   GOOGLE_SECRETS_STORAGE_PREFIX,
   loadGoogleSecrets,
+  persistGoogleCredentials,
   saveGoogleSecrets,
   type SecretsStorage,
   splitGoogleConfig,
@@ -140,6 +141,78 @@ describe('calendar-secrets', () => {
       expect(() => {
         saveGoogleSecrets(throwingStorage, 'ws-1', { accessToken: 'token-1' });
       }).not.toThrow();
+    });
+
+    test('saveGoogleSecrets solo persiste claves incluidas en GOOGLE_SECRET_FIELDS', () => {
+      const storage = createMemoryStorage();
+      saveGoogleSecrets(storage, 'ws-1', {
+        accessToken: 'token-1',
+        notASecretField: 'should-be-ignored',
+      });
+      const stored = loadGoogleSecrets(storage, 'ws-1');
+      expect(stored).toEqual({ accessToken: 'token-1' });
+      expect((stored as Record<string, string>).notASecretField).toBeUndefined();
+    });
+  });
+
+  describe('persistGoogleCredentials', () => {
+    test('guarda token y al llamar con accessToken vacío lo borra y remueve la entrada de storage', () => {
+      const storage = createMemoryStorage();
+      const storageKey = `${GOOGLE_SECRETS_STORAGE_PREFIX}ws-test`;
+
+      // 1. Guardar token
+      const pub1 = persistGoogleCredentials(storage, 'ws-test', {
+        calendarId: 'primary',
+        accessToken: 'token-abc',
+      });
+      expect(pub1).toEqual({ calendarId: 'primary' });
+      expect(loadGoogleSecrets(storage, 'ws-test')).toEqual({
+        accessToken: 'token-abc',
+      });
+      expect(storage.getItem(storageKey)).not.toBeNull();
+
+      // 2. Llamar de nuevo con accessToken ''
+      const pub2 = persistGoogleCredentials(storage, 'ws-test', {
+        calendarId: 'primary',
+        accessToken: '',
+      });
+      expect(pub2).toEqual({ calendarId: 'primary' });
+      expect(loadGoogleSecrets(storage, 'ws-test')).toEqual({});
+      expect(storage.getItem(storageKey)).toBeNull();
+    });
+
+    test('al llamar con accessToken ausente borra secretos previos de storage y la config pública no tiene secretos', () => {
+      const storage = createMemoryStorage();
+      const storageKey = `${GOOGLE_SECRETS_STORAGE_PREFIX}ws-test`;
+
+      // Guardar con múltiples secretos
+      persistGoogleCredentials(storage, 'ws-test', {
+        calendarId: 'primary',
+        accessToken: 'token-1',
+        refreshToken: 'refresh-1',
+        clientSecret: 'secret-1',
+      });
+      expect(loadGoogleSecrets(storage, 'ws-test')).toEqual({
+        accessToken: 'token-1',
+        refreshToken: 'refresh-1',
+        clientSecret: 'secret-1',
+      });
+
+      // Llamar con secretos ausentes de la config
+      const pub = persistGoogleCredentials(storage, 'ws-test', {
+        calendarId: 'primary',
+        autoSync: true,
+      });
+
+      // Storage limpio completamente
+      expect(loadGoogleSecrets(storage, 'ws-test')).toEqual({});
+      expect(storage.getItem(storageKey)).toBeNull();
+
+      // Config pública devuelta no contiene ninguna clave de secretos
+      expect(pub).toEqual({ calendarId: 'primary', autoSync: true });
+      for (const field of GOOGLE_SECRET_FIELDS) {
+        expect(field in pub).toBe(false);
+      }
     });
   });
 
