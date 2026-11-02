@@ -5,6 +5,7 @@ All notable changes to **AFFiNITe** will be documented in this file.
 ## [v0.30.0] - 2026-11-02
 
 ### 🎨 Unificación del Sistema de Diseño Nativo de AFFiNITe (Light & Dark Mode)
+
 - **Arquitectura Vanilla Extract (`.css.ts`) & `@toeverything/theme` (`cssVarV2`)**:
   - Migración integral de las páginas personalizadas del workspace (`Tableros`, `Calendario & Tareas`, `Hábitos`, `Streaks`, `Reportes Semanales`, `Journals`, `AI Chat`), el panel de configuración de IA (`AIModelSelector` / `AIUsagePanel`) y la barra de pestañas (`shell-fallback`) a hojas de estilo `.css.ts` basadas en tokens semánticos nativos de AFFiNE (`layer/background/primary`, `layer/background/secondary`, `layer/background/overlayPanel`, `text/primary`, `text/secondary`, `layer/insideBorder/border`, `brandColor`).
   - Soporte 100% nativo y automático para **Modo Claro (Light Mode)** y **Modo Oscuro (Dark Mode)** en todas las vistas, eliminando bloques `<style>` inyectados y colores oscuros fijos (`#0b1120`, `#0f112a`, `#181b22`).
@@ -15,6 +16,7 @@ All notable changes to **AFFiNITe** will be documented in this file.
   - Reemplazo de fondos externos de Unsplash en `Tableros` (`/boards`) por temas y gradientes locales 100% offline-safe (`sanitizeBoardBackground`).
 
 ### 🔥 Streaks & Countdowns (`/streaks`)
+
 - **Centro de Contadores Regresivos y Rachas de Objetivos**:
   - Nueva vista dedicada `/streaks` con temporizadores en vivo al segundo (`Días`, `Horas`, `Minutos`, `Segundos`), barra de progreso porcentual, filtros por categoría/estado y tarjetas de resumen.
   - Alarma armónica sintetizada con **Web Audio API** (`streaks-sound.ts`) y notificaciones nativas del sistema al completar una meta sin requerir archivos de audio externos.
@@ -23,6 +25,7 @@ All notable changes to **AFFiNITe** will be documented in this file.
   - Sincronización bidireccional en tiempo real con `workspace.rootYDoc` (`affinite_streaks_v1`) y respaldo local en `localStorage`.
 
 ### 🧩 Widget Interactivo de Hábitos en el Editor (`<affine-habit-preview>` & `/habit`)
+
 - **Tarjetas de Hábito Interactivas en BlockSuite (`habit-preview.ts`)**:
   - Los comandos `/habit` y `/habito` insertan bloques interactivos `<affine-habit-preview>` con botón de completado diario, contadores de racha actual/máxima, barra de progreso semanal y tira interactiva de 7 días (Lunes a Domingo).
 - **Sincronización Unificada Yjs (`affinite_habits_v1`)**:
@@ -30,12 +33,13 @@ All notable changes to **AFFiNITe** will be documented in this file.
   - Normalización y migración transparente de IDs de hábitos (`parseHabitsPayload`, `resolveHabitById`, `LEGACY_HABIT_ID_MAP`) entre `/habits`, `<affine-habit-preview>` y el menú `/` del editor.
 
 ### 📅 AFFiNITe Calendar Pro v3 — Paridad con Google Calendar + Superpoderes PKM (`/calendar`)
+
 - **Compatibilidad Integral con Google Calendar y Estándar RFC 5545 (`.ics`)**:
   - **Motor RFC 5545 (`calendar-ics-engine.ts`)**: Importación y exportación bidireccional de archivos `.ics` con soporte de `VEVENT`, plegado de líneas, zonas horarias (`TZID` / `UTC`), `DTEND` exclusivo para eventos multi-día, `RRULE`, `EXDATE`, `VALARM` y detección automática de enlaces de Google Meet / Zoom.
   - **Suscripciones URL `.ics` en Vivo sin CORS (`electron/src/main/calendar/index.ts`)**: Puente IPC nativo en Electron Main (`fetchIcsFeed`) que permite suscribirse a direcciones públicas o secretas en formato iCal (`https://` o `webcal://`) de Google Calendar, Outlook o Apple Calendar sin bloqueos CORS.
   - **Sincronización Bidireccional con Google Calendar REST API v3**: Importación y publicación directa de eventos (`googleApiRequest` + `refreshGoogleAccessToken`) y botón de exportación rápida en 1 clic vía plantilla web de Google Calendar (`buildGoogleCalendarTemplateUrl`).
 - **Motor de Recurrencia (`RRULE`), Eventos Multi-Día y Capas de Calendario (`calendar-recurrence-engine.ts`)**:
-  - Repetición diaria, días laborales (`Lun–Vie`), semanal, mensual y anual con soporte de fecha límite (`until`) y exclusión de fechas individuales (`EXDATE` — *"Eliminar solo esta fecha"* vs *"Toda la serie"*).
+  - Repetición diaria, días laborales (`Lun–Vie`), semanal, mensual y anual con soporte de fecha límite (`until`) y exclusión de fechas individuales (`EXDATE` — _"Eliminar solo esta fecha"_ vs _"Toda la serie"_).
   - Gestor lateral **"📅 Mis Calendarios"** con visibilidad por capa, colores personalizados e indicadores de origen (`Local`, `iCal`, `Google`).
 - **Grilla de 24 Horas (`00:00–23:59`), Colisiones Lado a Lado e Interacción Directa (`calendar-timeblock-helpers.ts`)**:
   - Algoritmo de clústeres de colisión (`computeOverlappingEventsLayout`) que organiza eventos simultáneos en columnas proporcionales lado a lado al estilo Google Calendar.
@@ -46,6 +50,8 @@ All notable changes to **AFFiNITe** will be documented in this file.
   - Filtrado inteligente de tarjetas de `Tableros` por categoría y etiquetas reales (`filterBoardCardsByCategory`).
 
 ### 🛡️ Seguridad, Higiene Arquitectónica y Calidad de Código
+
+- **Aislamiento de Credenciales de Google Calendar**: Las credenciales (`accessToken`, `refreshToken`, `clientSecret`) ya no se guardan en el documento Yjs sincronizado del workspace, sino en almacenamiento local seguro por dispositivo (`localStorage`). **Aviso de seguridad**: Si pegaste un token en una versión anterior, revócalo en tu cuenta de Google y genera uno nuevo, ya que puede permanecer en el historial CRDT previo del workspace.
 - **Eliminación de Código Legado y Endurecimiento de Seguridad**:
   - Eliminación definitiva de restos de la integración legada con `Planka` (`planka-view.ts`, handlers IPC y secuestro de URLs `/boards/` en `link-preview-service.ts`) y del controlador `OidcController` inseguro.
   - Eliminación completa del subsistema experimental `Anx-Remix` / `Library` para mantener el núcleo 100% enfocado en productividad, documentos, tableros, matemáticas e IA local (documentado en `docs/retrospectives/2026-11-02-la-derrota-de-anx-remix.md`).
@@ -57,6 +63,7 @@ All notable changes to **AFFiNITe** will be documented in this file.
 ## [v0.29.0] - 2026-10-18
 
 ### 📦 Native Flatpak Distribution & Flathub Ready
+
 - **Official Flatpak Bundle (`AFFiNITe-linux-x86_64.flatpak`)**:
   - Direct single-file installer bundle (`138 MB`) runnable on any modern Linux distribution with `flatpak install AFFiNITe-linux-x86_64.flatpak`.
   - Built with `org.freedesktop.Platform//25.08` runtime and standalone unpacked native binaries (`affine.linux-x64-gnu.node`) for instant OS `dlopen()` loading.
@@ -68,6 +75,7 @@ All notable changes to **AFFiNITe** will be documented in this file.
   - Enabled `--talk-name=org.freedesktop.Flatpak` in Flatpak finish args and automated `build-flatpak.sh` to allow sandboxed access to host tools like `agy` (Google Antigravity CLI) via `flatpak-spawn --host`.
 
 ### ⚡ Linux Performance & Single-Renderer Architecture
+
 - **Single-Renderer Lightweight Tabs**:
   - Shared primary `WebContentsView` architecture across all tabs via `tab-views.ts`, eliminating the overhead of spawning a ~300 MB Chromium renderer process per tab (0 MB extra RAM per additional tab).
   - Instant in-memory `<1ms` tab switching in `Workbench` with per-tab history and active view preservation.
@@ -81,6 +89,7 @@ All notable changes to **AFFiNITe** will be documented in this file.
   - Trimmed 42 MB of unused Chromium locale `.pak` files and eliminated 73 MB of development source maps in production builds.
 
 ### 🔌 100% Offline Mode & Eager Local Mirroring
+
 - **Connection Circuit-Breaker**:
   - Added smart circuit-breaker to `AutoReconnectConnection` in `@affine/nbstore`: trips after 3 consecutive failed attempts and enters quiet idle state instead of retrying endlessly every 3 seconds.
   - Automatic reconnection when `navigator.onLine` fires or when the user triggers a sync action.
@@ -89,6 +98,7 @@ All notable changes to **AFFiNITe** will be documented in this file.
   - Replaced infinite backoff loops in frontend permission guards and cloud revalidators with fast 2-retry limits when offline.
 
 ### 📊 Mermaid Pro Suite
+
 - **`/mermaid` Slash Command**:
   - Quick insertion of interactive Mermaid diagrams from the BlockSuite slash menu (`/mermaid`, `/diagram`, `/flowchart`, `/uml`, `/sequence`).
 - **Live Split Editor & Instant Diagnostics**:
@@ -100,6 +110,7 @@ All notable changes to **AFFiNITe** will be documented in this file.
   - Fixed mouse-wheel zoom math (requires `Ctrl`/`Meta` to prevent scroll hijacking) with dedicated Zoom In, Zoom Out, Fit, and 1-click SVG copy/download buttons.
 
 ### 🗓️ ISO Weekly Notes & Dedicated Weekly Reports Hub
+
 - **ISO 8601 Weekly Notes (`YYYY-Www`)**:
   - Native support for weekly documents formatted as `YYYY-Www` (e.g., `2026-W42`) with full ISO week date range calculation (`dayjs/plugin/isoWeek`).
   - Structured Weekly Note template containing Weekly Goals, Key Priorities, Day-by-day Plan (Monday to Sunday), and Weekly Retrospective.
@@ -111,6 +122,7 @@ All notable changes to **AFFiNITe** will be documented in this file.
   - Weekly logging completion rate (e.g., 7/7 days = 100%) and 1-click weekly synthesis to clipboard.
 
 ### 📅 Supercharged Calendar Planner (`/calendar`)
+
 - **Multi-View Task & Schedule Planner**:
   - **Month View (`📅 Mes`)**: 7-column calendar grid with dedicated ISO Week row headers linking to Weekly Notes and daily note indicators.
   - **Week View (`🗓️ Semana`)**: 7-day planner with top weekly goals and daily task blocks.
@@ -124,6 +136,7 @@ All notable changes to **AFFiNITe** will be documented in this file.
   - Collapsible drawer for unscheduled board cards allowing instant date assignment.
 
 ### 🎯 Habits Tracking Suite (`/habits` & `/habit`)
+
 - **Dedicated Habits Hub (`/habits`)**:
   - Sidebar entry featuring interactive habit matrices, completion streaks (current and longest), monthly completion rates, and an annual 365-day GitHub-style commit heatmap.
   - Category filters and weekly habit progress bars.
@@ -132,6 +145,7 @@ All notable changes to **AFFiNITe** will be documented in this file.
   - Automatic date synchronization: toggling habit completions in a Journal note logs the completion against that specific note's date rather than always using today's system time.
 
 ### 🤖 Zero-API-Key Google Antigravity & Ollama AI Integration
+
 - **Google Antigravity (`agy` CLI) Bridge**:
   - Native integration with the Google Antigravity SDK CLI (`agy`) executing host models (`gemini-4-argon-high`, `gemini-4-argon-medium`, `gemini-3.8-flash-high`, `claude-sonnet-5-5-high`, `claude-opus-5-5-high`, `gpt-oss-120b-medium`) with zero API key configuration.
   - Compatible with Flatpak sandbox via `flatpak-spawn --host`.
@@ -161,12 +175,14 @@ All notable changes to **AFFiNITe** will be documented in this file.
   - **Interactive Math Reference Guide**: `docs/notes/guia-ecuaciones-graficas.md` and `~/Documents/Affinite_Notes/Matematicas/guia-ecuaciones-graficas.md`.
 
 ### 📱 Multi-Platform Releases & Tooling
+
 - **Linux AppImage**: Standalone executable `AFFiNITe-Math-linux-x86_64.AppImage` with bundled production dependencies in ASAR archive.
 - **Android APK**: Native Android app package `AFFiNITe-Math-android-debug.apk` built with Capacitor, OpenJDK 21, and 4GB Gradle heap.
 
 ## [v0.27.1] - 2026-08-10
 
 ### Bug Fixes & Improvements
+
 - **Mouse Wheel Scroll Propagation Fix**:
   - Fixed vertical mouse wheel scrolling on Kanban card lists and columns in Desktop (AppImage) and Web (Docker) modes, keeping vertical list scrolling contained within columns without shifting the outer board canvas horizontally.
   - Resolved `onWheel` event leakage across BlockSuite Data-Views (Kanban and Table views).
@@ -177,6 +193,7 @@ All notable changes to **AFFiNITe** will be documented in this file.
 ## [v0.27.0] - 2026-08-05
 
 ### Features & Enhancements
+
 - **Native Glassmorphism Project Boards System**:
   - Full-viewport (100% canvas) Kanban view with fixed 280px column width and horizontal scrolling.
   - Mouse wheel horizontal scroll support (`onWheel`) across Kanban columns.
@@ -195,6 +212,7 @@ All notable changes to **AFFiNITe** will be documented in this file.
 ## [v0.26.3] - 2026-08-03
 
 ### Features & Updates
+
 - **Planka Kanban Board View**: Integrated custom Kanban Board workspace view with 272px standard column widths, white cards (`#ffffff`) with charcoal text (`#172b4d`), and dynamic wallpapers with darkness overlay.
 - **Monorepo Linting**: Reached 0 errors and 0 warnings across all 6,673 workspace files via `yarn lint:ox`.
 - **Decoupling Strategy & Fork Notice**: Updated project documentation detailing the roadmap to progressively decouple AFFiNITe from upstream AFFiNE architecture.
