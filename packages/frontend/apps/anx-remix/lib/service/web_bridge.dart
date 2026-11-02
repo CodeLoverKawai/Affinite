@@ -292,8 +292,22 @@ class WebBridge {
     } else if (raw['bookId'] != null) {
       bookId = int.tryParse(raw['bookId'].toString()) ?? 1;
     }
-    String rawColor = (raw['color']?.toString() ?? '66CCFF').replaceAll('#', '').toUpperCase();
-    if (rawColor.isEmpty || rawColor == 'FFF176') {
+    String rawColor = (raw['color']?.toString() ?? '66CCFF').replaceAll('#', '').trim();
+    final lower = rawColor.toLowerCase();
+    const namedColors = {
+      'yellow': 'FEF08A',
+      'green': 'BBF7D0',
+      'blue': '66CCFF',
+      'pink': 'FBCFE8',
+      'purple': 'E9D5FF',
+      'red': 'E11D48',
+    };
+    if (namedColors.containsKey(lower)) {
+      rawColor = namedColors[lower]!;
+    } else {
+      rawColor = rawColor.toUpperCase();
+    }
+    if (rawColor.isEmpty || rawColor == 'FFF176' || !RegExp(r'^[0-9A-F]{3,8}$').hasMatch(rawColor)) {
       rawColor = '66CCFF';
     }
     return BookNote(
@@ -605,18 +619,21 @@ class WebBridge {
     if (!AnxPlatform.isWeb) return;
     try {
       final notesPayload = BookNoteDao.webNotes
-          .map((n) => {
-                'id': n.id ?? 0,
-                'bookId': n.bookId,
-                'content': n.content,
-                'cfi': n.cfi,
-                'chapter': n.chapter,
-                'type': n.type,
-                'color': n.color,
-                'readerNote': n.readerNote,
-                'createTime': (n.createTime ?? DateTime.now()).toIso8601String(),
-                'updateTime': n.updateTime.toIso8601String(),
-              })
+          .map((n) {
+            final cleanColor = n.color.replaceFirst(RegExp(r'^#+'), '');
+            return {
+              'id': n.id ?? 0,
+              'bookId': n.bookId,
+              'content': n.content,
+              'cfi': n.cfi,
+              'chapter': n.chapter,
+              'type': n.type,
+              'color': '#$cleanColor',
+              'readerNote': n.readerNote,
+              'createTime': (n.createTime ?? DateTime.now()).toIso8601String(),
+              'updateTime': n.updateTime.toIso8601String(),
+            };
+          })
           .toList();
       final payload = jsonEncode({
         'type': 'anx-sync-notes',

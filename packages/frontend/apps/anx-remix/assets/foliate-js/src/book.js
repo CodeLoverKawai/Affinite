@@ -1164,29 +1164,34 @@ class Reader {
   setView(view) {
     view.addEventListener('create-overlay', e => {
       const { index } = e.detail
-      const drawnValues = new Set()
-      const list = this.annotations.get(index)
-      if (list) {
-        for (const annotation of list) {
-          if (annotation?.value) {
-            drawnValues.add(annotation.value)
-            this.view.addAnnotation(annotation)
-          }
-        }
-      }
-
-      // Fallback: draw any annotation whose resolved index matches this section, if not already drawn
-      for (const annotation of this.annotationsByValue.values()) {
-        try {
-          if (annotation?.value && !drawnValues.has(annotation.value)) {
-            const resolved = this.view.resolveNavigation(annotation.value)
-            if (resolved?.index === index) {
+      const renderSectionAnnotations = () => {
+        const drawnValues = new Set()
+        const list = this.annotations.get(index)
+        if (list) {
+          for (const annotation of list) {
+            if (annotation?.value) {
               drawnValues.add(annotation.value)
               this.view.addAnnotation(annotation)
             }
           }
-        } catch (_) {}
+        }
+
+        // Fallback: draw any annotation whose resolved index matches this section, if not already drawn
+        for (const annotation of this.annotationsByValue.values()) {
+          try {
+            if (annotation?.value && !drawnValues.has(annotation.value)) {
+              const resolved = this.view.resolveNavigation(annotation.value)
+              if (resolved?.index === index) {
+                drawnValues.add(annotation.value)
+                this.view.addAnnotation(annotation)
+              }
+            }
+          } catch (_) {}
+        }
       }
+
+      renderSectionAnnotations()
+      requestAnimationFrame(renderSectionAnnotations)
       
       // Apply code highlighting to newly created overlay content
       if (style && style.codeHighlightTheme && style.codeHighlightTheme !== 'off') {
@@ -1279,6 +1284,28 @@ class Reader {
 
       this.addAnnotation(annotation)
     }
+
+    // Force redraw on all currently loaded sections in renderer
+    try {
+      const activeContents = this.view?.renderer?.getContents?.() || []
+      for (const content of activeContents) {
+        const idx = content.index
+        const list = this.annotations.get(idx)
+        if (list) {
+          for (const anno of list) {
+            this.view?.addAnnotation?.(anno)
+          }
+        }
+        for (const annotation of this.annotationsByValue.values()) {
+          try {
+            const resolved = this.view?.resolveNavigation?.(annotation.value)
+            if (resolved?.index === idx) {
+              this.view?.addAnnotation?.(annotation)
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
 
     try {
       this.#checkCurrentPageBookmark()

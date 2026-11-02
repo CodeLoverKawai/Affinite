@@ -1,6 +1,23 @@
 const createSVGElement = tag =>
     document.createElementNS('http://www.w3.org/2000/svg', tag)
 
+export function sanitizeColor(color, fallback = '#66ccff') {
+    if (!color || typeof color !== 'string') return fallback;
+    const trimmed = color.trim();
+    const clean = trimmed.replace(/^#+/, '');
+    if (/^[0-9a-fA-F]{3,8}$/.test(clean)) {
+        return `#${clean}`;
+    }
+    const namedMap = {
+        yellow: '#fef08a',
+        green: '#bbf7d0',
+        blue: '#66ccff',
+        pink: '#fbcfe8',
+        purple: '#e9d5ff',
+    };
+    return namedMap[clean.toLowerCase()] || fallback;
+}
+
 export class Overlayer {
     #svg = createSVGElement('svg')
     #map = new Map()
@@ -95,12 +112,7 @@ export class Overlayer {
             const zoom = this.#zoom
             const rects = this.#extractRects(range, zoom)
             let opts = options || {}
-            if (opts.color && typeof opts.color === 'string') {
-                const trimmed = opts.color.trim()
-                if (/^[0-9a-fA-F]{3,8}$/.test(trimmed)) {
-                    opts = { ...opts, color: `#${trimmed}` }
-                }
-            }
+            opts = { ...opts, color: sanitizeColor(opts.color, '#66ccff') }
             const element = draw(rects, opts)
             this.#svg.append(element)
             this.#map.set(key, { range, draw, options: opts, element, rects })
@@ -179,9 +191,7 @@ export class Overlayer {
     }
     static underline(rects, options = {}) {
         let { color = '#e11d48', width: strokeWidth = 3, padding = 0, writingMode } = options
-        if (typeof color === 'string' && /^[0-9a-fA-F]{3,8}$/.test(color.trim())) {
-            color = `#${color.trim()}`
-        }
+        color = sanitizeColor(color, '#e11d48')
         const g = createSVGElement('g')
         g.setAttribute('fill', color)
         if (writingMode === 'vertical-rl' || writingMode === 'vertical-lr')
@@ -256,9 +266,7 @@ export class Overlayer {
     }
     static highlight(rects, options = {}) {
         let { color = '#66ccff', padding = 0 } = options
-        if (typeof color === 'string' && /^[0-9a-fA-F]{3,8}$/.test(color.trim())) {
-            color = `#${color.trim()}`
-        }
+        color = sanitizeColor(color, '#66ccff')
         const g = createSVGElement('g')
         g.setAttribute('fill', color)
         g.style.opacity = 'var(--overlayer-highlight-opacity, .42)'

@@ -227,14 +227,25 @@ export function normalizeNoteColor(
   const trimmed = color.trim();
   if (!trimmed) return fallback;
 
-  // Handle #RRGGBB or #RRGGBBAA
-  if (/^#[0-9a-fA-F]{3,8}$/.test(trimmed)) {
-    return `#${trimmed.slice(1).toUpperCase()}`;
+  // Clean any multiple leading hashes e.g. ##66CCFF -> 66CCFF
+  const clean = trimmed.replace(/^#+/, '');
+
+  if (/^[0-9a-fA-F]{3,8}$/.test(clean)) {
+    return `#${clean.toUpperCase()}`;
   }
 
-  // Handle RRGGBB or RRGGBBAA without '#'
-  if (/^[0-9a-fA-F]{3,8}$/.test(trimmed)) {
-    return `#${trimmed.toUpperCase()}`;
+  const namedColors: Record<string, string> = {
+    yellow: '#FEF08A',
+    green: '#BBF7D0',
+    blue: '#66CCFF',
+    pink: '#FBCFE8',
+    purple: '#E9D5FF',
+    red: '#E11D48',
+  };
+
+  const lower = clean.toLowerCase();
+  if (namedColors[lower]) {
+    return namedColors[lower];
   }
 
   return fallback;

@@ -43,12 +43,13 @@ class BookNote {
   }
 
   Map<String, dynamic> toJson() {
+    final cleanColor = color.replaceFirst(RegExp(r'^#+'), '');
     return {
       'id': id,
       'note': content,
       'value': cfi,
       'type': type,
-      'color': '#$color',
+      'color': '#$cleanColor',
     };
   }
 

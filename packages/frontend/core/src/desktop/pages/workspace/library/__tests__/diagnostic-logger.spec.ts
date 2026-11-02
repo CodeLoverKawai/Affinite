@@ -141,6 +141,18 @@ describe('DiagnosticLogger Suite', () => {
     // Already with '#'
     expect(normalizeNoteColor('#00FF00')).toBe('#00FF00');
 
+    // Multiple leading hashes
+    expect(normalizeNoteColor('##66CCFF')).toBe('#66CCFF');
+    expect(normalizeNoteColor('###39C5BC')).toBe('#39C5BC');
+
+    // Named colors
+    expect(normalizeNoteColor('yellow')).toBe('#FEF08A');
+    expect(normalizeNoteColor('blue')).toBe('#66CCFF');
+    expect(normalizeNoteColor('pink')).toBe('#FBCFE8');
+    expect(normalizeNoteColor('green')).toBe('#BBF7D0');
+    expect(normalizeNoteColor('purple')).toBe('#E9D5FF');
+    expect(normalizeNoteColor('red')).toBe('#E11D48');
+
     // 8-character hex (with alpha)
     expect(normalizeNoteColor('39C5BC80')).toBe('#39C5BC80');
     expect(normalizeNoteColor('#39C5BC80')).toBe('#39C5BC80');

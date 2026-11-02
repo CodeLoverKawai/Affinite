@@ -128,11 +128,21 @@ export const Component = () => {
         if (rawAnxNotes) {
           const parsed = JSON.parse(rawAnxNotes);
           if (Array.isArray(parsed)) {
-            const normalized = parsed.map((n: AnxWebNote) => ({
-              ...n,
-              color: normalizeNoteColor(n.color),
-            }));
+            let hasRepairs = false;
+            const normalized = parsed.map((n: AnxWebNote) => {
+              const cleanColor = normalizeNoteColor(n.color);
+              if (cleanColor !== n.color) {
+                hasRepairs = true;
+              }
+              return {
+                ...n,
+                color: cleanColor,
+              };
+            });
             setAnxNotes(normalized);
+            if (hasRepairs) {
+              yMap.set('anx_notes', JSON.stringify(normalized));
+            }
           }
         } else {
           const rawHighlights = yMap.get('highlights') as string | undefined;
@@ -147,7 +157,7 @@ export const Component = () => {
                   cfi: h.cfi || '',
                   chapter: h.chapter || '',
                   type: 'highlight',
-                  color: h.color || 'yellow',
+                  color: normalizeNoteColor(h.color, '#FEF08A'),
                   readerNote: h.note || '',
                   createTime: h.createdAt
                     ? new Date(h.createdAt).toISOString()

@@ -382,15 +382,19 @@ export class View extends HTMLElement {
       console.warn('view.addAnnotation warning:', e)
     }
   }
+  #overlayers = new Map()
   deleteAnnotation(annotation) {
     return this.addAnnotation(annotation, true)
   }
   #getOverlayer(index) {
-    return this.renderer.getContents()
-      .find(x => x.index === index && x.overlayer)
+    const fromRenderer = this.renderer?.getContents?.()
+      ?.find(x => x.index === index && x.overlayer)
+    if (fromRenderer) return fromRenderer
+    return this.#overlayers.get(index)
   }
   #createOverlayer({ doc, index }) {
     const overlayer = new Overlayer(doc)
+    this.#overlayers.set(index, { overlayer, doc, index })
     doc.addEventListener('click', e => {
       const [value, range] = overlayer.hitTest(e)
       if (value && !value.startsWith(SEARCH_PREFIX)) {
@@ -403,7 +407,7 @@ export class View extends HTMLElement {
     const list = this.#searchResults.get(index)
     if (list) for (const item of list) this.addAnnotation(item)
 
-    this.#emit('create-overlay', { index })
+    this.#emit('create-overlay', { index, overlayer, doc })
     return overlayer
   }
   async showAnnotation(annotation) {

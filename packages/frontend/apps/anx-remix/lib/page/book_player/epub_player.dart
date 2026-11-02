@@ -275,6 +275,7 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
   void goToCfi(String cfi) => _evalJs("goToCfi('$cfi')");
 
   void addAnnotation(BookNote bookNote) {
+    final cleanColor = bookNote.color.replaceFirst(RegExp(r'^#+'), '');
     final noteContent =
         (bookNote.content).replaceAll('\n', ' ').replaceAll("'", "\\'");
     _evalJs('''
@@ -282,7 +283,7 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
         id: ${bookNote.id},
         type: '${bookNote.type}',
         value: '${bookNote.cfi}',
-        color: '#${bookNote.color}',
+        color: '#$cleanColor',
         note: '$noteContent',
       })
       ''');
@@ -623,9 +624,9 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
     _evalJs('''
      window.allAnnotations = $allAnnotations;
      if (typeof window.renderAnnotations === 'function') {
-       window.renderAnnotations();
+       window.renderAnnotations(window.allAnnotations);
      } else if (typeof renderAnnotations === 'function') {
-       renderAnnotations();
+       renderAnnotations(window.allAnnotations);
      }
     ''');
   }
