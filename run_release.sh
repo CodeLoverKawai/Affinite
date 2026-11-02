@@ -40,14 +40,6 @@ node -e "
       pkg.version = '$NEW_VERSION';
       fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n', 'utf8');
       console.log('  Updated: ' + file);
-    }
-  }
-  const flutterPubspec = 'packages/frontend/apps/anx-remix/pubspec.yaml';
-  if (fs.existsSync(flutterPubspec)) {
-    let content = fs.readFileSync(flutterPubspec, 'utf8');
-    content = content.replace(/^version:\s*.*$/m, 'version: $NEW_VERSION+1');
-    fs.writeFileSync(flutterPubspec, content, 'utf8');
-    console.log('  Updated: ' + flutterPubspec);
   }
 "
 

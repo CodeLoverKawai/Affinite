@@ -74,27 +74,6 @@ if [ -d "${ELECTRON_RENDERER_DIST}" ]; then
   cp -r "${ELECTRON_RENDERER_DIST}/." "${APP_DIR}/resources/web-static/"
 fi
 
-# Ensure Anx Foliate-js reader is bundled into web-static/foliate
-ANX_FOLIATE_SRC="${REPO_ROOT:-/home/rousseau/Documents/GitHub/Affinite}/packages/frontend/apps/anx-remix/assets/foliate-js"
-if [ -d "${ANX_FOLIATE_SRC}/dist" ]; then
-  mkdir -p "${APP_DIR}/resources/web-static/foliate"
-  cp -r "${ANX_FOLIATE_SRC}/dist" "${ANX_FOLIATE_SRC}/src" "${ANX_FOLIATE_SRC}/index.html" "${APP_DIR}/resources/web-static/foliate/"
-  echo "  Bundled Anx Foliate-js reader into resources/web-static/foliate"
-fi
-
-# Ensure Anx-Remix Web build is bundled into web-static/anx
-ANX_WEB_SRC="${REPO_ROOT:-/home/rousseau/Documents/GitHub/Affinite}/packages/frontend/apps/anx-remix/build/web"
-if [ -d "${ANX_WEB_SRC}" ]; then
-  mkdir -p "${APP_DIR}/resources/web-static/anx"
-  cp -r "${ANX_WEB_SRC}/." "${APP_DIR}/resources/web-static/anx/"
-  if [ -d "${ANX_FOLIATE_SRC}/src" ]; then
-    mkdir -p "${APP_DIR}/resources/web-static/anx/assets/assets/foliate-js"
-    cp -r "${ANX_FOLIATE_SRC}/dist" "${ANX_FOLIATE_SRC}/src" "${ANX_FOLIATE_SRC}/index.html" "${APP_DIR}/resources/web-static/anx/assets/assets/foliate-js/"
-    echo "  Synced patched Foliate-js into resources/web-static/anx/assets/assets/foliate-js"
-  fi
-  echo "  Bundled Anx-Remix Web into resources/web-static/anx"
-fi
-
 # Copy resources (strip source maps from web-static first)
 if [ -d "${APP_DIR}/resources/web-static" ]; then
   find "${APP_DIR}/resources/web-static" -name "*.map" -delete

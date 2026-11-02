@@ -25,10 +25,7 @@ export const workbenchRoutes = [
     path: '/streaks',
     lazy: () => import('./pages/workspace/streaks/index'),
   },
-  {
-    path: '/library',
-    lazy: () => import('./pages/workspace/library/index'),
-  },
+
   {
     path: '/all',
     lazy: () => import('./pages/workspace/all-page/all-page'),

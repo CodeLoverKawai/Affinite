@@ -2,7 +2,6 @@ import {
   AiIcon,
   AllDocsIcon,
   AttachmentIcon,
-  BookPanelIcon,
   DateTimeIcon,
   DeleteIcon,
   EdgelessIcon,
@@ -27,7 +26,6 @@ export const iconNameToIcon = {
   attachment: <AttachmentIcon />,
   pdf: <ExportToPdfIcon />,
   ai: <AiIcon />,
-  library: <BookPanelIcon />,
   streaks: <FirePanelIcon />,
   calendar: <DateTimeIcon />,
 } satisfies Record<string, ReactNode>;

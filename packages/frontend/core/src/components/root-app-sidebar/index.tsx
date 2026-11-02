@@ -21,7 +21,6 @@ import type { Store } from '@blocksuite/affine/store';
 import {
   AiOutlineIcon,
   AllDocsIcon,
-  BookPanelIcon,
   CheckBoxCheckSolidIcon,
   DateTimeIcon,
   FirePanelIcon,
@@ -225,27 +224,6 @@ const StreaksButton = () => {
   );
 };
 
-const LibraryButton = () => {
-  const { workbenchService } = useServices({
-    WorkbenchService,
-  });
-  const workbench = workbenchService.workbench;
-  const libraryActive = useLiveData(
-    workbench.location$.selector(location =>
-      location.pathname.startsWith('/library')
-    )
-  );
-
-  return (
-    <MenuLinkItem
-      icon={<BookPanelIcon style={{ color: '#6366f1' }} />}
-      active={libraryActive}
-      to={'/library'}
-    >
-      <span data-testid="library-page">Biblioteca</span>
-    </MenuLinkItem>
-  );
-};
 
 /**
  * This is for the whole affine app sidebar.
@@ -348,7 +326,6 @@ export const RootAppSidebar = memo((): ReactElement => {
         <HabitsButton />
         <StreaksButton />
         <CalendarButton />
-        <LibraryButton />
         {sessionStatus === 'authenticated' && <NotificationButton />}
         <AIChatButton />
         <BoardsButton />
