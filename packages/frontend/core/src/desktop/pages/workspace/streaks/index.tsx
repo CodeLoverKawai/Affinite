@@ -13,9 +13,9 @@ import { WorkspaceService } from '../../../../modules/workspace';
 import * as styles from './streaks.css';
 import {
   calculateStreakProgress,
+  createStreakTemplates,
   formatTimeRemaining,
   getInitialStreaks,
-  STREAK_TEMPLATES,
   type StreakItem,
   type StreakMode,
   toggleStreakPause,
@@ -129,7 +129,7 @@ export const Component = () => {
   );
 
   const handleLoadTemplates = useCallback(() => {
-    persistStreaks(STREAK_TEMPLATES);
+    persistStreaks(createStreakTemplates());
   }, [persistStreaks]);
 
   // Live timer tick every 1000ms & completion alarm trigger

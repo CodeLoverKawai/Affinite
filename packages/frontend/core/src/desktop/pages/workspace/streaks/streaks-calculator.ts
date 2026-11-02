@@ -167,55 +167,62 @@ export function getInitialStreaks(): StreakItem[] {
   return [];
 }
 
-export const STREAK_TEMPLATES: StreakItem[] = [
-  {
-    id: 'streak-programming-30d',
-    title: 'Reto 30 Días de Programación',
-    description: 'Construir proyectos y aprender nuevas tecnologías diariamente',
-    mode: 'days',
-    targetCount: 30,
-    startDateTime: new Date().toISOString(),
-    targetDateTime: new Date(
-      Date.now() + 30 * 24 * 60 * 60 * 1000
-    ).toISOString(),
-    soundEnabled: true,
-    notificationEnabled: true,
-    color: '#f59e0b',
-    icon: '🔥',
-    category: 'Productividad',
-    status: 'running',
-  },
-  {
-    id: 'streak-deep-work-8h',
-    title: 'Sprint de Trabajo Continuo (8 Horas)',
-    description: 'Sesión enfocada de desarrollo sin distracciones',
-    mode: 'hours',
-    targetCount: 8,
-    startDateTime: new Date().toISOString(),
-    targetDateTime: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
-    soundEnabled: true,
-    notificationEnabled: true,
-    color: '#3b82f6',
-    icon: '⚡',
-    category: 'Trabajo',
-    status: 'running',
-  },
-  {
-    id: 'streak-hydration-7d',
-    title: 'Hábito de Hidratación (7 Días)',
-    description: 'Beber al menos 2 litros de agua diariamente',
-    mode: 'days',
-    targetCount: 7,
-    startDateTime: new Date().toISOString(),
-    targetDateTime: new Date(
-      Date.now() + 7 * 24 * 60 * 60 * 1000
-    ).toISOString(),
-    soundEnabled: true,
-    notificationEnabled: true,
-    color: '#10b981',
-    icon: '💧',
-    category: 'Salud',
-    status: 'running',
-  },
-];
+export function createStreakTemplates(now = new Date()): StreakItem[] {
+  const nowMs = now.getTime();
+  const nowIso = now.toISOString();
+
+  return [
+    {
+      id: 'streak-programming-30d',
+      title: 'Reto 30 Días de Programación',
+      description: 'Construir proyectos y aprender nuevas tecnologías diariamente',
+      mode: 'days',
+      targetCount: 30,
+      startDateTime: nowIso,
+      targetDateTime: new Date(
+        nowMs + 30 * 24 * 60 * 60 * 1000
+      ).toISOString(),
+      soundEnabled: true,
+      notificationEnabled: true,
+      color: '#f59e0b',
+      icon: '🔥',
+      category: 'Productividad',
+      status: 'running',
+    },
+    {
+      id: 'streak-deep-work-8h',
+      title: 'Sprint de Trabajo Continuo (8 Horas)',
+      description: 'Sesión enfocada de desarrollo sin distracciones',
+      mode: 'hours',
+      targetCount: 8,
+      startDateTime: nowIso,
+      targetDateTime: new Date(nowMs + 8 * 60 * 60 * 1000).toISOString(),
+      soundEnabled: true,
+      notificationEnabled: true,
+      color: '#3b82f6',
+      icon: '⚡',
+      category: 'Trabajo',
+      status: 'running',
+    },
+    {
+      id: 'streak-hydration-7d',
+      title: 'Hábito de Hidratación (7 Días)',
+      description: 'Beber al menos 2 litros de agua diariamente',
+      mode: 'days',
+      targetCount: 7,
+      startDateTime: nowIso,
+      targetDateTime: new Date(
+        nowMs + 7 * 24 * 60 * 60 * 1000
+      ).toISOString(),
+      soundEnabled: true,
+      notificationEnabled: true,
+      color: '#10b981',
+      icon: '💧',
+      category: 'Salud',
+      status: 'running',
+    },
+  ];
+}
+
+export const STREAK_TEMPLATES: StreakItem[] = createStreakTemplates();
 

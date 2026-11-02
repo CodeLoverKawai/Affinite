@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   calculateStreakProgress,
+  createStreakTemplates,
   formatTimeRemaining,
   getInitialStreaks,
   STREAK_TEMPLATES,
@@ -190,5 +191,27 @@ describe('Streaks Calculator & Timer Engine', () => {
     expect(STREAK_TEMPLATES.some(s => s.id === 'streak-fasting-16h')).toBe(
       false
     );
+  });
+
+  it('generates dynamic startDateTime and targetDateTime based on custom date', () => {
+    const customDate = new Date('2026-11-05T10:00:00.000Z');
+    const templates = createStreakTemplates(customDate);
+
+    expect(templates).toHaveLength(3);
+
+    const deepWork = templates.find(s => s.id === 'streak-deep-work-8h');
+    expect(deepWork).toBeDefined();
+    expect(deepWork?.startDateTime).toBe('2026-11-05T10:00:00.000Z');
+    expect(deepWork?.targetDateTime).toBe('2026-11-05T18:00:00.000Z');
+
+    const programming = templates.find(s => s.id === 'streak-programming-30d');
+    expect(programming).toBeDefined();
+    expect(programming?.startDateTime).toBe('2026-11-05T10:00:00.000Z');
+    expect(programming?.targetDateTime).toBe('2026-12-05T10:00:00.000Z');
+
+    const hydration = templates.find(s => s.id === 'streak-hydration-7d');
+    expect(hydration).toBeDefined();
+    expect(hydration?.startDateTime).toBe('2026-11-05T10:00:00.000Z');
+    expect(hydration?.targetDateTime).toBe('2026-11-12T10:00:00.000Z');
   });
 });
