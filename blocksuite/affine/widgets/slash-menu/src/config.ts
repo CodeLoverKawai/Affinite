@@ -20,7 +20,7 @@ import { type DeltaInsert, Slice, Text } from '@blocksuite/store';
 import { html } from 'lit';
 
 import { slashMenuToolTips } from './tooltips';
-import type { SlashMenuConfig } from './types';
+import type { SlashMenuConfig, SlashMenuContext } from './types';
 import { formatDate, formatTime } from './utils';
 
 export interface SlashMenuHabitItem {
@@ -87,7 +87,47 @@ function normalizeSlashHabitId(id: string): string {
   return SLASH_LEGACY_HABIT_ID_MAP[id] ?? id;
 }
 
-export function getCachedHabits(): SlashMenuHabitItem[] {
+/** Sube por la cadena de subdocs hasta el documento raíz del workspace. */
+export function resolveRootYDoc(doc: any): any {
+  if (!doc) return doc;
+  let current = doc;
+  while (current?._item?.parent?.doc) {
+    current = current._item.parent.doc;
+  }
+  return current;
+}
+
+export function getCachedHabits(stdOrDoc?: any): SlashMenuHabitItem[] {
+  if (stdOrDoc) {
+    try {
+      const candidateDoc =
+        stdOrDoc?.store?.spaceDoc ||
+        stdOrDoc?.store?.doc?.rootDoc ||
+        stdOrDoc?.store?.doc ||
+        stdOrDoc;
+      const rootDoc = resolveRootYDoc(candidateDoc);
+      if (rootDoc?.getMap) {
+        const raw = rootDoc.getMap('affinite_habits_v1')?.get('habits');
+        if (raw) {
+          const parsed =
+            typeof raw === 'string'
+              ? JSON.parse(raw)
+              : Array.isArray(raw)
+                ? raw
+                : null;
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.map((item: SlashMenuHabitItem) => ({
+              ...item,
+              id: normalizeSlashHabitId(item.id),
+            }));
+          }
+        }
+      }
+    } catch {
+      // Fall through to localStorage
+    }
+  }
+
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
       const raw = window.localStorage.getItem('affinite_habits_cache_v1');
@@ -157,14 +197,14 @@ export function isJournalDoc(std: any): boolean {
 }
 
 export const defaultSlashMenuConfig: SlashMenuConfig = {
-  items: () => {
+  items: (context?: SlashMenuContext) => {
     const now = new Date();
     const tomorrow = new Date();
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const habitsList = getCachedHabits();
+    const habitsList = getCachedHabits(context?.std);
 
     const insertHabitInteractiveBlock = (
       std: any,
@@ -253,12 +293,14 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
       const targetHabitId = normalizeSlashHabitId(h.id);
 
       try {
-        const rootDoc =
-          std?.store?.doc?.rootDoc ||
+        const rootDoc = resolveRootYDoc(
           std?.store?.spaceDoc ||
-          std?.store?.doc?.spaceDoc?.doc ||
-          (std?.store?.doc as any)?.docCollection?.doc;
-        if (rootDoc) {
+            std?.store?.doc?.rootDoc ||
+            std?.store?.doc ||
+            std?.store?.doc?.spaceDoc?.doc ||
+            (std?.store?.doc as any)?.docCollection?.doc
+        );
+        if (rootDoc?.getMap) {
           const yMap = rootDoc.getMap('affinite_habits_v1');
           const raw = yMap.get('habits');
           let list = raw

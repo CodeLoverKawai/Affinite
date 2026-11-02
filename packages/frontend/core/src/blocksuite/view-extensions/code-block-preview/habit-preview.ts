@@ -23,6 +23,7 @@ import {
   resolveHabitById,
   type HabitItem,
 } from '../../../desktop/pages/workspace/habits/habits-calculator';
+import { resolveRootYDoc } from '@affine/core/modules/affinite-hub/yjs-root';
 
 dayjs.extend(isoWeek);
 
@@ -351,13 +352,14 @@ export class HabitPreview extends SignalWatcher(
   }
 
   private getYMap() {
-    return (
-      (this.model as any)?.store?.spaceDoc?.getMap(HABITS_YMAP_KEY) ??
-      (this.model as any)?.store?.workspace?.doc?.getMap(HABITS_YMAP_KEY) ??
-      (this.model as any)?.doc?.docCollection?.doc?.getMap(HABITS_YMAP_KEY) ??
-      (this.model as any)?.store?.doc?.rootDoc?.getMap(HABITS_YMAP_KEY) ??
-      null
-    );
+    const candidateDoc =
+      (this.model as any)?.store?.spaceDoc ??
+      (this.model as any)?.store?.workspace?.doc ??
+      (this.model as any)?.doc?.docCollection?.doc ??
+      (this.model as any)?.store?.doc?.rootDoc ??
+      null;
+    const root = candidateDoc ? resolveRootYDoc(candidateDoc) : null;
+    return root?.getMap ? root.getMap(HABITS_YMAP_KEY) : null;
   }
 
   private _getWorkspaceHabits(): HabitItem[] {
