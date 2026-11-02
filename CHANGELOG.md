@@ -2,6 +2,48 @@
 
 All notable changes to **AFFiNITe** will be documented in this file.
 
+## [v0.30.0] - 2026-11-02
+
+### 🎨 Unificación del Sistema de Diseño Nativo de AFFiNITe (Light & Dark Mode)
+- **Arquitectura Vanilla Extract (`.css.ts`) & `@toeverything/theme` (`cssVarV2`)**:
+  - Migración integral de las páginas personalizadas del workspace (`Tableros`, `Calendario & Tareas`, `Hábitos`, `Streaks`, `Reportes Semanales`, `Journals`, `AI Chat`), el panel de configuración de IA (`AIModelSelector` / `AIUsagePanel`) y la barra de pestañas (`shell-fallback`) a hojas de estilo `.css.ts` basadas en tokens semánticos nativos de AFFiNE (`layer/background/primary`, `layer/background/secondary`, `layer/background/overlayPanel`, `text/primary`, `text/secondary`, `layer/insideBorder/border`, `brandColor`).
+  - Soporte 100% nativo y automático para **Modo Claro (Light Mode)** y **Modo Oscuro (Dark Mode)** en todas las vistas, eliminando bloques `<style>` inyectados y colores oscuros fijos (`#0b1120`, `#0f112a`, `#181b22`).
+  - Nuevo sistema de primitivas compartidas en `packages/frontend/core/src/desktop/pages/workspace/shared/workspace-page.css.ts`.
+- **Componentes Nativos `@affine/component` & Workbench**:
+  - Reemplazo de todos los modales fijos personalizados y diálogos bloqueantes `window.confirm()` por `<Modal>` y `useConfirmModal()` de `@affine/component`.
+  - Registro de íconos dedicados en `Workbench` (`boards`, `habits`, `weeklyReports`, `streaks`, `calendar`) y unificación de íconos de `@blocksuite/icons/rc` en la barra lateral y en la navegación móvil (`Tableros`, `Calendario`, `Hábitos`, `Streaks` y `Reportes Semanales`).
+  - Reemplazo de fondos externos de Unsplash en `Tableros` (`/boards`) por temas y gradientes locales 100% offline-safe (`sanitizeBoardBackground`).
+
+### 🔥 Streaks & Countdowns (`/streaks`)
+- **Centro de Contadores Regresivos y Rachas de Objetivos**:
+  - Nueva vista dedicada `/streaks` con temporizadores en vivo al segundo (`Días`, `Horas`, `Minutos`, `Segundos`), barra de progreso porcentual, filtros por categoría/estado y tarjetas de resumen.
+  - Alarma armónica sintetizada con **Web Audio API** (`streaks-sound.ts`) y notificaciones nativas del sistema al completar una meta sin requerir archivos de audio externos.
+- **Pausa/Reanudación Exacta y Sincronización Yjs (`streaks-calculator.ts`)**:
+  - Soporte real de pausa (`pausedAt`) que congela el tiempo transcurrido/restante mientras el contador está en pausa y desplaza automáticamente `startDateTime` y `targetDateTime` al reanudar (`toggleStreakPause`).
+  - Sincronización bidireccional en tiempo real con `workspace.rootYDoc` (`affinite_streaks_v1`) y respaldo local en `localStorage`.
+
+### 🧩 Widget Interactivo de Hábitos en el Editor (`<affine-habit-preview>` & `/habit`)
+- **Tarjetas de Hábito Interactivas en BlockSuite (`habit-preview.ts`)**:
+  - Los comandos `/habit` y `/habito` insertan bloques interactivos `<affine-habit-preview>` con botón de completado diario, contadores de racha actual/máxima, barra de progreso semanal y tira interactiva de 7 días (Lunes a Domingo).
+- **Sincronización Unificada Yjs (`affinite_habits_v1`)**:
+  - Resolución directa del documento raíz de BlockSuite (`this.model.store.spaceDoc`) con observador reactivo en vivo.
+  - Normalización y migración transparente de IDs de hábitos (`parseHabitsPayload`, `resolveHabitById`, `LEGACY_HABIT_ID_MAP`) entre `/habits`, `<affine-habit-preview>` y el menú `/` del editor.
+
+### 📅 Supercharged Calendar Planner v2 (`/calendar`)
+- **Time-Blocking Visual, Vista Anual y Mini-Navegador**:
+  - Motor de posicionamiento proporcional por minutos y detección de colisiones en cascada para bloques horarios (`calendar-timeblock-helpers.ts`).
+  - Banner superior para eventos de todo el día (`All-Day Banner`), mini-calendario lateral interactivo, vista anual (`Year`), vista de lista de tareas (`Tasks`) e integración de `Streaks` activos en las celdas del calendario.
+  - Filtrado inteligente de tarjetas de `Tableros` por categoría y etiquetas reales (`filterBoardCardsByCategory`).
+
+### 🛡️ Seguridad, Higiene Arquitectónica y Calidad de Código
+- **Eliminación de Código Legado y Endurecimiento de Seguridad**:
+  - Eliminación definitiva de restos de la integración legada con `Planka` (`planka-view.ts`, handlers IPC y secuestro de URLs `/boards/` en `link-preview-service.ts`) y del controlador `OidcController` inseguro.
+  - Eliminación completa del subsistema experimental `Anx-Remix` / `Library` para mantener el núcleo 100% enfocado en productividad, documentos, tableros, matemáticas e IA local (documentado en `docs/retrospectives/2026-11-02-la-derrota-de-anx-remix.md`).
+  - Endurecimiento de diagramas Mermaid con `securityLevel: 'strict'` y ciclo de vida seguro con `useEffect` para apertura/liberación de documentos en `Reportes Semanales`.
+  - **Cero errores de linter (`oxlint`)** en los 90 archivos de los módulos personalizados y **62/62 pruebas unitarias en verde (`vitest`)**.
+
+---
+
 ## [v0.29.0] - 2026-10-18
 
 ### 📦 Native Flatpak Distribution & Flathub Ready

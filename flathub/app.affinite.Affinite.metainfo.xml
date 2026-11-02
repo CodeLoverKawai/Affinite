@@ -54,6 +54,11 @@
   </recommends>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.30.0" date="2026-11-02">
+      <description>
+        <p>Release v0.30.0: Full AFFiNE Design System unification (Vanilla Extract .css.ts + cssVarV2 tokens with native Light and Dark mode across Boards, Calendar, Habits, Streaks, Weekly Reports, Journals, and AI Hub), Streaks and Countdowns with Web Audio API harmonic chime and exact pause/resume shifting, interactive Habit Card editor block (&lt;affine-habit-preview&gt;) with live Yjs sync, Calendar v2 with visual time-blocking and annual/tasks views, and removal of legacy Planka/OIDC and Anx-Remix subsystems.</p>
+      </description>
+    </release>
     <release version="0.29.0" date="2026-10-18">
       <description>
         <p>Release v0.29.0: Native Flatpak bundle, offline SQLite blob mirror, single-renderer lightweight tabs, Linux Wayland GPU acceleration and Hyprland blank screen fix, Mermaid Pro Suite, ISO Weekly Notes, Weekly Reports Hub, supercharged Calendar Planner, Habits tracking suite with date sync, and zero-API-key Google Antigravity and Ollama AI integration.</p>
