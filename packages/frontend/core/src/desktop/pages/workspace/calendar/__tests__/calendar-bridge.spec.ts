@@ -3,6 +3,7 @@ import {
   CalendarBridgeError,
   unwrapGoogleResult,
   unwrapIcsResult,
+  withTokenRefresh,
 } from '../calendar-bridge';
 
 describe('calendar-bridge', () => {
@@ -30,5 +31,41 @@ describe('calendar-bridge', () => {
       expect(e).toBeInstanceOf(CalendarBridgeError);
       expect((e as CalendarBridgeError).status).toBe(401);
     }
+  });
+  test('withTokenRefresh reintenta una vez tras 401 con token nuevo', async () => {
+    const calls: string[] = [];
+    const result = await withTokenRefresh({
+      token: 'old',
+      request: async t => {
+        calls.push(t);
+        if (t === 'old') throw new CalendarBridgeError('x', 401);
+        return { ok: true };
+      },
+      refresh: async () => 'new',
+    });
+    expect(calls).toEqual(['old', 'new']);
+    expect(result).toEqual({ ok: true });
+  });
+  test('withTokenRefresh no reintenta errores != 401', async () => {
+    await expect(
+      withTokenRefresh({
+        token: 'old',
+        request: async () => {
+          throw new CalendarBridgeError('x', 500);
+        },
+        refresh: async () => 'new',
+      })
+    ).rejects.toThrow('x');
+  });
+  test('withTokenRefresh propaga error original si refresh retorna null', async () => {
+    await expect(
+      withTokenRefresh({
+        token: 'old',
+        request: async () => {
+          throw new CalendarBridgeError('unauthorized', 401);
+        },
+        refresh: async () => null,
+      })
+    ).rejects.toThrow('unauthorized');
   });
 });

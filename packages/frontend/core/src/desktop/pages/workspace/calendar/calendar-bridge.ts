@@ -26,3 +26,18 @@ export function unwrapGoogleResult(result: unknown): Record<string, unknown> {
   }
   return r as Record<string, unknown>;
 }
+
+export async function withTokenRefresh<T>(opts: {
+  token: string;
+  request: (token: string) => Promise<T>;
+  refresh: () => Promise<string | null>;
+}): Promise<T> {
+  try {
+    return await opts.request(opts.token);
+  } catch (e) {
+    if (!(e instanceof CalendarBridgeError) || e.status !== 401) throw e;
+    const fresh = await opts.refresh();
+    if (!fresh) throw e;
+    return opts.request(fresh);
+  }
+}

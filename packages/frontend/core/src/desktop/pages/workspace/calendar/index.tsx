@@ -29,8 +29,10 @@ import { WorkspaceService } from '../../../../modules/workspace';
 import { playStreakCompletionSound } from '../streaks/streaks-sound';
 import * as styles from './calendar.css';
 import {
+  CalendarBridgeError,
   unwrapGoogleResult,
   unwrapIcsResult,
+  withTokenRefresh,
 } from './calendar-bridge';
 import {
   buildGoogleCalendarTemplateUrl,
@@ -94,6 +96,16 @@ interface AffiniteCalendarBridge {
     accessToken: string;
     body?: Record<string, unknown>;
   }) => Promise<unknown>;
+  refreshGoogleAccessToken?: (params: {
+    clientId: string;
+    clientSecret?: string;
+    refreshToken: string;
+  }) => Promise<{
+    ok: boolean;
+    accessToken?: string;
+    expiresIn?: number;
+    error?: string;
+  }>;
 }
 
 function getCalendarBridge(): AffiniteCalendarBridge | undefined {
@@ -1664,6 +1676,30 @@ export const Component = () => {
   }, [calendarLayers, syncIcsLayerFeed]);
 
   // Google Calendar API Bidirectional Sync Handlers
+  const refreshGoogleToken = useCallback(async (): Promise<string | null> => {
+    const bridge = getCalendarBridge();
+    const clientId = googleConfig.clientId?.trim();
+    const refreshToken = googleConfig.refreshToken?.trim();
+    const clientSecret = googleConfig.clientSecret?.trim();
+    if (bridge?.refreshGoogleAccessToken && clientId && refreshToken) {
+      const res = await bridge.refreshGoogleAccessToken({
+        clientId,
+        clientSecret: clientSecret || undefined,
+        refreshToken,
+      });
+      if (res.ok && res.accessToken) {
+        const freshToken = res.accessToken;
+        setGoogleConfig(prev => ({ ...prev, accessToken: freshToken }));
+        saveGoogleConfigToYjs({
+          ...googleConfig,
+          accessToken: freshToken,
+        });
+        return freshToken;
+      }
+    }
+    return null;
+  }, [googleConfig, saveGoogleConfigToYjs]);
+
   const handleGoogleApiPull = useCallback(async () => {
     const token = googleConfig.accessToken?.trim();
     if (!token) {
@@ -1677,27 +1713,34 @@ export const Component = () => {
       saveGoogleConfigToYjs(googleConfig);
       const endpoint = `/calendars/${encodeURIComponent(calId)}/events?singleEvents=false&maxResults=250`;
       const bridge = getCalendarBridge();
-      let data: Record<string, unknown>;
-      if (bridge?.googleApiRequest) {
-        data = unwrapGoogleResult(
-          await bridge.googleApiRequest({
-            method: 'GET',
-            endpoint,
-            accessToken: token,
-          })
-        );
-      } else {
-        const resp = await fetch(
-          `https://www.googleapis.com/calendar/v3${endpoint}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
+      const data = await withTokenRefresh({
+        token,
+        request: async activeToken => {
+          if (bridge?.googleApiRequest) {
+            return unwrapGoogleResult(
+              await bridge.googleApiRequest({
+                method: 'GET',
+                endpoint,
+                accessToken: activeToken,
+              })
+            );
           }
-        );
-        if (!resp.ok) {
-          throw new Error(`Google API HTTP ${resp.status}`);
-        }
-        data = (await resp.json()) as Record<string, unknown>;
-      }
+          const resp = await fetch(
+            `https://www.googleapis.com/calendar/v3${endpoint}`,
+            {
+              headers: { Authorization: `Bearer ${activeToken}` },
+            }
+          );
+          if (!resp.ok) {
+            throw new CalendarBridgeError(
+              `Google API HTTP ${resp.status}`,
+              resp.status
+            );
+          }
+          return (await resp.json()) as Record<string, unknown>;
+        },
+        refresh: refreshGoogleToken,
+      });
 
       const layerId = 'cal-google-api';
       const layerColor = '#3b82f6';
@@ -1751,6 +1794,7 @@ export const Component = () => {
   }, [
     calendarLayers,
     googleConfig,
+    refreshGoogleToken,
     saveCalendarsToYjs,
     saveGoogleConfigToYjs,
     saveTasksToYjs,
@@ -1781,35 +1825,51 @@ export const Component = () => {
       let pushedCount = 0;
       let failedCount = 0;
       let lastErrorMessage = '';
+      let activeToken = token;
 
       for (const localTask of localTasks) {
         try {
           const body = mapCalendarTaskToGoogleApiEvent(localTask);
-          if (bridge?.googleApiRequest) {
-            unwrapGoogleResult(
-              await bridge.googleApiRequest({
-                method: 'POST',
-                endpoint,
-                accessToken: token,
-                body,
-              })
-            );
-          } else {
-            const resp = await fetch(
-              `https://www.googleapis.com/calendar/v3${endpoint}`,
-              {
-                method: 'POST',
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(body),
+          await withTokenRefresh({
+            token: activeToken,
+            request: async t => {
+              if (bridge?.googleApiRequest) {
+                return unwrapGoogleResult(
+                  await bridge.googleApiRequest({
+                    method: 'POST',
+                    endpoint,
+                    accessToken: t,
+                    body,
+                  })
+                );
               }
-            );
-            if (!resp.ok) {
-              throw new Error(`Google API HTTP ${resp.status}`);
-            }
-          }
+              const resp = await fetch(
+                `https://www.googleapis.com/calendar/v3${endpoint}`,
+                {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Bearer ${t}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(body),
+                }
+              );
+              if (!resp.ok) {
+                throw new CalendarBridgeError(
+                  `Google API HTTP ${resp.status}`,
+                  resp.status
+                );
+              }
+              return (await resp.json()) as Record<string, unknown>;
+            },
+            refresh: async () => {
+              const freshToken = await refreshGoogleToken();
+              if (freshToken) {
+                activeToken = freshToken;
+              }
+              return freshToken;
+            },
+          });
           pushedCount++;
         } catch (pushErr) {
           failedCount++;
@@ -1836,7 +1896,7 @@ export const Component = () => {
     } finally {
       setIsSyncing(false);
     }
-  }, [googleConfig, saveGoogleConfigToYjs, tasks]);
+  }, [googleConfig, refreshGoogleToken, saveGoogleConfigToYjs, tasks]);
 
   // .ics File Import Handler
   const handleImportIcsFile = useCallback(
@@ -4175,28 +4235,29 @@ export const Component = () => {
                   />
                 </div>
 
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel}>
+                    Google OAuth 2.0 Refresh Token
+                  </label>
+                  <input
+                    type="password"
+                    value={googleConfig.refreshToken || ''}
+                    onChange={e =>
+                      setGoogleConfig(prev => ({
+                        ...prev,
+                        refreshToken: e.target.value,
+                      }))
+                    }
+                    onBlur={() => saveGoogleConfigToYjs(googleConfig)}
+                    placeholder="1//04..."
+                    className={styles.formInput}
+                  />
+                </div>
+
                 <div className={styles.formRow}>
                   <div className={styles.formGroup}>
                     <label className={styles.formLabel}>
-                      Calendar ID (por defecto: primary)
-                    </label>
-                    <input
-                      type="text"
-                      value={googleConfig.calendarId || 'primary'}
-                      onChange={e =>
-                        setGoogleConfig(prev => ({
-                          ...prev,
-                          calendarId: e.target.value,
-                        }))
-                      }
-                      onBlur={() => saveGoogleConfigToYjs(googleConfig)}
-                      placeholder="primary o tu-correo@gmail.com"
-                      className={styles.formInput}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label className={styles.formLabel}>
-                      Client ID (opcional OAuth Desktop)
+                      Client ID (OAuth Desktop)
                     </label>
                     <input
                       type="text"
@@ -4212,6 +4273,43 @@ export const Component = () => {
                       className={styles.formInput}
                     />
                   </div>
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>
+                      Client Secret (OAuth Desktop)
+                    </label>
+                    <input
+                      type="password"
+                      value={googleConfig.clientSecret || ''}
+                      onChange={e =>
+                        setGoogleConfig(prev => ({
+                          ...prev,
+                          clientSecret: e.target.value,
+                        }))
+                      }
+                      onBlur={() => saveGoogleConfigToYjs(googleConfig)}
+                      placeholder="GOCSPX-..."
+                      className={styles.formInput}
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel}>
+                    Calendar ID (por defecto: primary)
+                  </label>
+                  <input
+                    type="text"
+                    value={googleConfig.calendarId || 'primary'}
+                    onChange={e =>
+                      setGoogleConfig(prev => ({
+                        ...prev,
+                        calendarId: e.target.value,
+                      }))
+                    }
+                    onBlur={() => saveGoogleConfigToYjs(googleConfig)}
+                    placeholder="primary o tu-correo@gmail.com"
+                    className={styles.formInput}
+                  />
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
