@@ -8,19 +8,8 @@ import {
   LibraryBookmark,
   LibraryHighlight,
 } from '../library-manager';
-
-export function isBookmarkedAtCfi(
-  bookmarks: LibraryBookmark[],
-  currentCfi?: string | null
-): boolean {
-  if (!currentCfi || !bookmarks || bookmarks.length === 0) return false;
-  const cleanCurrent = currentCfi.split(',')[0].replace(/^epubcfi\(|\)$/g, '');
-  return bookmarks.some(b => {
-    if (b.cfi === currentCfi) return true;
-    const cleanB = b.cfi.split(',')[0].replace(/^epubcfi\(|\)$/g, '');
-    return cleanB === cleanCurrent;
-  });
-}
+import { isBookmarkedAtCfi, cleanCfi } from '../library-reader';
+import { AnxWebNote } from '../diagnostic-logger';
 
 export function toggleBookmarkAtCfi(
   bookmarks: LibraryBookmark[],
@@ -31,9 +20,7 @@ export function toggleBookmarkAtCfi(
 ): { updatedBookmarks: LibraryBookmark[]; isNowBookmarked: boolean } {
   const existing = bookmarks.find(b => {
     if (b.cfi === cfi) return true;
-    const cleanB = b.cfi.split(',')[0].replace(/^epubcfi\(|\)$/g, '');
-    const cleanCfi = cfi.split(',')[0].replace(/^epubcfi\(|\)$/g, '');
-    return cleanB === cleanCfi;
+    return cleanCfi(b.cfi) === cleanCfi(cfi);
   });
 
   if (existing) {
@@ -50,17 +37,35 @@ export function toggleBookmarkAtCfi(
 }
 
 describe('Library Reader Integration Suite', () => {
-  const mockBookId = 'book-123';
+  const mockBookId = '1';
   const cfiChapter1 = 'epubcfi(/6/14!/4/2/4)';
   const cfiChapter2 = 'epubcfi(/6/16!/4/2/8)';
 
-  it('correctly detects when a page has an active bookmark', () => {
-    let bookmarks: LibraryBookmark[] = [];
-    expect(isBookmarkedAtCfi(bookmarks, cfiChapter1)).toBe(false);
+  it('correctly cleans CFI strings across different formats', () => {
+    expect(cleanCfi('epubcfi(/6/14!/4/2/4)')).toBe('/6/14!/4/2/4');
+    expect(cleanCfi('epubcfi(/6/14!/4/2/4,/1:0,/1:10)')).toBe('/6/14!/4/2/4');
+  });
 
-    bookmarks = addBookmark(bookmarks, mockBookId, cfiChapter1, 0.25, 'Capítulo 1');
-    expect(isBookmarkedAtCfi(bookmarks, cfiChapter1)).toBe(true);
-    expect(isBookmarkedAtCfi(bookmarks, cfiChapter2)).toBe(false);
+  it('correctly detects when a page has an active bookmark in AnxWebNotes', () => {
+    let notes: AnxWebNote[] = [];
+    expect(isBookmarkedAtCfi(notes, mockBookId, cfiChapter1)).toBe(false);
+
+    notes = [
+      {
+        id: 1,
+        bookId: 1,
+        content: 'Marcador 1',
+        cfi: cfiChapter1,
+        chapter: 'Capítulo 1',
+        type: 'bookmark',
+        color: '#F59E0B',
+        createTime: new Date().toISOString(),
+        updateTime: new Date().toISOString(),
+      },
+    ];
+
+    expect(isBookmarkedAtCfi(notes, mockBookId, cfiChapter1)).toBe(true);
+    expect(isBookmarkedAtCfi(notes, mockBookId, cfiChapter2)).toBe(false);
   });
 
   it('toggles bookmark on and off cleanly without duplicates', () => {
