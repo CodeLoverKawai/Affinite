@@ -5,6 +5,10 @@ import {
   calculateStreak,
   calculateWeeklyConsistency,
   isHabitDoneOnDate,
+  LEGACY_HABIT_ID_MAP,
+  parseHabitsPayload,
+  resolveHabitById,
+  type HabitItem,
 } from '../habits-calculator';
 
 describe('Habits Calculator', () => {
@@ -113,9 +117,73 @@ describe('Habits Calculator', () => {
     });
   });
 
+  describe('parseHabitsPayload & Legacy ID Migration', () => {
+    it('should parse both JSON string and direct Array payloads while normalizing legacy IDs', () => {
+      const rawArray = [
+        {
+          id: 'h-read',
+          title: 'Lectura 20 Páginas',
+          icon: '📚',
+          category: 'Estudio',
+          type: 'quantitative',
+          targetValue: 20,
+          unit: 'págs',
+          entries: { '2026-10-15': 20 },
+        },
+        {
+          id: 'h-water',
+          title: 'Tomar 2L de Agua',
+          icon: '💧',
+          category: 'Salud',
+          type: 'quantitative',
+          targetValue: 2000,
+          unit: 'ml',
+          entries: { '2026-10-15': 2000 },
+        },
+      ];
+
+      const fromArray = parseHabitsPayload(rawArray);
+      expect(fromArray).not.toBeNull();
+      expect(fromArray?.[0].id).toBe('habit-reading');
+      expect(fromArray?.[1].id).toBe('habit-water');
+
+      const fromJsonString = parseHabitsPayload(JSON.stringify(rawArray));
+      expect(fromJsonString).toEqual(fromArray);
+
+      expect(parseHabitsPayload(null)).toBeNull();
+      expect(parseHabitsPayload(undefined)).toBeNull();
+      expect(parseHabitsPayload('invalid-json')).toBeNull();
+      expect(parseHabitsPayload({ notAnArray: true })).toBeNull();
+    });
+
+    it('should resolve habits across legacy and canonical IDs via resolveHabitById', () => {
+      expect(LEGACY_HABIT_ID_MAP['h-water']).toBe('habit-water');
+      expect(LEGACY_HABIT_ID_MAP['h-exercise']).toBe('habit-exercise');
+      expect(LEGACY_HABIT_ID_MAP['h-read']).toBe('habit-reading');
+      expect(LEGACY_HABIT_ID_MAP['h-meditate']).toBe('habit-meditation');
+      expect(LEGACY_HABIT_ID_MAP['h-code']).toBe('habit-code');
+
+      const habits: HabitItem[] = [
+        {
+          id: 'habit-reading',
+          title: 'Lectura 20 Páginas',
+          icon: '📚',
+          category: 'Estudio',
+          type: 'quantitative',
+          targetValue: 20,
+          unit: 'págs',
+          entries: {},
+        },
+      ];
+
+      expect(resolveHabitById(habits, 'h-read')?.id).toBe('habit-reading');
+      expect(resolveHabitById(habits, 'habit-reading')?.id).toBe('habit-reading');
+    });
+  });
+
   describe('Slash Menu Habits Integration', () => {
     it('should return default habits when cache is empty', async () => {
-      const { getCachedHabits, DEFAULT_SLASH_HABITS } = await import(
+      const { getCachedHabits } = await import(
         '@blocksuite/affine-widget-slash-menu'
       );
       const habits = getCachedHabits();

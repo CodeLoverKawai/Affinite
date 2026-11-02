@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateDragTimeRange,
   computeEventPosition,
+  doesBoardCardMatchCategory,
+  filterBoardCardsByCategory,
   formatEventTimeRange,
   isEventAllDay,
 } from '../calendar-timeblock-helpers';
@@ -44,5 +46,33 @@ describe('Calendar Time-Block Helpers (Google Calendar Style)', () => {
     const reverseRange = calculateDragTimeRange(210, 120, 6, 60);
     expect(reverseRange.startTime).toBe('08:00');
     expect(reverseRange.endTime).toBe('09:30');
+  });
+
+  it('filters board cards by category or labels without wiping non-Trabajo categories', () => {
+    const sampleCards = [
+      { id: '1', title: 'Uncategorized work card', labels: [] },
+      { id: '2', title: 'Study exam card', category: 'Estudio', labels: ['Urgente'] },
+      { id: '3', title: 'Personal errand', labels: ['Personal'] },
+      { id: '4', title: 'Health checkup', category: 'Salud' },
+    ];
+
+    expect(filterBoardCardsByCategory(sampleCards, 'Todas')).toHaveLength(4);
+    expect(
+      filterBoardCardsByCategory(sampleCards, 'Trabajo').map(c => c.id)
+    ).toEqual(['1']);
+    expect(
+      filterBoardCardsByCategory(sampleCards, 'Estudio').map(c => c.id)
+    ).toEqual(['2']);
+    expect(
+      filterBoardCardsByCategory(sampleCards, 'Urgente').map(c => c.id)
+    ).toEqual(['2']);
+    expect(
+      filterBoardCardsByCategory(sampleCards, 'Personal').map(c => c.id)
+    ).toEqual(['3']);
+    expect(
+      filterBoardCardsByCategory(sampleCards, 'Salud').map(c => c.id)
+    ).toEqual(['4']);
+    expect(doesBoardCardMatchCategory({ labels: [] }, 'Trabajo')).toBe(true);
+    expect(doesBoardCardMatchCategory({ labels: [] }, 'Estudio')).toBe(false);
   });
 });

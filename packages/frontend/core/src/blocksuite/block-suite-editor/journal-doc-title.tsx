@@ -49,7 +49,7 @@ export const BlocksuiteEditorJournalDocTitleUI = ({
             {rangeLabel}
           </span>
         ) : (
-          <span className={styles.titleDayTag}>{rangeLabel}</span>
+          <span className={styles.titleWeeklySubtitle}>{rangeLabel}</span>
         )}
       </div>
     );

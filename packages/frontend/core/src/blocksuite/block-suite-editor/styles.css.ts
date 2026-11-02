@@ -61,6 +61,15 @@ export const titleTodayTag = style([
     color: cssVar('brandColor'),
   },
 ]);
+export const titleWeeklySubtitle = style([
+  titleTagBasic,
+  {
+    fontSize: cssVar('fontSm'),
+    fontWeight: 500,
+    color: cssVar('textSecondaryColor'),
+    marginLeft: '8px',
+  },
+]);
 export const pageReferenceIcon = style({
   verticalAlign: 'middle',
   fontSize: '1.1em',

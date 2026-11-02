@@ -9,12 +9,16 @@ import { SubscriptionPlan } from '@affine/graphql';
 import { useI18n } from '@affine/i18n';
 import { track } from '@affine/track';
 import { useLiveData, useService } from '@toeverything/infra';
-import { cssVar } from '@toeverything/theme';
 import { useCallback, useEffect } from 'react';
 
-import { AIModelSelector } from './ai-model-selector';
 import { AIResume, AISubscribe } from '../general-setting/plans/ai/actions';
 import type { SettingState } from '../types';
+import {
+  AIModelSelector,
+  isZeroKeyProvider,
+  loadAISettings,
+} from './ai-model-selector';
+import * as aiStyles from './ai-model-selector.css';
 import * as styles from './storage-progress.css';
 
 export const AIUsagePanel = ({
@@ -54,27 +58,36 @@ export const AIUsagePanel = ({
     track.$.settingsPanel.accountUsage.viewPlans({ plan: SubscriptionPlan.AI });
   }, [onChangeSettingState]);
 
+  const savedAiSettings = loadAISettings();
+  const zeroKeyActive = isZeroKeyProvider(savedAiSettings.provider);
+
   if (loading) {
     if (loadError) {
       return (
+        <>
+          <SettingRow
+            name={t['com.affine.payment.ai.usage-title']()}
+            desc={''}
+            spreadCol={false}
+          >
+            {/* TODO(@catsjuice): i18n */}
+            <ErrorMessage>Load error</ErrorMessage>
+          </SettingRow>
+          <AIModelSelector />
+        </>
+      );
+    }
+    return (
+      <>
         <SettingRow
           name={t['com.affine.payment.ai.usage-title']()}
           desc={''}
           spreadCol={false}
         >
-          {/* TODO(@catsjuice): i18n */}
-          <ErrorMessage>Load error</ErrorMessage>
+          <Skeleton height={42} />
         </SettingRow>
-      );
-    }
-    return (
-      <SettingRow
-        name={t['com.affine.payment.ai.usage-title']()}
-        desc={''}
-        spreadCol={false}
-      >
-        <Skeleton height={42} />
-      </SettingRow>
+        <AIModelSelector />
+      </>
     );
   }
 
@@ -88,8 +101,6 @@ export const AIUsagePanel = ({
             Number(((copilotActionUsed / copilotActionLimit) * 100).toFixed(4))
           )
         );
-
-  const color = percent > 80 ? cssVar('errorColor') : cssVar('processingColor');
 
   return (
     <>
@@ -125,9 +136,10 @@ export const AIUsagePanel = ({
 
               <div className="storage-progress-bar-wrapper">
                 <div
-                  className={styles.storageProgressBar}
-                  style={{ width: `${percent}%`, backgroundColor: color }}
-                ></div>
+                  className={`${styles.storageProgressBar} ${aiStyles.usageProgressBarFill}`}
+                  data-high={percent > 80}
+                  style={{ width: `${percent}%` }}
+                />
               </div>
             </div>
 
@@ -139,6 +151,26 @@ export const AIUsagePanel = ({
           </div>
         )}
       </SettingRow>
+      <div className={aiStyles.usageStatCard}>
+        <div className={aiStyles.usageStatItem}>
+          <span className={aiStyles.usageStatLabel}>Proveedor Activo</span>
+          <span className={aiStyles.usageStatValue}>
+            {savedAiSettings.provider}
+          </span>
+        </div>
+        <div className={aiStyles.usageStatItem}>
+          <span className={aiStyles.usageStatLabel}>Modelo</span>
+          <span className={aiStyles.usageStatValue}>
+            {savedAiSettings.modelId}
+          </span>
+        </div>
+        <div className={aiStyles.usageStatItem}>
+          <span className={aiStyles.usageStatLabel}>Modo</span>
+          <span className={aiStyles.usageStatValue}>
+            {zeroKeyActive ? 'Zero-Key Local' : 'API Key'}
+          </span>
+        </div>
+      </div>
       <AIModelSelector />
     </>
   );

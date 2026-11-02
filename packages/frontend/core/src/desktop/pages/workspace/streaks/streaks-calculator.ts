@@ -16,6 +16,7 @@ export interface StreakItem {
   category?: string;
   status: StreakStatus;
   completedAt?: string;
+  pausedAt?: string;
   soundPlayed?: boolean;
   notes?: string;
 }
@@ -36,11 +37,52 @@ export interface StreakProgress {
   isCompleted: boolean;
 }
 
+export function toggleStreakPause(
+  streak: StreakItem,
+  nowInput?: Date
+): StreakItem {
+  const now = nowInput ?? new Date();
+  if (streak.status === 'running') {
+    return {
+      ...streak,
+      status: 'paused',
+      pausedAt: now.toISOString(),
+    };
+  }
+
+  if (streak.status === 'paused') {
+    const pauseTime = streak.pausedAt
+      ? new Date(streak.pausedAt).getTime()
+      : now.getTime();
+    const pausedDurationMs = Math.max(0, now.getTime() - pauseTime);
+    const nextStart = new Date(
+      new Date(streak.startDateTime).getTime() + pausedDurationMs
+    ).toISOString();
+    const nextTarget = new Date(
+      new Date(streak.targetDateTime).getTime() + pausedDurationMs
+    ).toISOString();
+
+    return {
+      ...streak,
+      startDateTime: nextStart,
+      targetDateTime: nextTarget,
+      status: 'running',
+      pausedAt: undefined,
+    };
+  }
+
+  return streak;
+}
+
 export function calculateStreakProgress(
   streak: StreakItem,
   nowInput?: Date
 ): StreakProgress {
-  const now = nowInput ? nowInput.getTime() : Date.now();
+  const rawNow = nowInput ? nowInput.getTime() : Date.now();
+  const now =
+    streak.status === 'paused' && streak.pausedAt
+      ? new Date(streak.pausedAt).getTime()
+      : rawNow;
   const start = new Date(streak.startDateTime).getTime();
   const target = new Date(streak.targetDateTime).getTime();
 
@@ -50,7 +92,9 @@ export function calculateStreakProgress(
 
   const rawPercent = (elapsedMs / totalMs) * 100;
   const progressPercent = Math.min(100, Math.max(0, Math.round(rawPercent)));
-  const isCompleted = now >= target || streak.status === 'completed';
+  const isCompleted =
+    streak.status === 'completed' ||
+    (streak.status !== 'paused' && now >= target);
 
   const MS_PER_SEC = 1000;
   const MS_PER_MIN = 60 * MS_PER_SEC;

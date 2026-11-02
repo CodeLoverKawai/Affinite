@@ -3,6 +3,7 @@ import {
   calculateStreakProgress,
   formatTimeRemaining,
   type StreakItem,
+  toggleStreakPause,
 } from '../streaks-calculator';
 
 describe('Streaks Calculator & Timer Engine', () => {
@@ -85,5 +86,70 @@ describe('Streaks Calculator & Timer Engine', () => {
     expect(formatTimeRemaining(ms2, 'hours')).toBe('8h 45m 10s');
 
     expect(formatTimeRemaining(0, 'days')).toBe('¡Meta completada! 🎉');
+  });
+
+  it('freezes elapsedMs and remainingMs at pausedAt while streak is paused', () => {
+    const baseStreak: StreakItem = {
+      id: 's-pause',
+      title: 'Deep Work 10h',
+      mode: 'hours',
+      targetCount: 10,
+      startDateTime: '2026-10-20T00:00:00.000Z',
+      targetDateTime: '2026-10-20T10:00:00.000Z',
+      soundEnabled: true,
+      notificationEnabled: true,
+      color: '#f59e0b',
+      icon: '🔥',
+      status: 'running',
+    };
+
+    const tPause = new Date('2026-10-20T04:00:00.000Z'); // 4 hours in (40%)
+    const pausedStreak = toggleStreakPause(baseStreak, tPause);
+
+    expect(pausedStreak.status).toBe('paused');
+    expect(pausedStreak.pausedAt).toBe(tPause.toISOString());
+
+    // Check 5 hours later while still paused (even past original target or close to it)
+    const tLater = new Date('2026-10-20T09:00:00.000Z');
+    const progressWhilePaused = calculateStreakProgress(pausedStreak, tLater);
+
+    expect(progressWhilePaused.elapsedHours).toBe(4);
+    expect(progressWhilePaused.remainingHours).toBe(6);
+    expect(progressWhilePaused.progressPercent).toBe(40);
+    expect(progressWhilePaused.isCompleted).toBe(false);
+  });
+
+  it('shifts startDateTime and targetDateTime forward by paused duration when resumed', () => {
+    const baseStreak: StreakItem = {
+      id: 's-resume',
+      title: 'Deep Work 10h',
+      mode: 'hours',
+      targetCount: 10,
+      startDateTime: '2026-10-20T00:00:00.000Z',
+      targetDateTime: '2026-10-20T10:00:00.000Z',
+      soundEnabled: true,
+      notificationEnabled: true,
+      color: '#f59e0b',
+      icon: '🔥',
+      status: 'running',
+    };
+
+    const tPause = new Date('2026-10-20T04:00:00.000Z');
+    const pausedStreak = toggleStreakPause(baseStreak, tPause);
+
+    // Resume 2 hours later at 06:00
+    const tResume = new Date('2026-10-20T06:00:00.000Z');
+    const resumedStreak = toggleStreakPause(pausedStreak, tResume);
+
+    expect(resumedStreak.status).toBe('running');
+    expect(resumedStreak.pausedAt).toBeUndefined();
+    expect(resumedStreak.startDateTime).toBe('2026-10-20T02:00:00.000Z');
+    expect(resumedStreak.targetDateTime).toBe('2026-10-20T12:00:00.000Z');
+
+    // Progress right at resume should still be 4h elapsed / 6h remaining (40%)
+    const progressAtResume = calculateStreakProgress(resumedStreak, tResume);
+    expect(progressAtResume.elapsedHours).toBe(4);
+    expect(progressAtResume.remainingHours).toBe(6);
+    expect(progressAtResume.progressPercent).toBe(40);
   });
 });

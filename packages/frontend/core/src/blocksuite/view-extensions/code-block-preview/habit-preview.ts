@@ -7,7 +7,6 @@ import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import { css, html, nothing, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import { styleMap } from 'lit/directives/style-map.js';
 
 import {
   getHabitWeekDaysStatus,
@@ -19,10 +18,72 @@ import {
 import {
   calculateStreak,
   isHabitDoneOnDate,
+  normalizeHabitId,
+  parseHabitsPayload,
+  resolveHabitById,
   type HabitItem,
 } from '../../../desktop/pages/workspace/habits/habits-calculator';
 
 dayjs.extend(isoWeek);
+
+const HABITS_YMAP_KEY = 'affinite_habits_v1';
+
+export const DEFAULT_HABITS: HabitItem[] = [
+  {
+    id: 'habit-water',
+    title: 'Tomar 2L de Agua',
+    icon: '💧',
+    category: 'Salud',
+    type: 'quantitative',
+    targetValue: 2000,
+    unit: 'ml',
+    frequency: 'daily',
+    createdAt: '2026-10-01',
+    entries: {},
+  },
+  {
+    id: 'habit-exercise',
+    title: 'Ejercicio / Caminata 30 min',
+    icon: '🏃',
+    category: 'Fitness',
+    type: 'boolean',
+    frequency: 'daily',
+    createdAt: '2026-10-01',
+    entries: {},
+  },
+  {
+    id: 'habit-reading',
+    title: 'Lectura 20 Páginas',
+    icon: '📚',
+    category: 'Estudio',
+    type: 'quantitative',
+    targetValue: 20,
+    unit: 'págs',
+    frequency: 'daily',
+    createdAt: '2026-10-01',
+    entries: {},
+  },
+  {
+    id: 'habit-meditation',
+    title: 'Meditación & Respiración',
+    icon: '🧘',
+    category: 'Mente',
+    type: 'boolean',
+    frequency: 'daily',
+    createdAt: '2026-10-01',
+    entries: {},
+  },
+  {
+    id: 'habit-code',
+    title: 'Progreso en Código / Proyecto',
+    icon: '💻',
+    category: 'Productividad',
+    type: 'boolean',
+    frequency: 'daily',
+    createdAt: '2026-10-01',
+    entries: {},
+  },
+];
 
 export const CodeBlockHabitPreview = CodeBlockPreviewExtension(
   'habit',
@@ -266,6 +327,16 @@ export class HabitPreview extends SignalWatcher(
   override connectedCallback() {
     super.connectedCallback();
     this._parseData();
+    try {
+      const yMap = this.getYMap();
+      if (yMap && typeof yMap.observe === 'function') {
+        const observer = () => this.requestUpdate();
+        yMap.observe(observer);
+        this.disposables.add(() => yMap.unobserve(observer));
+      }
+    } catch {
+      // Ignore observer error
+    }
   }
 
   override willUpdate(changedProperties: PropertyValues) {
@@ -279,90 +350,41 @@ export class HabitPreview extends SignalWatcher(
     this._cardData = parseHabitCardData(raw, dayjs().format('YYYY-MM-DD'));
   }
 
+  private getYMap() {
+    return (
+      (this.model as any)?.store?.spaceDoc?.getMap(HABITS_YMAP_KEY) ??
+      (this.model as any)?.store?.workspace?.doc?.getMap(HABITS_YMAP_KEY) ??
+      (this.model as any)?.doc?.docCollection?.doc?.getMap(HABITS_YMAP_KEY) ??
+      (this.model as any)?.store?.doc?.rootDoc?.getMap(HABITS_YMAP_KEY) ??
+      null
+    );
+  }
+
   private _getWorkspaceHabits(): HabitItem[] {
     try {
-      const doc = this.model?.doc;
-      if (doc) {
-        const yMap = doc.docCollection?.doc?.getMap('affinite_habits_v1');
-        if (yMap && yMap.has('habits')) {
-          const list = yMap.get('habits') as HabitItem[];
-          if (Array.isArray(list) && list.length > 0) {
-            return list;
-          }
+      const yMap = this.getYMap();
+      if (yMap && yMap.has('habits')) {
+        const parsed = parseHabitsPayload(yMap.get('habits'));
+        if (parsed && parsed.length > 0) {
+          return parsed;
         }
       }
     } catch {
       // Fall through
     }
 
-    // Default built-in habits
-    return [
-      {
-        id: 'h-read',
-        title: 'Lectura Diaria (30 min)',
-        icon: '📚',
-        category: 'Mente',
-        type: 'boolean',
-        frequency: 'daily',
-        createdAt: '2026-10-01',
-        entries: {},
-      },
-      {
-        id: 'h-exercise',
-        title: 'Ejercicio / Deporte',
-        icon: '🏃',
-        category: 'Salud',
-        type: 'boolean',
-        frequency: 'daily',
-        createdAt: '2026-10-01',
-        entries: {},
-      },
-      {
-        id: 'h-water',
-        title: 'Beber 2.5L de Agua',
-        icon: '💧',
-        category: 'Salud',
-        type: 'quantitative',
-        targetValue: 2.5,
-        unit: 'L',
-        frequency: 'daily',
-        createdAt: '2026-10-01',
-        entries: {},
-      },
-      {
-        id: 'h-meditate',
-        title: 'Meditación (10 min)',
-        icon: '🧘',
-        category: 'Mente',
-        type: 'boolean',
-        frequency: 'daily',
-        createdAt: '2026-10-01',
-        entries: {},
-      },
-      {
-        id: 'h-code',
-        title: 'Programación & Proyectos',
-        icon: '💻',
-        category: 'Productividad',
-        type: 'boolean',
-        frequency: 'daily',
-        createdAt: '2026-10-01',
-        entries: {},
-      },
-    ];
+    return DEFAULT_HABITS.map(h => ({ ...h, entries: { ...h.entries } }));
   }
 
-  private _getActiveHabit(): HabitItem {
+  private loadHabit(): HabitItem {
     const allHabits = this._getWorkspaceHabits();
     const data = this._cardData;
-    const found = allHabits.find(
-      h => h.id === data?.habitId || h.title.toLowerCase() === data?.title.toLowerCase()
-    );
+    const found = resolveHabitById(allHabits, data?.habitId, data?.title);
 
     if (found) return found;
 
     return {
-      id: data?.habitId || 'h-custom',
+      id: normalizeHabitId(data?.habitId || 'habit-custom'),
       title: data?.title || 'Mi Hábito',
       icon: data?.icon || '🎯',
       category: data?.category || 'Personal',
@@ -375,8 +397,27 @@ export class HabitPreview extends SignalWatcher(
     };
   }
 
+  private _getActiveHabit(): HabitItem {
+    return this.loadHabit();
+  }
+
+  private saveHabitsList(newList: HabitItem[]) {
+    try {
+      const yMap = this.getYMap();
+      if (yMap) {
+        const serialized = JSON.stringify(newList);
+        yMap.set('habits', serialized);
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('affinite_habits_cache_v1', serialized);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not persist habit to workspace Yjs map:', err);
+    }
+  }
+
   private _toggleEntry(targetDate: string) {
-    const habit = this._getActiveHabit();
+    const habit = this.loadHabit();
     const newEntries = toggleHabitEntry(
       habit.entries,
       targetDate,
@@ -384,25 +425,25 @@ export class HabitPreview extends SignalWatcher(
       habit.targetValue
     );
 
-    habit.entries = newEntries;
+    const updatedHabit: HabitItem = {
+      ...habit,
+      entries: newEntries,
+    };
 
-    // Save to workspace Yjs map
-    try {
-      const doc = this.model?.doc;
-      if (doc && doc.docCollection?.doc) {
-        const yMap = doc.docCollection.doc.getMap('affinite_habits_v1');
-        const list = this._getWorkspaceHabits();
-        const idx = list.findIndex(h => h.id === habit.id);
-        if (idx !== -1) {
-          list[idx] = habit;
-        } else {
-          list.push(habit);
-        }
-        yMap.set('habits', [...list]);
-      }
-    } catch (err) {
-      console.warn('Could not persist habit to workspace Yjs map:', err);
+    const list = this._getWorkspaceHabits();
+    const existing = resolveHabitById(
+      list,
+      updatedHabit.id,
+      updatedHabit.title
+    );
+    if (existing) {
+      const idx = list.indexOf(existing);
+      list[idx] = { ...existing, entries: newEntries };
+    } else {
+      list.push(updatedHabit);
     }
+
+    this.saveHabitsList(list);
 
     // Force re-render
     this.requestUpdate();

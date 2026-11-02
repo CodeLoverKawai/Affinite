@@ -591,7 +591,7 @@ export class MermaidPreview extends SignalWatcher(
       startOnLoad: false,
       suppressErrorRendering: true,
       theme: isDark ? 'dark' : 'default',
-      securityLevel: 'loose',
+      securityLevel: 'strict',
       fontFamily:
         'IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
       flowchart: {
@@ -811,11 +811,9 @@ export class MermaidPreview extends SignalWatcher(
       this._isEditingInternally = true;
       try {
         this.model.store.transact(() => {
-          this.model!.props.text.replace(
-            0,
-            this.model!.props.text.length,
-            newCode
-          );
+          if (!this.model) return;
+          const currentText = this.model.props.text;
+          currentText.replace(0, currentText.length, newCode);
         });
       } finally {
         this._isEditingInternally = false;
@@ -883,7 +881,7 @@ export class MermaidPreview extends SignalWatcher(
     const link = document.createElement('a');
     link.href = url;
     link.download = `diagrama-mermaid-${Date.now()}.svg`;
-    document.body.appendChild(link);
+    document.body.append(link);
     link.click();
     link.remove();
     URL.revokeObjectURL(url);

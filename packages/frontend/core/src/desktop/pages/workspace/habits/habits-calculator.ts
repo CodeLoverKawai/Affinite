@@ -7,6 +7,120 @@ dayjs.extend(isoWeek);
 
 export type HabitType = 'boolean' | 'quantitative';
 
+export interface HabitItem {
+  id: string;
+  title: string;
+  icon: string;
+  category: string;
+  type: HabitType;
+  targetValue?: number;
+  unit?: string;
+  color?: string;
+  frequency?: 'daily' | 'weekly' | string;
+  createdAt?: number | string;
+  entries: Record<string, boolean | number>;
+}
+
+export const LEGACY_HABIT_ID_MAP: Record<string, string> = {
+  'h-water': 'habit-water',
+  'h-exercise': 'habit-exercise',
+  'h-read': 'habit-reading',
+  'h-meditate': 'habit-meditation',
+  'h-code': 'habit-code',
+};
+
+const REVERSE_LEGACY_HABIT_ID_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(LEGACY_HABIT_ID_MAP).map(([legacyId, canonicalId]) => [
+    canonicalId,
+    legacyId,
+  ])
+);
+
+export function normalizeHabitId(id: string): string {
+  return LEGACY_HABIT_ID_MAP[id] ?? id;
+}
+
+export function resolveHabitById<T extends { id: string; title?: string }>(
+  habits: T[],
+  id?: string,
+  title?: string
+): T | undefined {
+  if (id) {
+    const canonicalId = LEGACY_HABIT_ID_MAP[id] ?? id;
+    const legacyId = REVERSE_LEGACY_HABIT_ID_MAP[canonicalId];
+    const matched = habits.find(
+      h =>
+        h.id === id ||
+        h.id === canonicalId ||
+        (legacyId !== undefined && h.id === legacyId)
+    );
+    if (matched) return matched;
+  }
+  if (title) {
+    const normalizedTitle = title.trim().toLowerCase();
+    return habits.find(h => h.title?.trim().toLowerCase() === normalizedTitle);
+  }
+  return undefined;
+}
+
+export function parseHabitsPayload(raw: unknown): HabitItem[] | null {
+  if (raw === null || raw === undefined || raw === '') {
+    return null;
+  }
+
+  let parsed: unknown = raw;
+  if (typeof raw === 'string') {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
+  if (!Array.isArray(parsed)) {
+    return null;
+  }
+
+  const validItems = parsed.filter(
+    (item): item is Record<string, unknown> =>
+      Boolean(item) && typeof item === 'object' && !Array.isArray(item)
+  );
+
+  if (validItems.length === 0 && parsed.length > 0) {
+    return null;
+  }
+
+  return validItems.map(item => {
+    const rawId =
+      typeof item.id === 'string' && item.id.trim()
+        ? item.id.trim()
+        : 'habit-custom';
+    const id = normalizeHabitId(rawId);
+    const type: HabitType =
+      item.type === 'quantitative' ? 'quantitative' : 'boolean';
+    const rawEntries =
+      item.entries &&
+      typeof item.entries === 'object' &&
+      !Array.isArray(item.entries)
+        ? (item.entries as Record<string, boolean | number>)
+        : {};
+
+    return {
+      ...item,
+      id,
+      title: typeof item.title === 'string' ? item.title : 'Hábito',
+      icon: typeof item.icon === 'string' ? item.icon : '🎯',
+      category: typeof item.category === 'string' ? item.category : 'Personal',
+      type,
+      targetValue:
+        typeof item.targetValue === 'number' ? item.targetValue : undefined,
+      unit: typeof item.unit === 'string' ? item.unit : undefined,
+      color: typeof item.color === 'string' ? item.color : undefined,
+      entries: { ...rawEntries },
+    } as HabitItem;
+  });
+}
+
 export function isHabitDoneOnDate(
   value: boolean | number | undefined,
   type: HabitType,

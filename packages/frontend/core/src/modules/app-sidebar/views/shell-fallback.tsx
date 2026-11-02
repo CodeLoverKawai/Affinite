@@ -1,16 +1,12 @@
 import { Skeleton } from '@affine/component';
 import { useAppSettingHelper } from '@affine/core/components/hooks/affine/use-app-setting-helper';
+import { CloseIcon } from '@blocksuite/icons/rc';
 import { useLiveData, useService } from '@toeverything/infra';
+import { assignInlineVars } from '@vanilla-extract/dynamic';
 import { useMemo } from 'react';
 
 import { AppSidebarService } from '../services/app-sidebar';
-import * as styles from './fallback.css';
-import {
-  navBodyStyle,
-  navHeaderStyle,
-  navStyle,
-  navWrapperStyle,
-} from './index.css';
+import * as styles from './shell-fallback.css';
 
 export function FallbackHeader() {
   return (
@@ -25,7 +21,9 @@ export function FallbackHeaderSkeleton() {
     <>
       <Skeleton variant="rectangular" width={32} height={32} />
       <Skeleton variant="rectangular" width={150} height={32} flex={1} />
-      <Skeleton variant="circular" width={25} height={25} />
+      <span className={styles.fallbackCloseAction} aria-hidden="true">
+        <CloseIcon />
+      </span>
     </>
   );
 }
@@ -87,14 +85,19 @@ export const ShellAppSidebarFallback = () => {
 
   return (
     <div
-      style={{ width }}
-      className={navWrapperStyle}
+      style={assignInlineVars({
+        [styles.sidebarWidthVar]:
+          typeof width === 'number' ? `${width}px` : String(width),
+      })}
+      className={styles.shellNavWrapper}
       data-has-border={!BUILD_CONFIG.isElectron && !clientBorder}
       data-open="true"
     >
-      <nav className={navStyle}>
-        {!BUILD_CONFIG.isElectron ? <div className={navHeaderStyle} /> : null}
-        <div className={navBodyStyle}>
+      <nav className={styles.navStyle}>
+        {!BUILD_CONFIG.isElectron ? (
+          <div className={styles.navHeaderStyle} />
+        ) : null}
+        <div className={styles.navBodyStyle}>
           <div className={styles.fallback}>
             <FallbackHeader />
             <FallbackBody />

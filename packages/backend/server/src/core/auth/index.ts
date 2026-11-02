@@ -9,7 +9,6 @@ import { UserModule } from '../user';
 import { AuthController } from './controller';
 import { AuthGuard, AuthWebsocketOptionsProvider } from './guard';
 import { AuthCronJob } from './job';
-import { OidcController } from './oidc.controller';
 import { AuthResolver } from './resolver';
 import { AuthService } from './service';
 
@@ -23,7 +22,7 @@ import { AuthService } from './service';
     AuthWebsocketOptionsProvider,
   ],
   exports: [AuthService, AuthGuard, AuthWebsocketOptionsProvider],
-  controllers: [AuthController, OidcController],
+  controllers: [AuthController],
 })
 export class AuthModule {}
 

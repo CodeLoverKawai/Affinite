@@ -7,7 +7,6 @@ import { insertContent } from '@blocksuite/affine-rich-text';
 import {
   ArrowDownBigIcon,
   ArrowUpBigIcon,
-  CheckBoxCheckLinearIcon,
   CheckBoxCheckSolidIcon,
   CopyIcon,
   DeleteIcon,
@@ -76,6 +75,18 @@ export const DEFAULT_SLASH_HABITS: SlashMenuHabitItem[] = [
   },
 ];
 
+const SLASH_LEGACY_HABIT_ID_MAP: Record<string, string> = {
+  'h-water': 'habit-water',
+  'h-exercise': 'habit-exercise',
+  'h-read': 'habit-reading',
+  'h-meditate': 'habit-meditation',
+  'h-code': 'habit-code',
+};
+
+function normalizeSlashHabitId(id: string): string {
+  return SLASH_LEGACY_HABIT_ID_MAP[id] ?? id;
+}
+
 export function getCachedHabits(): SlashMenuHabitItem[] {
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
@@ -83,7 +94,10 @@ export function getCachedHabits(): SlashMenuHabitItem[] {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          return parsed.map((item: SlashMenuHabitItem) => ({
+            ...item,
+            id: normalizeSlashHabitId(item.id),
+          }));
         }
       }
     } catch {}
@@ -170,7 +184,7 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
       const targetDate = effectiveDate || journalInfo.dateStr || defaultToday;
 
       const cardData = {
-        habitId: h.id,
+        habitId: normalizeSlashHabitId(h.id),
         title: h.title,
         icon: h.icon,
         category: h.category,
@@ -198,6 +212,36 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
       }
     };
 
+    const insertHabitAsTodo = (
+      std: any,
+      model: any,
+      h: SlashMenuHabitItem,
+      checked = true
+    ) => {
+      const { host } = std;
+      const parent = host.store.getParent(model);
+      if (!parent) return;
+      const index = parent.children.indexOf(model);
+      if (index === -1) return;
+
+      host.store.captureSync();
+      host.store.addBlock(
+        'affine:list',
+        {
+          type: 'todo',
+          checked,
+          text: new Text(`${h.icon} ${h.title}`),
+        },
+        parent,
+        index + 1
+      );
+
+      const currentText = model.text?.toString().trim() || '';
+      if (currentText.length === 0 || currentText.startsWith('/')) {
+        host.store.deleteBlock(model);
+      }
+    };
+
     const completeHabitToday = (
       h: SlashMenuHabitItem,
       std: any,
@@ -206,20 +250,30 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
       const todayDate = new Date();
       const defaultTodayStr = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
       const effectiveDate = targetDateStr || defaultTodayStr;
+      const targetHabitId = normalizeSlashHabitId(h.id);
 
       try {
         const rootDoc =
           std?.store?.doc?.rootDoc ||
+          std?.store?.spaceDoc ||
           std?.store?.doc?.spaceDoc?.doc ||
           (std?.store?.doc as any)?.docCollection?.doc;
         if (rootDoc) {
           const yMap = rootDoc.getMap('affinite_habits_v1');
           const raw = yMap.get('habits');
-          let list = raw ? JSON.parse(raw) : habitsList;
+          let list = raw
+            ? typeof raw === 'string'
+              ? JSON.parse(raw)
+              : Array.isArray(raw)
+                ? raw
+                : habitsList
+            : habitsList;
           list = list.map((item: any) => {
-            if (item.id === h.id) {
+            const normalizedItemId = normalizeSlashHabitId(item.id);
+            if (normalizedItemId === targetHabitId) {
               return {
                 ...item,
+                id: normalizedItemId,
                 entries: {
                   ...item.entries,
                   [effectiveDate]:
@@ -229,7 +283,10 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
                 },
               };
             }
-            return item;
+            return {
+              ...item,
+              id: normalizedItemId,
+            };
           });
           const serialized = JSON.stringify(list);
           yMap.set('habits', serialized);
@@ -263,13 +320,7 @@ export const defaultSlashMenuConfig: SlashMenuConfig = {
         group: '5_Hábitos@0',
         when: ({ std }) => isJournalDoc(std),
         action: ({ std, model }) => {
-          const firstHabit = habitsList[0] || {
-            id: 'h-read',
-            title: 'Lectura Diaria',
-            icon: '📚',
-            category: 'Mente',
-            type: 'boolean',
-          };
+          const firstHabit = habitsList[0] || DEFAULT_SLASH_HABITS[0];
           insertHabitInteractiveBlock(std, model, firstHabit);
           toast(std.host, `¡Tarjeta de hábito interactiva insertada! 🎯`);
         },

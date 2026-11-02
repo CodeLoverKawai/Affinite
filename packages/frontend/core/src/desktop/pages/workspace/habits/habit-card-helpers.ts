@@ -6,9 +6,22 @@ import isLeapYear from 'dayjs/plugin/isLeapYear';
 import { getWeekDateRange } from '../../../../modules/journal';
 import {
   isHabitDoneOnDate,
+  LEGACY_HABIT_ID_MAP,
+  normalizeHabitId,
+  parseHabitsPayload,
+  resolveHabitById,
   type HabitItem,
   type HabitType,
 } from './habits-calculator';
+
+export {
+  LEGACY_HABIT_ID_MAP,
+  normalizeHabitId,
+  parseHabitsPayload,
+  resolveHabitById,
+  type HabitItem,
+  type HabitType,
+};
 
 dayjs.extend(isLeapYear);
 dayjs.extend(isoWeeksInYear);
@@ -38,7 +51,7 @@ export function parseHabitCardData(
     try {
       const parsed = JSON.parse(trimmed);
       return {
-        habitId: parsed.habitId || 'h-custom',
+        habitId: normalizeHabitId(parsed.habitId || 'habit-custom'),
         title: parsed.title || 'Hábito',
         icon: parsed.icon || '🎯',
         category: parsed.category || 'Personal',
@@ -56,7 +69,7 @@ export function parseHabitCardData(
   const lines = trimmed.split('\n');
   let title = 'Hábito';
   let icon = '🎯';
-  let habitId = 'h-custom';
+  let habitId = 'habit-custom';
   let category = 'Personal';
   let type: HabitType = 'boolean';
   let targetValue: number | undefined;

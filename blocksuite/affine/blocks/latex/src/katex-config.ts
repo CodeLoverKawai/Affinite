@@ -57,7 +57,7 @@ export function safeRenderKatex(
     ...options,
     macros: {
       ...KATEX_SCIENTIFIC_MACROS,
-      ...(options?.macros ?? {}),
+      ...options?.macros,
     },
   };
 
@@ -83,7 +83,7 @@ export function safeRenderKatexToString(
     ...options,
     macros: {
       ...KATEX_SCIENTIFIC_MACROS,
-      ...(options?.macros ?? {}),
+      ...options?.macros,
     },
   };
 

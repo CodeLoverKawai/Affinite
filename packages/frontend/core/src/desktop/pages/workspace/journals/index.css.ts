@@ -1,3 +1,4 @@
+import { cssVar } from '@toeverything/theme';
 import { cssVarV2 } from '@toeverything/theme/v2';
 import { style } from '@vanilla-extract/css';
 
@@ -6,14 +7,58 @@ export const header = style({
   width: '100%',
   height: '100%',
   alignItems: 'center',
-  justifyContent: 'center',
+  justifyContent: 'space-between',
   position: 'relative',
-  padding: '0 36px',
+  padding: '0 24px',
+  gap: 12,
+});
+
+export const headerActions = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  flexShrink: 0,
+});
+
+export const segmentedToggle = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 4,
+  padding: 3,
+  borderRadius: 8,
+  backgroundColor: cssVarV2.layer.background.secondary,
+  border: `1px solid ${cssVarV2.layer.insideBorder.border}`,
+});
+
+export const segmentButton = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  padding: '4px 10px',
+  borderRadius: 6,
+  border: 'none',
+  backgroundColor: 'transparent',
+  color: cssVarV2.text.secondary,
+  fontSize: 12,
+  fontWeight: 500,
+  cursor: 'pointer',
+  transition: 'all 0.15s ease',
+  selectors: {
+    '&:hover': {
+      color: cssVarV2.text.primary,
+      backgroundColor: cssVar('hoverColor'),
+    },
+    '&[data-active="true"]': {
+      backgroundColor: cssVarV2.layer.background.primary,
+      color: cssVarV2.text.primary,
+      fontWeight: 600,
+      boxShadow: cssVar('buttonShadow'),
+    },
+  },
 });
 
 export const todayButton = style({
-  position: 'absolute',
-  right: 0,
+  flexShrink: 0,
 });
 
 export const body = style({
@@ -75,4 +120,11 @@ export const placeholderText = style({
   lineHeight: '22px',
   marginBottom: 16,
   color: cssVarV2.text.tertiary,
+});
+
+export const placeholderActions = style({
+  display: 'flex',
+  gap: 10,
+  flexWrap: 'wrap',
+  justifyContent: 'center',
 });

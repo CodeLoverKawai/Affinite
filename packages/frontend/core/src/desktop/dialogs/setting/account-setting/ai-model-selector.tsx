@@ -307,16 +307,7 @@ export const AIModelSelector = () => {
       </div>
 
       {zeroKey && (
-        <div
-          className={styles.statusBadge}
-          data-status="success"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '8px 12px',
-          }}
-        >
+        <div className={styles.zeroKeyBanner} data-status="success">
           <span>
             {settings.provider === 'antigravity'
               ? '✅ Conectado vía Antigravity CLI local — No requiere API Key'
@@ -325,7 +316,7 @@ export const AIModelSelector = () => {
                 : '✅ Conectado vía CLI Local — No requiere API Key'}
           </span>
           {detectedInfo && (
-            <span style={{ fontSize: '11px', opacity: 0.9 }}>
+            <span className={styles.detectedInfoText}>
               {[
                 detectedInfo.antigravity ? 'agy ✓' : null,
                 detectedInfo.ollama ? 'ollama ✓' : null,
@@ -407,7 +398,7 @@ export const AIModelSelector = () => {
         </div>
       )}
 
-      <div className={styles.flexRow} style={{ marginTop: '8px' }}>
+      <div className={styles.actionRow}>
         <Button onClick={handleDetectLocalProviders} variant="primary">
           ⚡ Probar Conexión Local
         </Button>

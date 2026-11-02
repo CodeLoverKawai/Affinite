@@ -28,6 +28,7 @@ import {
   JournalIcon,
   PresentationIcon,
   SettingsIcon,
+  ViewLayersIcon,
 } from '@blocksuite/icons/rc';
 import { useLiveData, useService, useServices } from '@toeverything/infra';
 import type { ReactElement } from 'react';
@@ -128,9 +129,9 @@ const BoardsButton = () => {
   );
 
   return (
-    <MenuLinkItem icon={<ImportIcon />} active={boardsActive} to={'/boards'}>
+    <MenuLinkItem icon={<ViewLayersIcon />} active={boardsActive} to={'/boards'}>
       <span data-testid="boards-page">
-        Boards
+        Tableros
       </span>
     </MenuLinkItem>
   );
@@ -215,7 +216,7 @@ const StreaksButton = () => {
 
   return (
     <MenuLinkItem
-      icon={<FirePanelIcon style={{ color: '#f59e0b' }} />}
+      icon={<FirePanelIcon />}
       active={streaksActive}
       to={'/streaks'}
     >

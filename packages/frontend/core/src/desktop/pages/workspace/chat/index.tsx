@@ -469,6 +469,24 @@ export const Component = () => {
     [aiSettings]
   );
 
+  const handleClearLocalSessions = useCallback(() => {
+    confirmModal.openConfirmModal({
+      title: 'Limpiar sesiones locales',
+      description: '¿Estás seguro de limpiar todas las sesiones locales de IA?',
+      confirmText: 'Limpiar',
+      confirmButtonOptions: {
+        variant: 'error',
+      },
+      onConfirm: () => {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.removeItem('affinite_local_ai_sessions_v1');
+        }
+        setCurrentSession(null);
+        reMountChatContent();
+      },
+    });
+  }, [confirmModal, reMountChatContent]);
+
   const currentPresets =
     PRESET_MODELS[aiSettings.provider] || PRESET_MODELS.antigravity;
 
@@ -492,7 +510,7 @@ export const Component = () => {
               <option value="ollama">🦙 Ollama Local</option>
               <option value="local-cli">🛠️ CLI Local (gemini/claude)</option>
             </select>
-            <span style={{ opacity: 0.4 }}>·</span>
+            <span className={styles.headerSeparator}>·</span>
             <select
               className={styles.headerSelect}
               value={aiSettings.modelId}
@@ -505,6 +523,15 @@ export const Component = () => {
                 </option>
               ))}
             </select>
+            <span className={styles.headerSeparator}>·</span>
+            <button
+              type="button"
+              className={styles.headerActionBtn}
+              onClick={handleClearLocalSessions}
+              title="Limpiar todas las sesiones locales de IA"
+            >
+              Limpiar
+            </button>
           </div>
           <div ref={onChatToolContainerRef} />
         </div>

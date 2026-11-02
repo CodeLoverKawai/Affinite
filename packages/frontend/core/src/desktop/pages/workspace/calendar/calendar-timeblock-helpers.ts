@@ -118,3 +118,56 @@ export function calculateDragTimeRange(
     endTime: formatMinutesToTime(snappedEndMinutes),
   };
 }
+
+export interface CategorizableBoardCard {
+  category?: string;
+  labels?: string[];
+}
+
+/**
+ * Checks whether a board card matches the selected calendar category filter.
+ * When `selectedCategory` is `'Todas'`, all cards match.
+ * Otherwise, cards whose `category` or `labels` match `selectedCategory`
+ * (or cards with no category/labels when `selectedCategory` is `'Trabajo'`) are kept.
+ */
+export function doesBoardCardMatchCategory(
+  card: CategorizableBoardCard,
+  selectedCategory: string
+): boolean {
+  const normalizedSelected = selectedCategory.trim().toLowerCase();
+  if (!normalizedSelected || normalizedSelected === 'todas') {
+    return true;
+  }
+
+  const cardCategory = card.category?.trim().toLowerCase() || '';
+  const cardLabels = Array.isArray(card.labels)
+    ? card.labels.map(label => label.trim().toLowerCase()).filter(Boolean)
+    : [];
+
+  const hasCategoryOrLabels = Boolean(cardCategory) || cardLabels.length > 0;
+  if (!hasCategoryOrLabels) {
+    return normalizedSelected === 'trabajo';
+  }
+
+  if (cardCategory && cardCategory === normalizedSelected) {
+    return true;
+  }
+
+  return cardLabels.some(label => label === normalizedSelected);
+}
+
+/**
+ * Filters board cards by the selected category.
+ */
+export function filterBoardCardsByCategory<T extends CategorizableBoardCard>(
+  cards: T[],
+  selectedCategory: string
+): T[] {
+  if (!selectedCategory || selectedCategory.trim().toLowerCase() === 'todas') {
+    return cards;
+  }
+  return cards.filter(card =>
+    doesBoardCardMatchCategory(card, selectedCategory)
+  );
+}
+

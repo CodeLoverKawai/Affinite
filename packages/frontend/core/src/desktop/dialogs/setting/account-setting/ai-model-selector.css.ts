@@ -1,5 +1,6 @@
-import { style } from '@vanilla-extract/css';
 import { cssVar } from '@toeverything/theme';
+import { cssVarV2 } from '@toeverything/theme/v2';
+import { style } from '@vanilla-extract/css';
 
 export const container = style({
   display: 'flex',
@@ -108,6 +109,13 @@ export const flexRow = style({
   gap: '8px',
 });
 
+export const actionRow = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  marginTop: '8px',
+});
+
 export const statusBadge = style({
   fontSize: '12px',
   padding: '4px 8px',
@@ -115,16 +123,73 @@ export const statusBadge = style({
   fontWeight: 500,
   selectors: {
     '&[data-status="success"]': {
-      backgroundColor: 'rgba(34, 197, 94, 0.15)',
-      color: '#16a34a',
+      backgroundColor: cssVarV2('layer/background/secondary'),
+      color: cssVarV2('status/success'),
     },
     '&[data-status="error"]': {
-      backgroundColor: 'rgba(239, 68, 68, 0.15)',
-      color: '#dc2626',
+      backgroundColor: cssVarV2('layer/background/secondary'),
+      color: cssVarV2('status/error'),
     },
     '&[data-status="testing"]': {
-      backgroundColor: 'rgba(59, 130, 246, 0.15)',
-      color: '#2563eb',
+      backgroundColor: cssVarV2('layer/background/secondary'),
+      color: cssVar('processingColor'),
+    },
+  },
+});
+
+export const zeroKeyBanner = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '8px 12px',
+  borderRadius: '8px',
+  fontSize: '12px',
+  fontWeight: 500,
+  backgroundColor: cssVarV2('layer/background/secondary'),
+  border: `1px solid ${cssVar('borderColor')}`,
+  color: cssVarV2('status/success'),
+});
+
+export const detectedInfoText = style({
+  fontSize: '11px',
+  opacity: 0.9,
+  color: cssVar('textSecondaryColor'),
+});
+
+export const usageStatCard = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '12px',
+  padding: '10px 14px',
+  borderRadius: '10px',
+  backgroundColor: cssVar('backgroundSecondaryColor'),
+  border: `1px solid ${cssVar('borderColor')}`,
+  marginTop: '8px',
+});
+
+export const usageStatItem = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '2px',
+});
+
+export const usageStatLabel = style({
+  fontSize: '11px',
+  color: cssVar('textSecondaryColor'),
+});
+
+export const usageStatValue = style({
+  fontSize: '13px',
+  fontWeight: 600,
+  color: cssVar('textPrimaryColor'),
+});
+
+export const usageProgressBarFill = style({
+  backgroundColor: cssVar('processingColor'),
+  selectors: {
+    '&[data-high="true"]': {
+      backgroundColor: cssVar('errorColor'),
     },
   },
 });

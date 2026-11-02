@@ -82,7 +82,7 @@ export const JournalPlaceholder = ({ dateString }: { dateString: string }) => {
           <div className={styles.placeholderText}>
             {t['com.affine.journal.placeholder.title']()}
           </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <div className={styles.placeholderActions}>
             <Button
               variant="primary"
               onClick={createJournal}
@@ -116,10 +116,11 @@ export const JournalsPageWithConfirmation = () => {
   const dateString = getDateFromUrl(location);
   const todayString = dayjs().format(JOURNAL_DATE_FORMAT);
   const isToday = dateString === todayString;
-  const pickerDateValue = isWeeklyJournalString(dateString)
+  const isWeekly = isWeeklyJournalString(dateString);
+  const pickerDateValue = isWeekly
     ? getWeekDateRange(dateString).start.format(JOURNAL_DATE_FORMAT)
     : dateString;
-  const activeWeekKey = isWeeklyJournalString(dateString)
+  const activeWeekKey = isWeekly
     ? dateString
     : formatWeeklyJournalKey(dateString);
 
@@ -173,13 +174,27 @@ export const JournalsPageWithConfirmation = () => {
             onChange={openJournal}
           />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Button
-              onClick={openWeeklyJournal}
-              title={`Abrir o crear Nota Semanal (${activeWeekKey})`}
-            >
-              🗓️ Semanal ({activeWeekKey.split('-')[1]})
-            </Button>
+          <div className={styles.headerActions}>
+            <div className={styles.segmentedToggle}>
+              <button
+                type="button"
+                className={styles.segmentButton}
+                data-active={!isWeekly}
+                onClick={() => openJournal(pickerDateValue)}
+                title="Ver Nota Diaria"
+              >
+                📝 Diario
+              </button>
+              <button
+                type="button"
+                className={styles.segmentButton}
+                data-active={isWeekly}
+                onClick={openWeeklyJournal}
+                title={`Abrir o crear Nota Semanal (${activeWeekKey})`}
+              >
+                🗓️ Semanal ({activeWeekKey})
+              </button>
+            </div>
             <Button onClick={openCalendar} title="Ver Calendario Mensual">
               📅 Calendario
             </Button>

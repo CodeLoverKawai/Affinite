@@ -78,7 +78,6 @@ target
 *.node
 tsconfig.node.tsbuildinfo
 lib
-!packages/frontend/apps/anx-remix/**/lib/
 affine.db
 apps/web/next-routes.conf
 .nx
@@ -98,6 +97,8 @@ storageState.json
 *.AppImage
 *.flatpak
 .flatpak-*
+build-dir/
 *.apk
+*.bak
 /logs/
 
