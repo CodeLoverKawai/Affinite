@@ -697,9 +697,9 @@ const getCSS = ({ fontSize,
     ? (paragraphSpacing > 4 ? (paragraphSpacing / 16) : paragraphSpacing)
     : 0.5;
 
-  const fontFamily = fontName === 'book' ? '' :
+  const fontFamily = (!fontName || fontName === 'book') ? '' :
     fontName === 'system' ? 'font-family: system-ui !important;' :
-      `font-family: ${fontName} !important;`
+      `font-family: "${fontName}", sans-serif !important;`
 
   const writingModeCSS = writingMode === 'auto' ? '' : `writing-mode: ${writingMode} !important;`
 
@@ -748,14 +748,14 @@ const getCSS = ({ fontSize,
     }
 
     img, svg {
-        // height: auto !important;
-        // width: auto !important;
+        /* height: auto !important; */
+        /* width: auto !important; */
         object-fit: contain !important;
         break-inside: avoid !important;
         box-sizing: border-box !important;
         font-size: initial !important;
-        // height: initial !important;
-        // width: initial !important;
+        /* height: initial !important; */
+        /* width: initial !important; */
     }
 
     a:link {
@@ -767,7 +767,7 @@ const getCSS = ({ fontSize,
     }
 
     * {
-        // line-height: ${spacing}em !important;
+        /* line-height: ${spacing}em !important; */
         ${fontFamily}
     }
 
@@ -1152,13 +1152,11 @@ class Reader {
     this.view.addEventListener('doctouchend', this.#onTouchEnd.bind(this))
 
     setStyle()
-    if (!cfi)
-      this.view.renderer.next()
     this.setView(this.view)
     await this.view.init({ lastLocation: cfi })
 
-    // set html bg color to grey 
-    document.documentElement.style.backgroundColor = 'grey'
+    // set html bg color to transparent
+    document.documentElement.style.backgroundColor = 'transparent'
   }
 
   setView(view) {
@@ -1812,7 +1810,7 @@ const open = async (file, cfi) => {
       sideMargin: 8,
       justify: true,
       hyphenate: false,
-      pageTurnStyle: 'scroll',
+      pageTurnStyle: 'slide',
       maxColumnCount: 1,
       columnThreshold: 800,
       writingMode: 'horizontal-tb',
@@ -2876,7 +2874,7 @@ try {
   if (parsed && typeof parsed === 'string') url = parsed
 } catch (_) {}
 
-var rawInitialCfi = urlParams.get('initialCfi') || ''
+var rawInitialCfi = urlParams.get('initialCfi') || urlParams.get('cfi') || ''
 var initialCfi = rawInitialCfi
 try {
   const parsed = JSON.parse(rawInitialCfi)
@@ -2895,14 +2893,19 @@ if (!style) {
     fontSize: size > 4 ? Number((size / 16).toFixed(2)) : size,
     backgroundColor: bgMap[theme] || '#0f172a',
     fontColor: fgMap[theme] || '#f8fafc',
-    pageTurnStyle: urlParams.get('mode') || 'scroll',
+    pageTurnStyle: urlParams.get('mode') || 'slide',
     fontName: urlParams.get('font') || '',
-    sideMargin: 20,
+    sideMargin: 8,
     topMargin: 40,
     bottomMargin: 40,
     spacing: 1.6,
     paragraphSpacing: 0.8,
     maxColumnCount: 1,
+    columnThreshold: 800,
+    justify: true,
+    hyphenate: false,
+    writingMode: 'horizontal-tb',
+    textAlign: 'justify',
   };
 }
 if (style) {
@@ -2939,8 +2942,20 @@ if (url) {
     })
     .then(() => {
       console.log('book.js: open chain completed successfully')
+      callFlutter('onLoadEnd')
     })
-    .catch(e => console.error('book.js: fetch/open chain error:', e))
+    .catch(e => {
+      console.error('book.js: fetch/open chain error:', e);
+      try {
+        window.parent?.postMessage(JSON.stringify({
+          type: 'anx-diagnostic-log',
+          level: 'error',
+          source: 'Foliate',
+          message: `Foliate open error: ${e?.message || e}`,
+          details: { url, initialCfi, error: String(e) }
+        }), '*');
+      } catch (_) {}
+    })
 }
 
 const processedEvalSeqs = new Set();

@@ -49,6 +49,88 @@ export const isBookmarkedAtCfi = (
   });
 };
 
+export function buildFoliateUrl(options: {
+  filePath: string;
+  initialCfi?: string | null;
+  lastReadPosition?: string | null;
+  theme?: 'dark' | 'sepia' | 'light';
+  fontSize?: number;
+}): string {
+  const theme = options.theme || 'dark';
+  const fontSize = options.fontSize || 100;
+
+  const bgMap = {
+    dark: '#090d16',
+    sepia: '#f7f1e3',
+    light: '#ffffff',
+  };
+  const fgMap = {
+    dark: '#f8fafc',
+    sepia: '#2c3437',
+    light: '#1e293b',
+  };
+
+  const initialStyle = {
+    fontSize: Number((fontSize / 100).toFixed(2)),
+    fontColor: fgMap[theme],
+    backgroundColor: bgMap[theme],
+    pageTurnStyle: 'slide',
+    maxColumnCount: 1,
+    columnThreshold: 800,
+    spacing: 1.6,
+    paragraphSpacing: 0.8,
+    sideMargin: 8,
+    topMargin: 40,
+    bottomMargin: 40,
+    justify: true,
+    hyphenate: false,
+    writingMode: 'horizontal-tb',
+    textAlign: 'justify',
+    useBookStyles: false,
+  };
+
+  const cleanFilePath = options.filePath.startsWith('assets://')
+    ? options.filePath
+    : `assets://local-file/${encodeURIComponent(options.filePath)}`;
+
+  const targetCfi = options.initialCfi || options.lastReadPosition || '';
+
+  const params = new URLSearchParams();
+  params.set('url', cleanFilePath);
+  params.set('initialCfi', targetCfi);
+  params.set('cfi', targetCfi);
+  params.set('theme', theme);
+  params.set('style', JSON.stringify(initialStyle));
+
+  return `assets://./foliate/index.html?${params.toString()}`;
+}
+
+export function unpackFoliateMessage(rawData: any): { eventType: string; payload: any } {
+  let data = rawData;
+  if (typeof data === 'string') {
+    try {
+      data = JSON.parse(data);
+    } catch {
+      return { eventType: '', payload: null };
+    }
+  }
+  if (!data || typeof data !== 'object') {
+    return { eventType: '', payload: null };
+  }
+
+  if (data.type === 'anx-reader' && data.event) {
+    return {
+      eventType: data.event,
+      payload: data.data || {},
+    };
+  }
+
+  return {
+    eventType: data.type || '',
+    payload: data,
+  };
+}
+
 export const LibraryReader: React.FC<LibraryReaderProps> = ({
   book,
   initialCfi,
@@ -131,17 +213,10 @@ export const LibraryReader: React.FC<LibraryReaderProps> = ({
   // Handle message from Foliate iframe
   useEffect(() => {
     const handleFoliateMessage = (e: MessageEvent) => {
-      let data = e.data;
-      if (!data) return;
-      if (typeof data === 'string') {
-        try {
-          data = JSON.parse(data);
-        } catch {
-          return;
-        }
-      }
+      const { eventType, payload } = unpackFoliateMessage(e.data);
+      if (!eventType) return;
 
-      switch (data.type) {
+      switch (eventType) {
         case 'onLoadEnd':
         case 'on-load-end':
           syncAnnotationsToFoliate();
@@ -149,34 +224,39 @@ export const LibraryReader: React.FC<LibraryReaderProps> = ({
 
         case 'onRelocated':
         case 'on-relocated': {
-          if (data.cfi) setCurrentCfi(data.cfi);
-          if (typeof data.fraction === 'number') {
-            setReadingProgress(Math.round(data.fraction * 100));
-          } else if (typeof data.progress === 'number') {
-            setReadingProgress(Math.round(data.progress * 100));
+          if (payload.cfi) setCurrentCfi(payload.cfi);
+          if (typeof payload.fraction === 'number') {
+            setReadingProgress(Math.round(payload.fraction * 100));
+          } else if (typeof payload.progress === 'number') {
+            setReadingProgress(Math.round(payload.progress * 100));
           }
-          if (data.tocItem?.label) {
-            setCurrentChapter(data.tocItem.label);
+          if (payload.tocItem?.label) {
+            setCurrentChapter(payload.tocItem.label);
           }
           break;
         }
 
         case 'onSetToc':
         case 'on-set-toc': {
-          if (Array.isArray(data.toc)) {
-            setToc(data.toc);
+          const tocList = Array.isArray(payload)
+            ? payload
+            : Array.isArray(payload.toc)
+              ? payload.toc
+              : null;
+          if (tocList) {
+            setToc(tocList);
           }
           break;
         }
 
         case 'onSelectionEnd':
         case 'on-selection-end': {
-          if (data.text && data.cfi) {
+          if (payload.text && payload.cfi) {
             setSelectionData({
-              text: data.text,
-              cfi: data.cfi,
-              x: Math.min(window.innerWidth - 220, Math.max(20, (data.x || 100))),
-              y: Math.min(window.innerHeight - 100, Math.max(70, (data.y || 100))),
+              text: payload.text,
+              cfi: payload.cfi,
+              x: Math.min(window.innerWidth - 220, Math.max(20, (payload.x || 100))),
+              y: Math.min(window.innerHeight - 100, Math.max(70, (payload.y || 100))),
             });
           } else {
             setSelectionData(null);
@@ -269,59 +349,64 @@ export const LibraryReader: React.FC<LibraryReaderProps> = ({
 
   // Navigation
   const handleNavigateToCfi = (cfi: string) => {
-    evalInFoliate(`window.goToCfi?.('${cfi}')`);
+    postToFoliate({
+      type: 'anx-command',
+      command: 'goToCfi',
+      args: [cfi],
+    });
     setActiveTab('none');
   };
 
   const handleNavigateToHref = (href: string) => {
-    evalInFoliate(`window.goToHref?.('${href}')`);
+    evalInFoliate(`window.reader?.view?.goTo?.('${href}')`);
     setActiveTab('none');
   };
 
   const handlePrevPage = () => {
-    evalInFoliate(`reader?.view?.prev?.() || window.prevPage?.()`);
+    postToFoliate({
+      type: 'anx-command',
+      command: 'prevPage',
+    });
   };
 
   const handleNextPage = () => {
-    evalInFoliate(`reader?.view?.next?.() || window.nextPage?.()`);
+    postToFoliate({
+      type: 'anx-command',
+      command: 'nextPage',
+    });
   };
 
   // Theme & Font Size
   const handleFontSizeChange = (delta: number) => {
     const nextSize = Math.max(70, Math.min(180, fontSize + delta));
     setFontSize(nextSize);
-    evalInFoliate(`
-      if (window.reader?.view?.renderer?.setStyles) {
-        window.reader.view.renderer.setStyles({ fontSize: '${(nextSize / 100).toFixed(2)}rem' });
-      }
-    `);
+    postToFoliate({
+      type: 'anx-command',
+      command: 'changeStyle',
+      args: [{ fontSize: Number((nextSize / 100).toFixed(2)) }],
+    });
   };
 
   const handleThemeChange = (newTheme: 'dark' | 'sepia' | 'light') => {
     setTheme(newTheme);
-    const bgMap = {
-      dark: '#090d16',
-      sepia: '#f7f1e3',
-      light: '#ffffff',
-    };
-    const fgMap = {
-      dark: '#f8fafc',
-      sepia: '#2c3437',
-      light: '#1e293b',
-    };
-    evalInFoliate(`
-      if (window.reader?.view?.renderer?.setStyles) {
-        window.reader.view.renderer.setStyles({
-          backgroundColor: '${bgMap[newTheme]}',
-          color: '${fgMap[newTheme]}',
-        });
-      }
-    `);
+    postToFoliate({
+      type: 'anx-command',
+      command: 'changeStyle',
+      args: [{ theme: newTheme }],
+    });
   };
 
-  const foliateUrl = `assets://./foliate/index.html?url=${encodeURIComponent(
-    book.filePath
-  )}&cfi=${encodeURIComponent(initialCfi || book.lastReadPosition || '')}`;
+  const foliateUrl = useMemo(
+    () =>
+      buildFoliateUrl({
+        filePath: book.filePath,
+        initialCfi,
+        lastReadPosition: book.lastReadPosition,
+        theme,
+        fontSize,
+      }),
+    [book.filePath, book.lastReadPosition, fontSize, initialCfi, theme]
+  );
 
   return (
     <div

@@ -8,7 +8,12 @@ import {
   LibraryBookmark,
   LibraryHighlight,
 } from '../library-manager';
-import { isBookmarkedAtCfi, cleanCfi } from '../library-reader';
+import {
+  isBookmarkedAtCfi,
+  cleanCfi,
+  buildFoliateUrl,
+  unpackFoliateMessage,
+} from '../library-reader';
 import { AnxWebNote } from '../diagnostic-logger';
 
 export function toggleBookmarkAtCfi(
@@ -101,5 +106,62 @@ describe('Library Reader Integration Suite', () => {
 
     highlights = removeHighlight(highlights, highlights[0].id);
     expect(highlights.length).toBe(0);
+  });
+
+  it('builds a fully compliant foliate URL with slide paginator, columnThreshold and normalized paths', () => {
+    const rawPath = '/home/rousseau/books/el-lobo-estepario.epub';
+    const cfi = 'epubcfi(/6/12!/4/2/6)';
+
+    const foliateUrl = buildFoliateUrl({
+      filePath: rawPath,
+      initialCfi: cfi,
+      theme: 'sepia',
+      fontSize: 110,
+    });
+
+    expect(foliateUrl).toContain('assets://./foliate/index.html?');
+    const parsed = new URL(foliateUrl);
+    expect(parsed.searchParams.get('url')).toBe(`assets://local-file/${encodeURIComponent(rawPath)}`);
+    expect(parsed.searchParams.get('initialCfi')).toBe(cfi);
+    expect(parsed.searchParams.get('cfi')).toBe(cfi);
+    expect(parsed.searchParams.get('theme')).toBe('sepia');
+
+    const style = JSON.parse(parsed.searchParams.get('style') || '{}');
+    expect(style.pageTurnStyle).toBe('slide');
+    expect(style.columnThreshold).toBe(800);
+    expect(style.maxColumnCount).toBe(1);
+    expect(style.backgroundColor).toBe('#f7f1e3');
+    expect(style.fontColor).toBe('#2c3437');
+    expect(style.fontSize).toBe(1.1);
+  });
+
+  it('correctly unpacks both anx-reader wrapped events and direct foliate messages', () => {
+    // 1. Wrapped event from Foliate callFlutter
+    const wrappedMsg = {
+      type: 'anx-reader',
+      event: 'onRelocated',
+      data: { cfi: 'epubcfi(/6/14!/4/2/2)', fraction: 0.42, tocItem: { label: 'Capítulo 3' } },
+    };
+    const unpackedWrapped = unpackFoliateMessage(wrappedMsg);
+    expect(unpackedWrapped.eventType).toBe('onRelocated');
+    expect(unpackedWrapped.payload.cfi).toBe('epubcfi(/6/14!/4/2/2)');
+    expect(unpackedWrapped.payload.fraction).toBe(0.42);
+    expect(unpackedWrapped.payload.tocItem.label).toBe('Capítulo 3');
+
+    // 2. Direct event
+    const directMsg = {
+      type: 'onLoadEnd',
+    };
+    const unpackedDirect = unpackFoliateMessage(directMsg);
+    expect(unpackedDirect.eventType).toBe('onLoadEnd');
+
+    // 3. Stringified JSON message
+    const stringified = JSON.stringify(wrappedMsg);
+    const unpackedString = unpackFoliateMessage(stringified);
+    expect(unpackedString.eventType).toBe('onRelocated');
+
+    // 4. Invalid or corrupted input does not crash
+    expect(unpackFoliateMessage(null).eventType).toBe('');
+    expect(unpackFoliateMessage('{invalid_json').eventType).toBe('');
   });
 });
