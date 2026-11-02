@@ -566,7 +566,7 @@ class WebBridge {
     }
   }
 
-  static void openBook(Book book) {
+  static void openBook(Book book, {String? cfi}) {
     if (!AnxPlatform.isWeb) return;
     try {
       final payload = jsonEncode({
@@ -575,8 +575,9 @@ class WebBridge {
         'filePath': book.filePath,
         'title': book.title,
         'author': book.author,
-        'lastReadPosition': book.lastReadPosition,
+        'lastReadPosition': (cfi != null && cfi.isNotEmpty) ? cfi : book.lastReadPosition,
         'readingPercentage': book.readingPercentage,
+        'cover': book.coverPath,
       });
       web.window.parent?.postMessage(payload.toJS, '*'.toJS);
     } catch (e) {

@@ -459,6 +459,11 @@ Future<void> pushToReadingPage(
     return;
   }
 
+  if (AnxPlatform.isWeb) {
+    WebBridge.openBook(book, cfi: cfi);
+    return;
+  }
+
   if (!AnxPlatform.isWeb && !File(book.fileFullPath).existsSync()) {
     ref.read(syncProvider.notifier).downloadBook(book);
     return;
