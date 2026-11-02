@@ -29,6 +29,10 @@ import { WorkspaceService } from '../../../../modules/workspace';
 import { playStreakCompletionSound } from '../streaks/streaks-sound';
 import * as styles from './calendar.css';
 import {
+  unwrapGoogleResult,
+  unwrapIcsResult,
+} from './calendar-bridge';
+import {
   buildGoogleCalendarTemplateUrl,
   exportEventsToIcs,
   mapCalendarTaskToGoogleApiEvent,
@@ -76,13 +80,13 @@ dayjs.extend(isoWeek);
 dayjs.extend(isoWeeksInYear);
 
 interface AffiniteCalendarBridge {
-  fetchIcsFeed?: (url: string) => Promise<string>;
+  fetchIcsFeed?: (url: string) => Promise<unknown>;
   googleApiRequest?: (params: {
     method: string;
     endpoint: string;
     accessToken: string;
     body?: Record<string, unknown>;
-  }) => Promise<Record<string, unknown>>;
+  }) => Promise<unknown>;
 }
 
 function getCalendarBridge(): AffiniteCalendarBridge | undefined {
@@ -1472,7 +1476,7 @@ export const Component = () => {
       const bridge = getCalendarBridge();
       let icsContent = '';
       if (bridge?.fetchIcsFeed) {
-        icsContent = await bridge.fetchIcsFeed(normalizedUrl);
+        icsContent = unwrapIcsResult(await bridge.fetchIcsFeed(normalizedUrl));
       } else {
         const resp = await fetch(normalizedUrl);
         if (!resp.ok) {
@@ -1598,11 +1602,13 @@ export const Component = () => {
       const bridge = getCalendarBridge();
       let data: Record<string, unknown>;
       if (bridge?.googleApiRequest) {
-        data = await bridge.googleApiRequest({
-          method: 'GET',
-          endpoint,
-          accessToken: token,
-        });
+        data = unwrapGoogleResult(
+          await bridge.googleApiRequest({
+            method: 'GET',
+            endpoint,
+            accessToken: token,
+          })
+        );
       } else {
         const resp = await fetch(
           `https://www.googleapis.com/calendar/v3${endpoint}`,
@@ -1696,38 +1702,56 @@ export const Component = () => {
       const endpoint = `/calendars/${encodeURIComponent(calId)}/events`;
       const bridge = getCalendarBridge();
       let pushedCount = 0;
+      let failedCount = 0;
+      let lastErrorMessage = '';
 
       for (const localTask of localTasks) {
-        const body = mapCalendarTaskToGoogleApiEvent(localTask);
-        if (bridge?.googleApiRequest) {
-          await bridge.googleApiRequest({
-            method: 'POST',
-            endpoint,
-            accessToken: token,
-            body,
-          });
-        } else {
-          const resp = await fetch(
-            `https://www.googleapis.com/calendar/v3${endpoint}`,
-            {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(body),
+        try {
+          const body = mapCalendarTaskToGoogleApiEvent(localTask);
+          if (bridge?.googleApiRequest) {
+            unwrapGoogleResult(
+              await bridge.googleApiRequest({
+                method: 'POST',
+                endpoint,
+                accessToken: token,
+                body,
+              })
+            );
+          } else {
+            const resp = await fetch(
+              `https://www.googleapis.com/calendar/v3${endpoint}`,
+              {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body),
+              }
+            );
+            if (!resp.ok) {
+              throw new Error(`Google API HTTP ${resp.status}`);
             }
-          );
-          if (!resp.ok) {
-            throw new Error(`Google API HTTP ${resp.status}`);
           }
+          pushedCount++;
+        } catch (pushErr) {
+          failedCount++;
+          lastErrorMessage =
+            pushErr instanceof Error ? pushErr.message : String(pushErr);
         }
-        pushedCount++;
       }
 
-      setSyncStatusMsg(
-        `✅ ${pushedCount} eventos locales subidos exitosamente a Google Calendar (${calId}).`
-      );
+      if (failedCount > 0) {
+        setSyncStatusMsg(
+          pushedCount > 0
+            ? `⚠️ ${pushedCount} subidos, ${failedCount} fallaron al subir a Google Calendar (${calId}): ${lastErrorMessage}`
+            : `⚠️ Error al subir a Google API (${failedCount} fallaron): ${lastErrorMessage || 'Error de red o permisos'}`
+        );
+      } else {
+        setSyncStatusMsg(
+          `✅ ${pushedCount} eventos locales subidos exitosamente a Google Calendar (${calId}).`
+        );
+      }
     } catch (err) {
       setSyncStatusMsg(
         `⚠️ Error al subir a Google API: ${err instanceof Error ? err.message : 'Error de red o permisos'}`
