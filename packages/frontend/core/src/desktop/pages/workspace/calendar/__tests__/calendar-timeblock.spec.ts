@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateDragTimeRange,
   computeEventPosition,
+  computeMovedEventTimes,
+  computeOverlappingEventsLayout,
+  computeResizedEndTime,
   doesBoardCardMatchCategory,
   filterBoardCardsByCategory,
   formatEventTimeRange,
@@ -75,4 +78,74 @@ describe('Calendar Time-Block Helpers (Google Calendar Style)', () => {
     expect(doesBoardCardMatchCategory({ labels: [] }, 'Trabajo')).toBe(true);
     expect(doesBoardCardMatchCategory({ labels: [] }, 'Estudio')).toBe(false);
   });
+
+  it('lays out overlapping events into side-by-side collision columns like Google Calendar', () => {
+    const events = [
+      { id: 'ev-a', startTime: '09:00', endTime: '10:30' },
+      { id: 'ev-b', startTime: '09:30', endTime: '11:00' },
+      { id: 'ev-c', startTime: '10:30', endTime: '11:30' }, // Fits back into column 0 because ev-a ended at 10:30
+      { id: 'ev-d', startTime: '13:00', endTime: '14:00' }, // Separate non-overlapping cluster
+    ];
+
+    const layout = computeOverlappingEventsLayout(events, 0, 60);
+    expect(layout).toHaveLength(4);
+
+    const byId = Object.fromEntries(layout.map(item => [item.event.id, item]));
+    expect(byId['ev-a']).toMatchObject({
+      columnIndex: 0,
+      totalColumns: 2,
+      leftPercent: 0,
+      widthPercent: 50,
+      top: 540,
+      height: 90,
+    });
+    expect(byId['ev-b']).toMatchObject({
+      columnIndex: 1,
+      totalColumns: 2,
+      leftPercent: 50,
+      widthPercent: 50,
+      top: 570,
+      height: 90,
+    });
+    expect(byId['ev-c']).toMatchObject({
+      columnIndex: 0,
+      totalColumns: 2,
+      leftPercent: 0,
+      widthPercent: 50,
+      top: 630,
+      height: 60,
+    });
+    expect(byId['ev-d']).toMatchObject({
+      columnIndex: 0,
+      totalColumns: 1,
+      leftPercent: 0,
+      widthPercent: 100,
+      top: 780,
+      height: 60,
+    });
+  });
+
+  it('computes resized end time snapped to 15-minute increments with minimum 15m duration and 23:59 clamp', () => {
+    // Start at 10:00 (600m), drag bottom to 11:45 (705px at 60px/h, startHour=0)
+    expect(computeResizedEndTime('10:00', 704, 0, 60)).toBe('11:45');
+    // Drag above or too close to startTime -> minimum +15m (10:15)
+    expect(computeResizedEndTime('10:00', 550, 0, 60)).toBe('10:15');
+    // Drag past midnight -> clamped at 23:59
+    expect(computeResizedEndTime('22:00', 1500, 0, 60)).toBe('23:59');
+  });
+
+  it('computes moved event times preserving original duration and snapping to 15-minute increments', () => {
+    // 09:00 - 10:30 (90m) moved to y=840 (14:00 at startHour=0, 60px/h) -> 14:00 - 15:30
+    expect(computeMovedEventTimes('09:00', '10:30', 842, 0, 60)).toEqual({
+      startTime: '14:00',
+      endTime: '15:30',
+    });
+
+    // Default 60m duration when endTime is undefined
+    expect(computeMovedEventTimes('09:00', undefined, 600, 0, 60)).toEqual({
+      startTime: '10:00',
+      endTime: '11:00',
+    });
+  });
 });
+

@@ -766,7 +766,27 @@ export const verticalGridScrollArea = style({
   gridTemplateColumns: '60px repeat(7, minmax(0, 1fr))',
   position: 'relative',
   overflowY: 'auto',
+  maxHeight: '680px',
+  selectors: {
+    '&[data-cols="5"]': {
+      gridTemplateColumns: '60px repeat(5, minmax(0, 1fr))',
+    },
+  },
 });
+
+export const timeGridHeaderRow5Col = style([
+  timeGridHeaderRow,
+  {
+    gridTemplateColumns: '60px repeat(5, minmax(0, 1fr))',
+  },
+]);
+
+export const allDayStripRow5Col = style([
+  allDayStripRow,
+  {
+    gridTemplateColumns: '60px repeat(5, minmax(0, 1fr))',
+  },
+]);
 
 export const timeAxisColumn = style({
   borderRight: `1px solid ${cssVarV2('layer/insideBorder/border')}`,
@@ -826,10 +846,10 @@ export const timedEventCard = style({
   left: '3px',
   right: '3px',
   borderRadius: '6px',
-  padding: '4px 6px',
+  padding: '4px 6px 8px',
   overflow: 'hidden',
   fontSize: '11px',
-  cursor: 'pointer',
+  cursor: 'grab',
   zIndex: 2,
   display: 'flex',
   flexDirection: 'column',
@@ -837,9 +857,13 @@ export const timedEventCard = style({
   boxShadow: cssVar('buttonShadow'),
   color: cssVarV2('text/primary'),
   backgroundColor: cssVarV2('layer/background/overlayPanel'),
+  boxSizing: 'border-box',
   selectors: {
     '&[data-completed="true"]': {
       opacity: 0.6,
+    },
+    '&:hover': {
+      zIndex: 5,
     },
   },
 });
@@ -848,6 +872,7 @@ export const timedEventHeader = style({
   display: 'flex',
   alignItems: 'center',
   gap: '5px',
+  minWidth: 0,
 });
 
 export const timedEventTitle = style({
@@ -856,6 +881,7 @@ export const timedEventTitle = style({
   whiteSpace: 'nowrap',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
+  flex: 1,
   selectors: {
     '&[data-completed="true"]': {
       textDecoration: 'line-through',
@@ -866,6 +892,66 @@ export const timedEventTitle = style({
 export const timedEventTimeLabel = style({
   fontSize: '10px',
   color: cssVarV2('text/secondary'),
+  display: 'flex',
+  alignItems: 'center',
+  gap: '4px',
+  flexWrap: 'wrap',
+});
+
+export const eventResizeHandle = style({
+  position: 'absolute',
+  left: 0,
+  right: 0,
+  bottom: 0,
+  height: '7px',
+  cursor: 'ns-resize',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: 'transparent',
+  transition: 'background-color 0.15s ease',
+  selectors: {
+    '&:hover': {
+      backgroundColor: 'rgba(59, 130, 246, 0.35)',
+    },
+    '&::after': {
+      content: '""',
+      width: '22px',
+      height: '2px',
+      borderRadius: '2px',
+      backgroundColor: cssVarV2('text/secondary'),
+      opacity: 0.5,
+    },
+  },
+});
+
+export const eventMiniBadge = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '2px',
+  fontSize: '9px',
+  fontWeight: 700,
+  padding: '1px 4px',
+  borderRadius: '4px',
+  backgroundColor: 'rgba(59, 130, 246, 0.14)',
+  color: cssVarV2('text/secondary'),
+  flexShrink: 0,
+});
+
+export const eventMeetBadge = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '2px',
+  fontSize: '9px',
+  fontWeight: 700,
+  padding: '1px 5px',
+  borderRadius: '4px',
+  backgroundColor: 'rgba(16, 185, 129, 0.18)',
+  color: '#10b981',
+  border: '1px solid rgba(16, 185, 129, 0.4)',
+  cursor: 'pointer',
+  flexShrink: 0,
+  textDecoration: 'none',
 });
 
 export const dragGhostBlock = style({
@@ -930,7 +1016,8 @@ export const dayVerticalGridContainer = style({
   position: 'relative',
   border: `1px solid ${cssVarV2('layer/insideBorder/border')}`,
   borderRadius: '10px',
-  overflow: 'hidden',
+  overflowY: 'auto',
+  maxHeight: '680px',
   backgroundColor: cssVarV2('layer/background/primary'),
 });
 
@@ -939,20 +1026,123 @@ export const dayTimedEventCard = style({
   left: '10px',
   right: '10px',
   borderRadius: '8px',
-  padding: '6px 12px',
+  padding: '6px 12px 10px',
   display: 'flex',
   justifyContent: 'space-between',
-  alignItems: 'center',
-  cursor: 'pointer',
+  alignItems: 'flex-start',
+  cursor: 'grab',
   zIndex: 2,
   boxShadow: cssVar('buttonShadow'),
   color: cssVarV2('text/primary'),
   backgroundColor: cssVarV2('layer/background/overlayPanel'),
+  boxSizing: 'border-box',
+  overflow: 'hidden',
   selectors: {
     '&[data-completed="true"]': {
       opacity: 0.6,
     },
+    '&:hover': {
+      zIndex: 5,
+    },
   },
+});
+
+export const yearGridContainer = style({
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+  gap: '14px',
+  paddingBottom: '16px',
+});
+
+export const yearMonthCard = style({
+  backgroundColor: cssVarV2('layer/background/secondary'),
+  border: `1px solid ${cssVarV2('layer/insideBorder/border')}`,
+  borderRadius: '12px',
+  padding: '12px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '8px',
+});
+
+export const yearMonthHeader = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  fontSize: '13px',
+  fontWeight: 700,
+  color: cssVarV2('text/primary'),
+  cursor: 'pointer',
+  padding: '4px 6px',
+  borderRadius: '6px',
+  transition: 'background-color 0.15s ease',
+  selectors: {
+    '&:hover': {
+      backgroundColor: cssVar('hoverColor'),
+      color: cssVar('brandColor'),
+    },
+  },
+});
+
+export const yearMonthWeekdays = style({
+  display: 'grid',
+  gridTemplateColumns: 'repeat(7, 1fr)',
+  textAlign: 'center',
+  fontSize: '10px',
+  fontWeight: 700,
+  color: cssVarV2('text/secondary'),
+});
+
+export const yearMonthDaysGrid = style({
+  display: 'grid',
+  gridTemplateColumns: 'repeat(7, 1fr)',
+  gap: '2px',
+});
+
+export const yearDayBtn = style({
+  backgroundColor: 'transparent',
+  border: 'none',
+  color: cssVarV2('text/primary'),
+  borderRadius: '6px',
+  height: '28px',
+  fontSize: '11px',
+  fontWeight: 500,
+  cursor: 'pointer',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '1px',
+  padding: 0,
+  selectors: {
+    '&:hover': {
+      backgroundColor: cssVar('hoverColor'),
+    },
+    '&[data-outside="true"]': {
+      opacity: 0.3,
+    },
+    '&[data-today="true"]': {
+      backgroundColor: cssVar('brandColor'),
+      color: '#ffffff',
+      fontWeight: 800,
+    },
+    '&[data-has-events="true"]': {
+      fontWeight: 700,
+    },
+  },
+});
+
+export const yearDayDotsRow = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '2px',
+  height: '4px',
+});
+
+export const yearDayDot = style({
+  width: '4px',
+  height: '4px',
+  borderRadius: '50%',
 });
 
 export const agendaContainer = style({
@@ -1172,6 +1362,186 @@ export const miniDayButton = style({
   },
 });
 
+export const myCalendarsCard = style({
+  backgroundColor: cssVarV2('layer/background/primary'),
+  border: `1px solid ${cssVarV2('layer/insideBorder/border')}`,
+  borderRadius: '12px',
+  padding: '12px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '10px',
+});
+
+export const myCalendarsHeader = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  fontSize: '13px',
+  fontWeight: 700,
+  color: cssVarV2('text/primary'),
+});
+
+export const calendarLayerList = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '6px',
+});
+
+export const calendarLayerRow = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '6px',
+  fontSize: '12px',
+  padding: '4px 6px',
+  borderRadius: '6px',
+  transition: 'background-color 0.15s ease',
+  selectors: {
+    '&:hover': {
+      backgroundColor: cssVar('hoverColor'),
+    },
+  },
+});
+
+export const calendarLayerLeft = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  minWidth: 0,
+  flex: 1,
+  cursor: 'pointer',
+});
+
+export const calendarLayerName = style({
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  color: cssVarV2('text/primary'),
+  fontWeight: 500,
+});
+
+export const calendarLayerBadge = style({
+  fontSize: '9px',
+  fontWeight: 700,
+  padding: '1px 5px',
+  borderRadius: '4px',
+  backgroundColor: cssVarV2('layer/background/secondary'),
+  color: cssVarV2('text/secondary'),
+  border: `1px solid ${cssVarV2('layer/insideBorder/border')}`,
+  flexShrink: 0,
+});
+
+export const calendarLayerActionsRow = style({
+  display: 'flex',
+  gap: '6px',
+  flexWrap: 'wrap',
+});
+
+export const calendarLayerActionBtn = style({
+  flex: 1,
+  backgroundColor: cssVarV2('layer/background/secondary'),
+  border: `1px solid ${cssVarV2('layer/insideBorder/border')}`,
+  borderRadius: '7px',
+  padding: '6px 8px',
+  fontSize: '11px',
+  fontWeight: 600,
+  color: cssVarV2('text/primary'),
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: '4px',
+  transition: 'border-color 0.15s ease, background-color 0.15s ease',
+  selectors: {
+    '&:hover': {
+      borderColor: cssVar('brandColor'),
+      backgroundColor: cssVar('hoverColor'),
+    },
+  },
+});
+
+export const pkmSuperpowerBar = style({
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '8px',
+  padding: '10px 12px',
+  borderRadius: '10px',
+  backgroundColor: cssVarV2('layer/background/secondary'),
+  border: `1px solid ${cssVarV2('layer/insideBorder/border')}`,
+});
+
+export const pkmActionBtn = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  padding: '6px 12px',
+  borderRadius: '7px',
+  border: `1px solid ${cssVarV2('layer/insideBorder/border')}`,
+  backgroundColor: cssVarV2('layer/background/primary'),
+  color: cssVarV2('text/primary'),
+  fontSize: '12px',
+  fontWeight: 600,
+  cursor: 'pointer',
+  transition: 'border-color 0.15s ease, background-color 0.15s ease',
+  selectors: {
+    '&:hover': {
+      borderColor: cssVar('brandColor'),
+      backgroundColor: cssVar('hoverColor'),
+    },
+  },
+});
+
+export const syncModalTabs = style({
+  display: 'flex',
+  gap: '6px',
+  backgroundColor: cssVarV2('layer/background/secondary'),
+  padding: '4px',
+  borderRadius: '10px',
+  border: `1px solid ${cssVarV2('layer/insideBorder/border')}`,
+});
+
+export const syncModalTabBtn = style({
+  flex: 1,
+  border: 'none',
+  backgroundColor: 'transparent',
+  color: cssVarV2('text/secondary'),
+  padding: '7px 10px',
+  borderRadius: '7px',
+  fontSize: '12px',
+  fontWeight: 600,
+  cursor: 'pointer',
+  transition: 'all 0.15s ease',
+  selectors: {
+    '&:hover': {
+      color: cssVarV2('text/primary'),
+    },
+    '&[data-active="true"]': {
+      backgroundColor: cssVar('brandColor'),
+      color: '#ffffff',
+    },
+  },
+});
+
+export const syncHelpBox = style({
+  fontSize: '11px',
+  lineHeight: 1.45,
+  color: cssVarV2('text/secondary'),
+  backgroundColor: cssVarV2('layer/background/secondary'),
+  border: `1px solid ${cssVarV2('layer/insideBorder/border')}`,
+  borderRadius: '8px',
+  padding: '10px 12px',
+});
+
+export const syncStatusBanner = style({
+  fontSize: '12px',
+  fontWeight: 600,
+  padding: '8px 12px',
+  borderRadius: '8px',
+  backgroundColor: 'rgba(16, 185, 129, 0.14)',
+  border: '1px solid rgba(16, 185, 129, 0.4)',
+  color: '#10b981',
+});
+
 export const unscheduledTitleRow = style({
   fontSize: '13px',
   fontWeight: 700,
@@ -1308,3 +1678,4 @@ export const modalActionsRow = style({
   paddingTop: '12px',
   borderTop: `1px solid ${cssVarV2('layer/insideBorder/border')}`,
 });
+

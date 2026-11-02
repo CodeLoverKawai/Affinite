@@ -9,7 +9,7 @@ import dayjs from 'dayjs';
 import isLeapYear from 'dayjs/plugin/isLeapYear';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import isoWeeksInYear from 'dayjs/plugin/isoWeeksInYear';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { DocsService } from '../../../../modules/doc';
 import {
@@ -26,49 +26,83 @@ import {
   WorkbenchService,
 } from '../../../../modules/workbench';
 import { WorkspaceService } from '../../../../modules/workspace';
+import { playStreakCompletionSound } from '../streaks/streaks-sound';
 import * as styles from './calendar.css';
+import {
+  buildGoogleCalendarTemplateUrl,
+  exportEventsToIcs,
+  mapCalendarTaskToGoogleApiEvent,
+  mapGoogleApiEventToCalendarTask,
+  parseIcsToEvents,
+} from './calendar-ics-engine';
+import {
+  excludeRecurringOccurrence,
+  expandEventsForRange,
+  formatRecurrenceSummary,
+} from './calendar-recurrence-engine';
 import {
   calculateDragTimeRange,
   computeEventPosition,
+  computeMovedEventTimes,
+  computeOverlappingEventsLayout,
+  computeResizedEndTime,
   filterBoardCardsByCategory,
   formatEventTimeRange,
   isEventAllDay,
 } from './calendar-timeblock-helpers';
+import {
+  type BoardCardCalendarItem,
+  type CalendarLayer,
+  type CalendarTask,
+  type CalendarViewMode,
+  DEFAULT_CALENDAR_LAYERS,
+  type ExpandedCalendarEvent,
+  type GoogleCalendarConfig,
+  type RecurrenceFrequency,
+} from './calendar-types';
+
+export type {
+  BoardCardCalendarItem,
+  CalendarLayer,
+  CalendarTask,
+  CalendarViewMode,
+  ExpandedCalendarEvent,
+  GoogleCalendarConfig,
+  RecurrenceFrequency,
+};
 
 dayjs.extend(isLeapYear);
 dayjs.extend(isoWeek);
 dayjs.extend(isoWeeksInYear);
 
-export interface CalendarTask {
-  id: string;
-  title: string;
-  date: string; // YYYY-MM-DD
-  time?: string; // HH:mm legacy / shorthand
-  startTime?: string; // HH:mm
-  endTime?: string; // HH:mm
-  isAllDay?: boolean;
-  color?: string; // Google Calendar color tint
-  completed: boolean;
-  priority: 'high' | 'medium' | 'low';
-  category?: string;
-  notes?: string;
+interface AffiniteCalendarBridge {
+  fetchIcsFeed?: (url: string) => Promise<string>;
+  googleApiRequest?: (params: {
+    method: string;
+    endpoint: string;
+    accessToken: string;
+    body?: Record<string, unknown>;
+  }) => Promise<Record<string, unknown>>;
 }
 
-export interface BoardCardCalendarItem {
+function getCalendarBridge(): AffiniteCalendarBridge | undefined {
+  if (typeof window === 'undefined') return undefined;
+  return (
+    window as unknown as {
+      __apis?: { calendar?: AffiniteCalendarBridge };
+    }
+  ).__apis?.calendar;
+}
+
+interface RawBoardCard {
   id: string;
-  boardId: string;
-  boardTitle: string;
   columnId: string;
-  columnTitle: string;
-  title: string;
+  title?: string;
   description?: string;
-  dueDate?: string; // YYYY-MM-DD
+  dueDate?: string;
   category?: string;
   labels?: string[];
-  isDoneColumn: boolean;
 }
-
-type CalendarViewMode = 'month' | 'week' | 'day' | 'agenda';
 
 const PRIORITY_META: Record<
   CalendarTask['priority'],
@@ -129,7 +163,7 @@ const MONTH_NAMES_ES = [
   'Diciembre',
 ];
 
-const GRID_START_HOUR = 6;
+const GRID_START_HOUR = 0;
 const GRID_END_HOUR = 23;
 const PIXELS_PER_HOUR = 60;
 const HOURS_ARRAY = Array.from(
@@ -150,6 +184,19 @@ function isDoneColName(name: string): boolean {
   );
 }
 
+function triggerIcsDownload(icsContent: string, filename: string) {
+  if (typeof window === 'undefined') return;
+  const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export const Component = () => {
   const workspaceService = useService(WorkspaceService);
   const docsService = useService(DocsService);
@@ -162,11 +209,25 @@ export const Component = () => {
   const [viewMode, setViewMode] = useState<CalendarViewMode>('week');
   const [cursorDate, setCursorDate] = useState<dayjs.Dayjs>(() => dayjs());
   const [tasks, setTasks] = useState<CalendarTask[]>([]);
+  const [calendarLayers, setCalendarLayers] = useState<CalendarLayer[]>(
+    () => DEFAULT_CALENDAR_LAYERS
+  );
+  const [googleConfig, setGoogleConfig] = useState<GoogleCalendarConfig>({
+    calendarId: 'primary',
+  });
   const [boardCards, setBoardCards] = useState<BoardCardCalendarItem[]>([]);
   const [showUnscheduledPanel, setShowUnscheduledPanel] = useState(true);
   const [searchFilter, setSearchFilter] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
-  const [selectedSource, setSelectedSource] = useState<'all' | 'tasks' | 'boards'>('all');
+  const [selectedSource, setSelectedSource] = useState<
+    'all' | 'tasks' | 'boards'
+  >('all');
+
+  // Refs for auto-scrolling 24h grid to 08:00 and focusing search input
+  const weekGridScrollRef = useRef<HTMLDivElement | null>(null);
+  const dayGridScrollRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const firedRemindersRef = useRef<Set<string>>(new Set());
 
   // Mini Calendar Navigator state
   const [miniCalMonth, setMiniCalMonth] = useState<dayjs.Dayjs>(() => dayjs());
@@ -178,25 +239,65 @@ export const Component = () => {
     currentY: number;
   } | null>(null);
 
+  // Bottom 15-min Resize State for Timed Events
+  const [resizingEvent, setResizingEvent] = useState<{
+    taskId: string;
+    instanceDate: string;
+    startTime: string;
+    columnTop: number;
+    currentBottomY: number;
+  } | null>(null);
+
   // Task Modal State
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<CalendarTask | null>(null);
+  const [editingOccurrenceDate, setEditingOccurrenceDate] = useState<
+    string | null
+  >(null);
   const [formTitle, setFormTitle] = useState('');
+  const [formCalendarId, setFormCalendarId] = useState('cal-personal');
   const [formDate, setFormDate] = useState(() =>
     dayjs().format(JOURNAL_DATE_FORMAT)
   );
+  const [formEndDate, setFormEndDate] = useState('');
   const [formIsAllDay, setFormIsAllDay] = useState(false);
-  const [formStartTime, setFormStartTime] = useState('');
-  const [formEndTime, setFormEndTime] = useState('');
+  const [formStartTime, setFormStartTime] = useState('09:00');
+  const [formEndTime, setFormEndTime] = useState('10:00');
   const [formColor, setFormColor] = useState('#3b82f6');
   const [formPriority, setFormPriority] =
     useState<CalendarTask['priority']>('medium');
   const [formCategory, setFormCategory] = useState('General');
   const [formNotes, setFormNotes] = useState('');
+  const [formLocation, setFormLocation] = useState('');
+  const [formMeetingUrl, setFormMeetingUrl] = useState('');
+  const [formReminderMinutes, setFormReminderMinutes] = useState<string>('');
+  const [formRecurrenceFreq, setFormRecurrenceFreq] =
+    useState<RecurrenceFrequency>('none');
+  const [formRecurrenceUntil, setFormRecurrenceUntil] = useState('');
+  const [formLinkedDocId, setFormLinkedDocId] = useState<string | undefined>(
+    undefined
+  );
 
-  // Drag payload state (for cards / tasks dragged to date headers)
+  // Google Calendar & .ics Sync Modal State
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [syncTab, setSyncTab] = useState<'ics-url' | 'google-api' | 'ics-file'>(
+    'ics-url'
+  );
+  const [syncIcsName, setSyncIcsName] = useState('Google Calendar');
+  const [syncIcsColor, setSyncIcsColor] = useState('#3b82f6');
+  const [syncIcsUrl, setSyncIcsUrl] = useState('');
+  const [importTargetCalId, setImportTargetCalId] = useState('cal-personal');
+  const [syncStatusMsg, setSyncStatusMsg] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Drag payload state (for cards / tasks dragged across dates or time slots)
   const [dragItem, setDragItem] = useState<
-    | { type: 'task'; id: string }
+    | {
+        type: 'task';
+        id: string;
+        instanceDate?: string;
+        isRecurringInstance?: boolean;
+      }
     | { type: 'board-card'; boardId: string; cardId: string }
     | null
   >(null);
@@ -206,24 +307,64 @@ export const Component = () => {
     setMiniCalMonth(cursorDate);
   }, [cursorDate]);
 
-  // 1. Sync Native Calendar Tasks from root workspace Yjs map
+  // Auto-scroll 24h vertical grid to 08:00 when mounting or switching to week/workweek/day
+  useEffect(() => {
+    const targetScrollTop = 8 * PIXELS_PER_HOUR;
+    if (viewMode === 'week' || viewMode === 'workweek') {
+      if (weekGridScrollRef.current) {
+        weekGridScrollRef.current.scrollTop = targetScrollTop;
+      }
+    } else if (viewMode === 'day') {
+      if (dayGridScrollRef.current) {
+        dayGridScrollRef.current.scrollTop = targetScrollTop;
+      }
+    }
+  }, [viewMode]);
+
+  // 1. Sync Native Calendar Tasks, Calendar Layers, and Google Config from root workspace Yjs map
   useEffect(() => {
     const rootYDoc = workspaceService.workspace.rootYDoc;
     const yMap = rootYDoc.getMap('affinite_calendar_v1');
 
     const syncFromYjs = () => {
-      const raw = yMap.get('tasks') as string | undefined;
-      if (!raw) {
+      const rawTasks = yMap.get('tasks') as string | undefined;
+      if (!rawTasks) {
         setTasks([]);
-        return;
-      }
-      try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          setTasks(parsed);
+      } else {
+        try {
+          const parsed = JSON.parse(rawTasks);
+          if (Array.isArray(parsed)) {
+            setTasks(parsed);
+          }
+        } catch {
+          setTasks([]);
         }
-      } catch {
-        setTasks([]);
+      }
+
+      const rawCals = yMap.get('calendars') as string | undefined;
+      if (rawCals) {
+        try {
+          const parsedCals = JSON.parse(rawCals);
+          if (Array.isArray(parsedCals) && parsedCals.length > 0) {
+            setCalendarLayers(parsedCals);
+          }
+        } catch {
+          setCalendarLayers(DEFAULT_CALENDAR_LAYERS);
+        }
+      } else {
+        setCalendarLayers(DEFAULT_CALENDAR_LAYERS);
+      }
+
+      const rawGConfig = yMap.get('google_config') as string | undefined;
+      if (rawGConfig) {
+        try {
+          const parsedGConfig = JSON.parse(rawGConfig);
+          if (parsedGConfig && typeof parsedGConfig === 'object') {
+            setGoogleConfig(parsedGConfig);
+          }
+        } catch {
+          // ignore
+        }
       }
     };
 
@@ -242,6 +383,30 @@ export const Component = () => {
         yMap.set('tasks', JSON.stringify(nextTasks));
       });
       setTasks(nextTasks);
+    },
+    [workspaceService]
+  );
+
+  const saveCalendarsToYjs = useCallback(
+    (nextLayers: CalendarLayer[]) => {
+      const rootYDoc = workspaceService.workspace.rootYDoc;
+      const yMap = rootYDoc.getMap('affinite_calendar_v1');
+      rootYDoc.transact(() => {
+        yMap.set('calendars', JSON.stringify(nextLayers));
+      });
+      setCalendarLayers(nextLayers);
+    },
+    [workspaceService]
+  );
+
+  const saveGoogleConfigToYjs = useCallback(
+    (nextConfig: GoogleCalendarConfig) => {
+      const rootYDoc = workspaceService.workspace.rootYDoc;
+      const yMap = rootYDoc.getMap('affinite_calendar_v1');
+      rootYDoc.transact(() => {
+        yMap.set('google_config', JSON.stringify(nextConfig));
+      });
+      setGoogleConfig(nextConfig);
     },
     [workspaceService]
   );
@@ -270,10 +435,9 @@ export const Component = () => {
             const columns: Array<{ id: string; title: string }> = colsRaw
               ? JSON.parse(colsRaw)
               : [];
-            const cards: Array<any> = cardsRaw ? JSON.parse(cardsRaw) : [];
+            const cards: RawBoardCard[] = cardsRaw ? JSON.parse(cardsRaw) : [];
             const colMap = new Map(columns.map(c => [c.id, c.title]));
-            const boardTitle =
-              boardDoc.title$.value || 'Untitled Board';
+            const boardTitle = boardDoc.title$.value || 'Untitled Board';
 
             for (const c of cards) {
               const colTitle = colMap.get(c.columnId) || 'Lista';
@@ -330,7 +494,7 @@ export const Component = () => {
         try {
           const yMap = doc.yDoc.getMap('board_data');
           const cardsRaw = yMap.get('cards') as string | undefined;
-          const cards: Array<any> = cardsRaw ? JSON.parse(cardsRaw) : [];
+          const cards: RawBoardCard[] = cardsRaw ? JSON.parse(cardsRaw) : [];
           const nextCards = cards.map(c =>
             c.id === cardId ? { ...c, dueDate } : c
           );
@@ -358,7 +522,7 @@ export const Component = () => {
           const columns: Array<{ id: string; title: string }> = colsRaw
             ? JSON.parse(colsRaw)
             : [];
-          const cards: Array<any> = cardsRaw ? JSON.parse(cardsRaw) : [];
+          const cards: RawBoardCard[] = cardsRaw ? JSON.parse(cardsRaw) : [];
           const targetCard = cards.find(c => c.id === cardId);
           if (!targetCard || columns.length === 0) return;
 
@@ -426,48 +590,108 @@ export const Component = () => {
 
   // Task CRUD Handlers
   const openCreateTaskModal = useCallback(
-    (defaultDate?: string, defaultStartTime?: string, defaultEndTime?: string) => {
+    (
+      defaultDate?: string,
+      defaultStartTime?: string,
+      defaultEndTime?: string
+    ) => {
       setEditingTask(null);
+      setEditingOccurrenceDate(null);
       setFormTitle('');
+      const defaultLayer =
+        calendarLayers.find(l => l.visible) ||
+        calendarLayers[0] ||
+        DEFAULT_CALENDAR_LAYERS[0];
+      setFormCalendarId(defaultLayer?.id || 'cal-personal');
       setFormDate(defaultDate || dayjs().format(JOURNAL_DATE_FORMAT));
+      setFormEndDate('');
       if (defaultStartTime) {
         setFormIsAllDay(false);
         setFormStartTime(defaultStartTime);
-        setFormEndTime(defaultEndTime || '');
+        setFormEndTime(defaultEndTime || '10:00');
       } else {
         setFormIsAllDay(true);
         setFormStartTime('09:00');
         setFormEndTime('10:00');
       }
-      setFormColor('#3b82f6');
+      setFormColor(defaultLayer?.color || '#3b82f6');
       setFormPriority('medium');
       setFormCategory('General');
       setFormNotes('');
+      setFormLocation('');
+      setFormMeetingUrl('');
+      setFormReminderMinutes('');
+      setFormRecurrenceFreq('none');
+      setFormRecurrenceUntil('');
+      setFormLinkedDocId(undefined);
       setIsTaskModalOpen(true);
     },
-    []
+    [calendarLayers]
   );
 
-  const openEditTaskModal = useCallback((task: CalendarTask) => {
-    setEditingTask(task);
-    setFormTitle(task.title);
-    setFormDate(task.date);
-    const allDay = isEventAllDay(task);
-    setFormIsAllDay(allDay);
-    setFormStartTime(task.startTime || task.time || '09:00');
-    setFormEndTime(task.endTime || '');
-    setFormColor(task.color || '#3b82f6');
-    setFormPriority(task.priority);
-    setFormCategory(task.category || 'General');
-    setFormNotes(task.notes || '');
-    setIsTaskModalOpen(true);
-  }, []);
+  const openEditTaskModal = useCallback(
+    (taskOrExpanded: CalendarTask | ExpandedCalendarEvent) => {
+      const masterId =
+        'masterId' in taskOrExpanded ? taskOrExpanded.masterId : taskOrExpanded.id;
+      const instanceDate =
+        'instanceDate' in taskOrExpanded
+          ? taskOrExpanded.instanceDate
+          : taskOrExpanded.date;
+      const masterTask = tasks.find(t => t.id === masterId) || taskOrExpanded;
+
+      setEditingTask(masterTask);
+      setEditingOccurrenceDate(instanceDate);
+      setFormTitle(masterTask.title);
+      setFormCalendarId(masterTask.calendarId || 'cal-personal');
+      setFormDate(masterTask.date);
+      setFormEndDate(masterTask.endDate || '');
+      const allDay = isEventAllDay(masterTask);
+      setFormIsAllDay(allDay);
+      setFormStartTime(masterTask.startTime || masterTask.time || '09:00');
+      setFormEndTime(masterTask.endTime || '10:00');
+      setFormColor(masterTask.color || '#3b82f6');
+      setFormPriority(masterTask.priority);
+      setFormCategory(masterTask.category || 'General');
+      setFormNotes(masterTask.notes || '');
+      setFormLocation(masterTask.location || '');
+      setFormMeetingUrl(masterTask.meetingUrl || '');
+      setFormReminderMinutes(
+        masterTask.reminderMinutes !== undefined
+          ? String(masterTask.reminderMinutes)
+          : ''
+      );
+      setFormRecurrenceFreq(masterTask.recurrence?.frequency || 'none');
+      setFormRecurrenceUntil(masterTask.recurrence?.until || '');
+      setFormLinkedDocId(masterTask.linkedDocId);
+      setIsTaskModalOpen(true);
+    },
+    [tasks]
+  );
 
   const handleSaveTaskModal = useCallback(() => {
     if (!formTitle.trim()) return;
+    const reminderParsed =
+      formReminderMinutes.trim() !== ''
+        ? Number.parseInt(formReminderMinutes, 10)
+        : undefined;
+
+    const recurrenceRule =
+      formRecurrenceFreq !== 'none'
+        ? {
+            frequency: formRecurrenceFreq,
+            interval: editingTask?.recurrence?.interval || 1,
+            byWeekday: editingTask?.recurrence?.byWeekday,
+            until: formRecurrenceUntil.trim() || undefined,
+            exdates: editingTask?.recurrence?.exdates,
+          }
+        : undefined;
+
     const taskData: Partial<CalendarTask> = {
       title: formTitle.trim(),
+      calendarId: formCalendarId,
       date: formDate,
+      endDate:
+        formEndDate && formEndDate >= formDate ? formEndDate : undefined,
       isAllDay: formIsAllDay,
       startTime: !formIsAllDay ? formStartTime : undefined,
       endTime: !formIsAllDay ? formEndTime || undefined : undefined,
@@ -476,6 +700,14 @@ export const Component = () => {
       priority: formPriority,
       category: formCategory.trim() || undefined,
       notes: formNotes.trim() || undefined,
+      location: formLocation.trim() || undefined,
+      meetingUrl: formMeetingUrl.trim() || undefined,
+      reminderMinutes:
+        reminderParsed !== undefined && !Number.isNaN(reminderParsed)
+          ? reminderParsed
+          : undefined,
+      recurrence: recurrenceRule,
+      linkedDocId: formLinkedDocId,
     };
 
     if (editingTask) {
@@ -488,6 +720,7 @@ export const Component = () => {
         id: `cal-task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         completed: false,
         priority: 'medium',
+        externalSource: 'local',
         ...taskData,
       } as CalendarTask;
       saveTasksToYjs([...tasks, created]);
@@ -495,13 +728,21 @@ export const Component = () => {
     setIsTaskModalOpen(false);
   }, [
     editingTask,
+    formCalendarId,
     formCategory,
     formColor,
     formDate,
+    formEndDate,
     formEndTime,
     formIsAllDay,
+    formLinkedDocId,
+    formLocation,
+    formMeetingUrl,
     formNotes,
     formPriority,
+    formRecurrenceFreq,
+    formRecurrenceUntil,
+    formReminderMinutes,
     formStartTime,
     formTitle,
     saveTasksToYjs,
@@ -527,15 +768,138 @@ export const Component = () => {
     [saveTasksToYjs, tasks]
   );
 
-  // Drop handler onto a date cell
+  const handleDeleteSingleOccurrence = useCallback(
+    (task: CalendarTask, occurrenceDate: string) => {
+      const updated = excludeRecurringOccurrence(task, occurrenceDate);
+      const next = tasks.map(t => (t.id === task.id ? updated : t));
+      saveTasksToYjs(next);
+      setIsTaskModalOpen(false);
+    },
+    [saveTasksToYjs, tasks]
+  );
+
+  // Create or Open Linked AFFiNITe Meeting Note Document
+  const handleCreateOrOpenMeetingDoc = useCallback(() => {
+    if (formLinkedDocId) {
+      setIsTaskModalOpen(false);
+      workbench.openDoc(formLinkedDocId, { at: 'active' });
+      return;
+    }
+    const noteTitle = `📋 Reunión: ${formTitle.trim() || 'Evento'} (${formDate})`;
+    const docRecord = docsService.createDoc({ title: noteTitle });
+    try {
+      const { release } = docsService.open(docRecord.id);
+      release();
+    } catch {
+      // ignore
+    }
+    setFormLinkedDocId(docRecord.id);
+    if (editingTask) {
+      const next = tasks.map(t =>
+        t.id === editingTask.id ? { ...t, linkedDocId: docRecord.id } : t
+      );
+      saveTasksToYjs(next);
+    }
+    setIsTaskModalOpen(false);
+    workbench.openDoc(docRecord.id, { at: 'active' });
+  }, [
+    docsService,
+    editingTask,
+    formDate,
+    formLinkedDocId,
+    formTitle,
+    saveTasksToYjs,
+    tasks,
+    workbench,
+  ]);
+
+  // Open Google Calendar Template URL in external browser tab
+  const handleOpenGoogleTemplate = useCallback(() => {
+    const draftTask: CalendarTask = {
+      id: editingTask?.id || 'draft',
+      title: formTitle.trim() || 'Evento AFFiNITe',
+      date: formDate,
+      endDate: formEndDate && formEndDate >= formDate ? formEndDate : undefined,
+      isAllDay: formIsAllDay,
+      startTime: !formIsAllDay ? formStartTime : undefined,
+      endTime: !formIsAllDay ? formEndTime : undefined,
+      location: formLocation.trim() || undefined,
+      notes: formNotes.trim() || undefined,
+      recurrence:
+        formRecurrenceFreq !== 'none'
+          ? {
+              frequency: formRecurrenceFreq,
+              until: formRecurrenceUntil.trim() || undefined,
+            }
+          : undefined,
+      completed: false,
+      priority: formPriority,
+    };
+    const url = buildGoogleCalendarTemplateUrl(draftTask);
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }, [
+    editingTask,
+    formDate,
+    formEndDate,
+    formEndTime,
+    formIsAllDay,
+    formLocation,
+    formNotes,
+    formPriority,
+    formRecurrenceFreq,
+    formRecurrenceUntil,
+    formStartTime,
+    formTitle,
+  ]);
+
+  // Drop handler onto a date cell (month view / all-day strip)
   const handleDropOnDate = useCallback(
     (targetDateStr: string) => {
       if (!dragItem) return;
       if (dragItem.type === 'task') {
-        const next = tasks.map(t =>
-          t.id === dragItem.id ? { ...t, date: targetDateStr } : t
-        );
-        saveTasksToYjs(next);
+        const masterTask = tasks.find(t => t.id === dragItem.id);
+        if (!masterTask) {
+          setDragItem(null);
+          return;
+        }
+        const isRecurring =
+          Boolean(masterTask.recurrence) &&
+          masterTask.recurrence?.frequency !== 'none';
+
+        if (isRecurring && dragItem.instanceDate) {
+          const updatedMaster = excludeRecurringOccurrence(
+            masterTask,
+            dragItem.instanceDate
+          );
+          const detachedInstance: CalendarTask = {
+            ...masterTask,
+            id: `cal-task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            date: targetDateStr,
+            endDate: undefined,
+            recurrence: undefined,
+          };
+          const next = tasks
+            .map(t => (t.id === masterTask.id ? updatedMaster : t))
+            .concat(detachedInstance);
+          saveTasksToYjs(next);
+        } else {
+          let nextEndDate = masterTask.endDate;
+          if (masterTask.endDate && masterTask.endDate > masterTask.date) {
+            const spanDays = dayjs(masterTask.endDate).diff(
+              dayjs(masterTask.date),
+              'day'
+            );
+            nextEndDate = dayjs(targetDateStr)
+              .add(spanDays, 'day')
+              .format(JOURNAL_DATE_FORMAT);
+          }
+          const next = tasks.map(t =>
+            t.id === masterTask.id
+              ? { ...t, date: targetDateStr, endDate: nextEndDate }
+              : t
+          );
+          saveTasksToYjs(next);
+        }
       } else if (dragItem.type === 'board-card') {
         updateBoardCardDueDate(
           dragItem.boardId,
@@ -548,11 +912,180 @@ export const Component = () => {
     [dragItem, saveTasksToYjs, tasks, updateBoardCardDueDate]
   );
 
+  // Drop handler onto a vertical 24h time column (week / workweek / day views)
+  const handleDropOnTimeGrid = useCallback(
+    (targetDateStr: string, e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      if (!dragItem) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const dropY = Math.max(0, e.clientY - rect.top);
+
+      if (dragItem.type === 'task') {
+        const masterTask = tasks.find(t => t.id === dragItem.id);
+        if (!masterTask) {
+          setDragItem(null);
+          return;
+        }
+        const movedTimes = computeMovedEventTimes(
+          masterTask.startTime || masterTask.time || '09:00',
+          masterTask.endTime,
+          dropY,
+          GRID_START_HOUR,
+          PIXELS_PER_HOUR
+        );
+        const isRecurring =
+          Boolean(masterTask.recurrence) &&
+          masterTask.recurrence?.frequency !== 'none';
+
+        if (isRecurring && dragItem.instanceDate) {
+          const updatedMaster = excludeRecurringOccurrence(
+            masterTask,
+            dragItem.instanceDate
+          );
+          const detachedInstance: CalendarTask = {
+            ...masterTask,
+            id: `cal-task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            date: targetDateStr,
+            endDate: undefined,
+            isAllDay: false,
+            startTime: movedTimes.startTime,
+            time: movedTimes.startTime,
+            endTime: movedTimes.endTime,
+            recurrence: undefined,
+          };
+          const next = tasks
+            .map(t => (t.id === masterTask.id ? updatedMaster : t))
+            .concat(detachedInstance);
+          saveTasksToYjs(next);
+        } else {
+          const next = tasks.map(t =>
+            t.id === masterTask.id
+              ? {
+                  ...t,
+                  date: targetDateStr,
+                  isAllDay: false,
+                  startTime: movedTimes.startTime,
+                  time: movedTimes.startTime,
+                  endTime: movedTimes.endTime,
+                }
+              : t
+          );
+          saveTasksToYjs(next);
+        }
+      } else if (dragItem.type === 'board-card') {
+        updateBoardCardDueDate(
+          dragItem.boardId,
+          dragItem.cardId,
+          targetDateStr
+        );
+      }
+      setDragItem(null);
+    },
+    [dragItem, saveTasksToYjs, tasks, updateBoardCardDueDate]
+  );
+
+  // Bottom 15-min Resize Handlers
+  const handleResizeMouseDown = useCallback(
+    (
+      ev: ExpandedCalendarEvent,
+      e: React.MouseEvent<HTMLDivElement>
+    ) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const colEl = (e.currentTarget as HTMLElement).closest(
+        '[data-day-column="true"]'
+      );
+      if (!colEl) return;
+      const rect = colEl.getBoundingClientRect();
+      setResizingEvent({
+        taskId: ev.masterId,
+        instanceDate: ev.instanceDate,
+        startTime: ev.startTime || ev.time || '09:00',
+        columnTop: rect.top,
+        currentBottomY: Math.max(0, e.clientY - rect.top),
+      });
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!resizingEvent) return;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const nextY = Math.max(
+        0,
+        Math.min(
+          HOURS_ARRAY.length * PIXELS_PER_HOUR,
+          ev.clientY - resizingEvent.columnTop
+        )
+      );
+      setResizingEvent(prev =>
+        prev ? { ...prev, currentBottomY: nextY } : null
+      );
+    };
+
+    const onMouseUp = (ev: MouseEvent) => {
+      const finalY = Math.max(
+        0,
+        Math.min(
+          HOURS_ARRAY.length * PIXELS_PER_HOUR,
+          ev.clientY - resizingEvent.columnTop
+        )
+      );
+      const newEndTime = computeResizedEndTime(
+        resizingEvent.startTime,
+        finalY,
+        GRID_START_HOUR,
+        PIXELS_PER_HOUR
+      );
+      const next = tasks.map(t =>
+        t.id === resizingEvent.taskId
+          ? {
+              ...t,
+              isAllDay: false,
+              startTime: t.startTime || t.time || resizingEvent.startTime,
+              time: t.startTime || t.time || resizingEvent.startTime,
+              endTime: newEndTime,
+            }
+          : t
+      );
+      saveTasksToYjs(next);
+      setResizingEvent(null);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [resizingEvent, saveTasksToYjs, tasks]);
+
+  // Visible calendar layer IDs set
+  const visibleCalendarIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const layer of calendarLayers) {
+      if (layer.visible) {
+        set.add(layer.id);
+      }
+    }
+    return set;
+  }, [calendarLayers]);
+
   // Filtered tasks & board cards
   const normalizedFilter = searchFilter.trim().toLowerCase();
   const filteredTasks = useMemo(() => {
-    let list = tasks;
     if (selectedSource === 'boards') return [];
+    let list = tasks.filter(t => {
+      const calId = t.calendarId || 'cal-personal';
+      // If calId is known in calendarLayers, respect its visibility
+      const knownLayer = calendarLayers.some(l => l.id === calId);
+      if (knownLayer && !visibleCalendarIds.has(calId)) {
+        return false;
+      }
+      return true;
+    });
+
     if (selectedCategory !== 'Todas') {
       list = list.filter(
         t =>
@@ -565,9 +1098,17 @@ export const Component = () => {
       t =>
         t.title.toLowerCase().includes(normalizedFilter) ||
         (t.category || '').toLowerCase().includes(normalizedFilter) ||
-        (t.notes || '').toLowerCase().includes(normalizedFilter)
+        (t.notes || '').toLowerCase().includes(normalizedFilter) ||
+        (t.location || '').toLowerCase().includes(normalizedFilter)
     );
-  }, [normalizedFilter, selectedCategory, selectedSource, tasks]);
+  }, [
+    calendarLayers,
+    normalizedFilter,
+    selectedCategory,
+    selectedSource,
+    tasks,
+    visibleCalendarIds,
+  ]);
 
   const filteredBoardCards = useMemo(() => {
     if (selectedSource === 'tasks') return [];
@@ -580,15 +1121,28 @@ export const Component = () => {
     );
   }, [boardCards, normalizedFilter, selectedCategory, selectedSource]);
 
+  // Expand recurring & multi-day events across a generous window around cursorDate's year
+  const expandedTasks = useMemo(() => {
+    const rangeStartStr = cursorDate
+      .startOf('year')
+      .subtract(1, 'month')
+      .format(JOURNAL_DATE_FORMAT);
+    const rangeEndStr = cursorDate
+      .endOf('year')
+      .add(1, 'month')
+      .format(JOURNAL_DATE_FORMAT);
+    return expandEventsForRange(filteredTasks, rangeStartStr, rangeEndStr);
+  }, [cursorDate, filteredTasks]);
+
   const tasksByDate = useMemo(() => {
-    const map = new Map<string, CalendarTask[]>();
-    for (const t of filteredTasks) {
-      const list = map.get(t.date) || [];
-      list.push(t);
-      map.set(t.date, list);
+    const map = new Map<string, ExpandedCalendarEvent[]>();
+    for (const ev of expandedTasks) {
+      const list = map.get(ev.instanceDate) || [];
+      list.push(ev);
+      map.set(ev.instanceDate, list);
     }
     return map;
-  }, [filteredTasks]);
+  }, [expandedTasks]);
 
   const boardCardsByDate = useMemo(() => {
     const map = new Map<string, BoardCardCalendarItem[]>();
@@ -604,6 +1158,62 @@ export const Component = () => {
   const unscheduledBoardCards = useMemo(() => {
     return filteredBoardCards.filter(c => !c.dueDate && !c.isDoneColumn);
   }, [filteredBoardCards]);
+
+  // Reminder Notification Check Interval (every 30s)
+  useEffect(() => {
+    const checkReminders = () => {
+      const nowDt = dayjs();
+      const todayKey = nowDt.format(JOURNAL_DATE_FORMAT);
+      const nowMinutes = nowDt.hour() * 60 + nowDt.minute();
+      const todaysEvents = tasksByDate.get(todayKey) || [];
+
+      for (const ev of todaysEvents) {
+        if (
+          ev.completed ||
+          isEventAllDay(ev) ||
+          ev.reminderMinutes === undefined
+        ) {
+          continue;
+        }
+        const timeStr = ev.startTime || ev.time;
+        if (!timeStr) continue;
+        const [hh, mm] = timeStr.split(':').map(Number);
+        if (Number.isNaN(hh) || Number.isNaN(mm)) continue;
+        const eventMinutes = hh * 60 + mm;
+        const diff = eventMinutes - nowMinutes;
+
+        if (
+          diff >= 0 &&
+          diff <= ev.reminderMinutes &&
+          !firedRemindersRef.current.has(ev.id)
+        ) {
+          firedRemindersRef.current.add(ev.id);
+          try {
+            playStreakCompletionSound();
+          } catch {
+            // ignore audio autoplay restrictions
+          }
+          if (
+            typeof window !== 'undefined' &&
+            'Notification' in window &&
+            Notification.permission === 'granted'
+          ) {
+            try {
+              new Notification(`⏰ Recordatorio: ${ev.title}`, {
+                body: `${timeStr}${ev.location ? ` · 📍 ${ev.location}` : ''}`,
+              });
+            } catch {
+              // ignore
+            }
+          }
+        }
+      }
+    };
+
+    checkReminders();
+    const timer = window.setInterval(checkReminders, 30_000);
+    return () => window.clearInterval(timer);
+  }, [tasksByDate]);
 
   // Calendar Grid Computation for Monthly View
   const monthWeeks = useMemo(() => {
@@ -632,7 +1242,7 @@ export const Component = () => {
     return rows;
   }, [cursorDate]);
 
-  // Current ISO Week for Weekly View
+  // Current ISO Week for Weekly / Workweek View
   const currentWeekInfo = useMemo(() => {
     const weekKey = formatWeeklyJournalKey(cursorDate);
     const { start, end, weekNumber, year } = getWeekDateRange(weekKey);
@@ -640,19 +1250,26 @@ export const Component = () => {
     return { weekKey, start, end, weekNumber, year, days };
   }, [cursorDate]);
 
-  // Monthly KPIs & Agenda Groups
+  // Monthly KPIs & Agenda Groups (using expandedTasks so recurring/multi-day events appear in Agenda!)
   const monthStatsAndGroups = useMemo(() => {
     const monthPrefix = cursorDate.format('YYYY-MM');
     const todayStr = dayjs().format(JOURNAL_DATE_FORMAT);
     const currentWeekKey = formatWeeklyJournalKey(dayjs());
 
-    const monthTasks = filteredTasks.filter(t => t.date.startsWith(monthPrefix));
+    const monthTasks = expandedTasks.filter(t =>
+      t.instanceDate.startsWith(monthPrefix)
+    );
     const monthCards = filteredBoardCards.filter(
       c => c.dueDate && c.dueDate.startsWith(monthPrefix)
     );
 
     type UnifiedAgendaItem =
-      | { kind: 'task'; date: string; completed: boolean; task: CalendarTask }
+      | {
+          kind: 'task';
+          date: string;
+          completed: boolean;
+          task: ExpandedCalendarEvent;
+        }
       | {
           kind: 'board-card';
           date: string;
@@ -663,7 +1280,7 @@ export const Component = () => {
     const allItems: UnifiedAgendaItem[] = [
       ...monthTasks.map(task => ({
         kind: 'task' as const,
-        date: task.date,
+        date: task.instanceDate,
         completed: task.completed,
         task,
       })),
@@ -721,8 +1338,8 @@ export const Component = () => {
   }, [
     allJournalDates,
     cursorDate,
+    expandedTasks,
     filteredBoardCards,
-    filteredTasks,
     monthWeeks,
   ]);
 
@@ -739,36 +1356,430 @@ export const Component = () => {
       nowMinute * (PIXELS_PER_HOUR / 60)
     : null;
 
-  const handlePrevPeriod = () => {
+  const handlePrevPeriod = useCallback(() => {
     if (viewMode === 'day') {
       setCursorDate(d => d.subtract(1, 'day'));
-    } else if (viewMode === 'week') {
+    } else if (viewMode === 'week' || viewMode === 'workweek') {
       setCursorDate(d => d.subtract(1, 'week'));
+    } else if (viewMode === 'year') {
+      setCursorDate(d => d.subtract(1, 'year'));
     } else {
       setCursorDate(d => d.subtract(1, 'month'));
     }
-  };
+  }, [viewMode]);
 
-  const handleNextPeriod = () => {
+  const handleNextPeriod = useCallback(() => {
     if (viewMode === 'day') {
       setCursorDate(d => d.add(1, 'day'));
-    } else if (viewMode === 'week') {
+    } else if (viewMode === 'week' || viewMode === 'workweek') {
       setCursorDate(d => d.add(1, 'week'));
+    } else if (viewMode === 'year') {
+      setCursorDate(d => d.add(1, 'year'));
     } else {
       setCursorDate(d => d.add(1, 'month'));
     }
-  };
+  }, [viewMode]);
 
-  const handleGoToday = () => {
+  const handleGoToday = useCallback(() => {
     setCursorDate(dayjs());
-  };
+  }, []);
 
-  // Timeblock Drag Handlers
+  // Google Calendar Keyboard Shortcuts Listener
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (isTaskModalOpen || isSyncModalOpen) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      const key = e.key;
+      if (key === 't' || key === 'T') {
+        handleGoToday();
+      } else if (key === 'd' || key === 'D') {
+        setViewMode('day');
+      } else if (key === 'w' || key === 'W') {
+        setViewMode('week');
+      } else if (key === 'x' || key === 'X') {
+        setViewMode('workweek');
+      } else if (key === 'm' || key === 'M') {
+        setViewMode('month');
+      } else if (key === 'y' || key === 'Y') {
+        setViewMode('year');
+      } else if (key === 'a' || key === 'A') {
+        setViewMode('agenda');
+      } else if (key === 'c' || key === 'C') {
+        openCreateTaskModal(cursorDate.format(JOURNAL_DATE_FORMAT));
+      } else if (key === '/') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      } else if (key === 'ArrowLeft') {
+        handlePrevPeriod();
+      } else if (key === 'ArrowRight') {
+        handleNextPeriod();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [
+    cursorDate,
+    handleGoToday,
+    handleNextPeriod,
+    handlePrevPeriod,
+    isSyncModalOpen,
+    isTaskModalOpen,
+    openCreateTaskModal,
+  ]);
+
+  // Layer Manager Actions
+  const handleToggleLayerVisible = useCallback(
+    (layerId: string) => {
+      const next = calendarLayers.map(l =>
+        l.id === layerId ? { ...l, visible: !l.visible } : l
+      );
+      saveCalendarsToYjs(next);
+    },
+    [calendarLayers, saveCalendarsToYjs]
+  );
+
+  const handleDeleteCalendarLayer = useCallback(
+    (layerId: string) => {
+      const nextLayers = calendarLayers.filter(l => l.id !== layerId);
+      saveCalendarsToYjs(nextLayers);
+      const nextTasks = tasks.filter(t => t.calendarId !== layerId);
+      saveTasksToYjs(nextTasks);
+    },
+    [calendarLayers, saveCalendarsToYjs, saveTasksToYjs, tasks]
+  );
+
+  // Sync a single .ics URL layer
+  const syncIcsLayerFeed = useCallback(
+    async (
+      layerId: string,
+      name: string,
+      color: string,
+      rawUrl: string
+    ): Promise<number> => {
+      const normalizedUrl = rawUrl.trim().replace(/^webcal:\/\//i, 'https://');
+      const bridge = getCalendarBridge();
+      let icsContent = '';
+      if (bridge?.fetchIcsFeed) {
+        icsContent = await bridge.fetchIcsFeed(normalizedUrl);
+      } else {
+        const resp = await fetch(normalizedUrl);
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status}`);
+        }
+        icsContent = await resp.text();
+      }
+
+      const parsedEvents = parseIcsToEvents(icsContent, {
+        calendarId: layerId,
+        color,
+        externalSource: 'ics-feed',
+      });
+
+      const nowIso = new Date().toISOString();
+      const exists = calendarLayers.some(l => l.id === layerId);
+      const nextLayers: CalendarLayer[] = exists
+        ? calendarLayers.map(l =>
+            l.id === layerId
+              ? {
+                  ...l,
+                  name,
+                  color,
+                  icsUrl: normalizedUrl,
+                  lastSyncedAt: nowIso,
+                  syncError: undefined,
+                }
+              : l
+          )
+        : [
+            ...calendarLayers,
+            {
+              id: layerId,
+              name,
+              color,
+              visible: true,
+              type: 'google-ics',
+              icsUrl: normalizedUrl,
+              lastSyncedAt: nowIso,
+            },
+          ];
+
+      saveCalendarsToYjs(nextLayers);
+      const otherTasks = tasks.filter(t => t.calendarId !== layerId);
+      saveTasksToYjs([...otherTasks, ...parsedEvents]);
+      return parsedEvents.length;
+    },
+    [calendarLayers, saveCalendarsToYjs, saveTasksToYjs, tasks]
+  );
+
+  const handleSubscribeIcsFeed = useCallback(async () => {
+    if (!syncIcsUrl.trim()) return;
+    setIsSyncing(true);
+    setSyncStatusMsg(null);
+    try {
+      const layerId = `cal-ics-${Date.now().toString(36)}`;
+      const count = await syncIcsLayerFeed(
+        layerId,
+        syncIcsName.trim() || 'Calendario iCal',
+        syncIcsColor,
+        syncIcsUrl
+      );
+      setSyncIcsUrl('');
+      setSyncStatusMsg(
+        `✅ Suscripción activa: ${count} eventos importados de "${syncIcsName.trim() || 'Calendario iCal'}".`
+      );
+    } catch (err) {
+      setSyncStatusMsg(
+        `⚠️ Error al sincronizar URL .ics: ${err instanceof Error ? err.message : 'Verifica la URL pública/secreta iCal'}`
+      );
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [syncIcsColor, syncIcsLayerFeed, syncIcsName, syncIcsUrl]);
+
+  const handleRefreshAllIcsFeeds = useCallback(async () => {
+    const icsLayers = calendarLayers.filter(
+      l => l.type === 'google-ics' && l.icsUrl
+    );
+    if (icsLayers.length === 0) {
+      setSyncStatusMsg('ℹ️ No hay suscripciones .ics configuradas todavía.');
+      return;
+    }
+    setIsSyncing(true);
+    setSyncStatusMsg(null);
+    try {
+      let totalImported = 0;
+      for (const layer of icsLayers) {
+        if (!layer.icsUrl) continue;
+        const count = await syncIcsLayerFeed(
+          layer.id,
+          layer.name,
+          layer.color,
+          layer.icsUrl
+        );
+        totalImported += count;
+      }
+      setSyncStatusMsg(
+        `✅ ${icsLayers.length} suscripciones actualizadas (${totalImported} eventos en total).`
+      );
+    } catch (err) {
+      setSyncStatusMsg(
+        `⚠️ Error al actualizar suscripciones: ${err instanceof Error ? err.message : 'Error de red'}`
+      );
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [calendarLayers, syncIcsLayerFeed]);
+
+  // Google Calendar API Bidirectional Sync Handlers
+  const handleGoogleApiPull = useCallback(async () => {
+    const token = googleConfig.accessToken?.trim();
+    if (!token) {
+      setSyncStatusMsg('⚠️ Introduce tu Google OAuth Access Token primero.');
+      return;
+    }
+    const calId = googleConfig.calendarId?.trim() || 'primary';
+    setIsSyncing(true);
+    setSyncStatusMsg(null);
+    try {
+      saveGoogleConfigToYjs(googleConfig);
+      const endpoint = `/calendars/${encodeURIComponent(calId)}/events?singleEvents=false&maxResults=250`;
+      const bridge = getCalendarBridge();
+      let data: Record<string, unknown>;
+      if (bridge?.googleApiRequest) {
+        data = await bridge.googleApiRequest({
+          method: 'GET',
+          endpoint,
+          accessToken: token,
+        });
+      } else {
+        const resp = await fetch(
+          `https://www.googleapis.com/calendar/v3${endpoint}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (!resp.ok) {
+          throw new Error(`Google API HTTP ${resp.status}`);
+        }
+        data = (await resp.json()) as Record<string, unknown>;
+      }
+
+      const layerId = 'cal-google-api';
+      const layerColor = '#3b82f6';
+      const rawItems = Array.isArray(data.items) ? data.items : [];
+      const mappedTasks: CalendarTask[] = [];
+      for (const item of rawItems) {
+        if (item && typeof item === 'object') {
+          const mapped = mapGoogleApiEventToCalendarTask(
+            item as Record<string, unknown>,
+            layerId,
+            layerColor
+          );
+          if (mapped) {
+            mappedTasks.push(mapped);
+          }
+        }
+      }
+
+      const nowIso = new Date().toISOString();
+      const hasGoogleLayer = calendarLayers.some(l => l.id === layerId);
+      const nextLayers: CalendarLayer[] = hasGoogleLayer
+        ? calendarLayers.map(l =>
+            l.id === layerId ? { ...l, lastSyncedAt: nowIso } : l
+          )
+        : [
+            ...calendarLayers,
+            {
+              id: layerId,
+              name: `Google (${calId})`,
+              color: layerColor,
+              visible: true,
+              type: 'google-api',
+              googleCalendarId: calId,
+              lastSyncedAt: nowIso,
+            },
+          ];
+      saveCalendarsToYjs(nextLayers);
+
+      const otherTasks = tasks.filter(t => t.calendarId !== layerId);
+      saveTasksToYjs([...otherTasks, ...mappedTasks]);
+      setSyncStatusMsg(
+        `✅ ${mappedTasks.length} eventos importados desde Google Calendar API (${calId}).`
+      );
+    } catch (err) {
+      setSyncStatusMsg(
+        `⚠️ Error al importar de Google API: ${err instanceof Error ? err.message : 'Verifica el Access Token'}`
+      );
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [
+    calendarLayers,
+    googleConfig,
+    saveCalendarsToYjs,
+    saveGoogleConfigToYjs,
+    saveTasksToYjs,
+    tasks,
+  ]);
+
+  const handleGoogleApiPush = useCallback(async () => {
+    const token = googleConfig.accessToken?.trim();
+    if (!token) {
+      setSyncStatusMsg('⚠️ Introduce tu Google OAuth Access Token primero.');
+      return;
+    }
+    const calId = googleConfig.calendarId?.trim() || 'primary';
+    const localTasks = tasks.filter(
+      t => !t.externalSource || t.externalSource === 'local'
+    );
+    if (localTasks.length === 0) {
+      setSyncStatusMsg('ℹ️ No hay eventos locales pendientes por subir.');
+      return;
+    }
+
+    setIsSyncing(true);
+    setSyncStatusMsg(null);
+    try {
+      saveGoogleConfigToYjs(googleConfig);
+      const endpoint = `/calendars/${encodeURIComponent(calId)}/events`;
+      const bridge = getCalendarBridge();
+      let pushedCount = 0;
+
+      for (const localTask of localTasks) {
+        const body = mapCalendarTaskToGoogleApiEvent(localTask);
+        if (bridge?.googleApiRequest) {
+          await bridge.googleApiRequest({
+            method: 'POST',
+            endpoint,
+            accessToken: token,
+            body,
+          });
+        } else {
+          const resp = await fetch(
+            `https://www.googleapis.com/calendar/v3${endpoint}`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(body),
+            }
+          );
+          if (!resp.ok) {
+            throw new Error(`Google API HTTP ${resp.status}`);
+          }
+        }
+        pushedCount++;
+      }
+
+      setSyncStatusMsg(
+        `✅ ${pushedCount} eventos locales subidos exitosamente a Google Calendar (${calId}).`
+      );
+    } catch (err) {
+      setSyncStatusMsg(
+        `⚠️ Error al subir a Google API: ${err instanceof Error ? err.message : 'Error de red o permisos'}`
+      );
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [googleConfig, saveGoogleConfigToYjs, tasks]);
+
+  // .ics File Import Handler
+  const handleImportIcsFile = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const content = await file.text();
+        const targetLayer =
+          calendarLayers.find(l => l.id === importTargetCalId) ||
+          DEFAULT_CALENDAR_LAYERS[0];
+        const imported = parseIcsToEvents(content, {
+          calendarId: targetLayer.id,
+          color: targetLayer.color,
+          externalSource: 'ics-import',
+        });
+        const importedIds = new Set(imported.map(ev => ev.id));
+        const kept = tasks.filter(t => !importedIds.has(t.id));
+        saveTasksToYjs([...kept, ...imported]);
+        setSyncStatusMsg(
+          `✅ Archivo "${file.name}" importado: ${imported.length} eventos añadidos a "${targetLayer.name}".`
+        );
+      } catch (err) {
+        setSyncStatusMsg(
+          `⚠️ Error al leer archivo .ics: ${err instanceof Error ? err.message : 'Formato inválido'}`
+        );
+      } finally {
+        e.target.value = '';
+      }
+    },
+    [calendarLayers, importTargetCalId, saveTasksToYjs, tasks]
+  );
+
+  // Timeblock Drag-to-Create Handlers
   const handleGridMouseDown = (
     dateStr: string,
     e: React.MouseEvent<HTMLDivElement>
   ) => {
-    if ((e.target as HTMLElement).closest('[data-event-card]')) return;
+    if (
+      (e.target as HTMLElement).closest('[data-event-card]') ||
+      (e.target as HTMLElement).closest('[data-resize-handle]')
+    ) {
+      return;
+    }
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
     setTimeblockDrag({ date: dateStr, startY: y, currentY: y });
@@ -797,6 +1808,12 @@ export const Component = () => {
     openCreateTaskModal(date, range.startTime, range.endTime);
   };
 
+  const activeWeekDays = useMemo(() => {
+    return viewMode === 'workweek'
+      ? currentWeekInfo.days.slice(0, 5)
+      : currentWeekInfo.days;
+  }, [currentWeekInfo.days, viewMode]);
+
   return (
     <>
       <ViewTitle title="Calendario & Tareas" />
@@ -812,7 +1829,11 @@ export const Component = () => {
                   ? cursorDate.format('dddd, DD [de] MMMM YYYY')
                   : viewMode === 'week'
                     ? `${currentWeekInfo.weekKey} · Sem ${currentWeekInfo.weekNumber}`
-                    : currentMonthLabel}
+                    : viewMode === 'workweek'
+                      ? `${currentWeekInfo.weekKey} · Laboral (Lun–Vie)`
+                      : viewMode === 'year'
+                        ? `Año ${cursorDate.year()}`
+                        : currentMonthLabel}
               </span>
             </div>
 
@@ -820,20 +1841,21 @@ export const Component = () => {
               <button
                 onClick={handlePrevPeriod}
                 className={styles.navBtn}
-                title="Periodo anterior"
+                title="Periodo anterior (←)"
               >
                 ◀
               </button>
               <button
                 onClick={handleGoToday}
                 className={styles.todayNavBtn}
+                title="Ir a Hoy (T)"
               >
                 Hoy
               </button>
               <button
                 onClick={handleNextPeriod}
                 className={styles.navBtn}
-                title="Periodo siguiente"
+                title="Periodo siguiente (→)"
               >
                 ▶
               </button>
@@ -849,20 +1871,20 @@ export const Component = () => {
               data-testid="calendar-open-weekly-note-btn"
             >
               <JournalIcon style={{ width: 14, height: 14 }} />
-              <span>
-                Nota Semanal ({currentWeekInfo.weekKey})
-              </span>
+              <span>Nota Semanal ({currentWeekInfo.weekKey})</span>
             </button>
           </div>
 
-          {/* Center: 4 View Mode Switcher */}
+          {/* Center: 6 View Mode Switcher (Day, Week, Workweek, Month, Year, Agenda) */}
           <div className={styles.viewSwitcher}>
             {(
               [
-                { id: 'month', label: '📅 Mes' },
-                { id: 'week', label: '🗓️ Semana' },
-                { id: 'day', label: '🕒 Día' },
-                { id: 'agenda', label: '📋 Agenda' },
+                { id: 'day', label: '🕒 Día', shortcut: 'D' },
+                { id: 'week', label: '🗓️ Semana', shortcut: 'W' },
+                { id: 'workweek', label: '💼 Laboral', shortcut: 'X' },
+                { id: 'month', label: '📅 Mes', shortcut: 'M' },
+                { id: 'year', label: '📆 Año', shortcut: 'Y' },
+                { id: 'agenda', label: '📋 Agenda', shortcut: 'A' },
               ] as const
             ).map(tab => {
               const active = viewMode === tab.id;
@@ -872,6 +1894,7 @@ export const Component = () => {
                   onClick={() => setViewMode(tab.id)}
                   data-testid={`calendar-mode-${tab.id}`}
                   data-active={active}
+                  title={`Cambiar a vista ${tab.label} (Atajo: ${tab.shortcut})`}
                   className={styles.viewModeTab}
                 >
                   {tab.label}
@@ -880,15 +1903,27 @@ export const Component = () => {
             })}
           </div>
 
-          {/* Right: Search, Unscheduled Boards Toggle & New Task */}
+          {/* Right: Search, Sync Modal Button, Sidebar Toggle & New Task */}
           <div className={styles.headerRight}>
             <input
+              ref={searchInputRef}
               type="text"
-              placeholder="Filtrar tareas o boards..."
+              placeholder="Buscar (/ para enfocar)..."
               value={searchFilter}
               onChange={e => setSearchFilter(e.target.value)}
               className={styles.headerSearchInput}
             />
+            <button
+              onClick={() => {
+                setSyncStatusMsg(null);
+                setIsSyncModalOpen(true);
+              }}
+              className={styles.sidebarToggleBtn}
+              data-testid="calendar-header-sync-btn"
+              title="Sincronizar con Google Calendar o archivo .ics"
+            >
+              🔄 Google / .ics
+            </button>
             <button
               onClick={() => setShowUnscheduledPanel(v => !v)}
               className={styles.sidebarToggleBtn}
@@ -901,6 +1936,7 @@ export const Component = () => {
               onClick={() => openCreateTaskModal(todayStr)}
               data-testid="calendar-new-task-btn"
               className={styles.newTaskBtn}
+              title="Crear nuevo evento o tarea (Atajo: C)"
             >
               <PlusIcon style={{ width: 14, height: 14 }} />
               <span>Nueva Tarea</span>
@@ -917,9 +1953,7 @@ export const Component = () => {
             <div className={styles.filterControlBar}>
               {/* Category Pills */}
               <div className={styles.filterGroup}>
-                <span className={styles.filterGroupLabel}>
-                  Categoría:
-                </span>
+                <span className={styles.filterGroupLabel}>Categoría:</span>
                 {[
                   'Todas',
                   'General',
@@ -945,9 +1979,7 @@ export const Component = () => {
 
               {/* Source Filter Pills */}
               <div className={styles.filterGroup}>
-                <span className={styles.filterGroupLabel}>
-                  Origen:
-                </span>
+                <span className={styles.filterGroupLabel}>Origen:</span>
                 {(
                   [
                     { id: 'all', label: 'Todo' },
@@ -996,10 +2028,7 @@ export const Component = () => {
                       row.weekKey === formatWeeklyJournalKey(dayjs());
 
                     return (
-                      <div
-                        key={row.weekKey}
-                        className={styles.monthWeekRow}
-                      >
+                      <div key={row.weekKey} className={styles.monthWeekRow}>
                         {/* Left Column: Nota Semanal (Wxx) */}
                         <div
                           onClick={() => handleOpenWeeklyJournal(row.weekKey)}
@@ -1012,7 +2041,9 @@ export const Component = () => {
                               className={styles.monthWeekNumRow}
                               data-current-week={isCurrentWeek}
                             >
-                              <span>W{String(row.weekNumber).padStart(2, '0')}</span>
+                              <span>
+                                W{String(row.weekNumber).padStart(2, '0')}
+                              </span>
                               {hasWeeklyJournal && (
                                 <span className={styles.monthWeekActiveBadge}>
                                   Activa
@@ -1090,27 +2121,35 @@ export const Component = () => {
 
                               {/* Items list inside day cell */}
                               <div className={styles.monthDayItemsList}>
-                                {dayTasks.map(task => {
-                                  const color = task.color || '#3b82f6';
+                                {dayTasks.map(ev => {
+                                  const color = ev.color || '#3b82f6';
+                                  const hasRecurrence =
+                                    Boolean(
+                                      ev.recurrence &&
+                                        ev.recurrence.frequency !== 'none'
+                                    ) || ev.isRecurringInstance;
                                   return (
                                     <div
-                                      key={task.id}
+                                      key={ev.id}
                                       draggable
                                       onDragStart={() =>
                                         setDragItem({
                                           type: 'task',
-                                          id: task.id,
+                                          id: ev.masterId,
+                                          instanceDate: ev.instanceDate,
+                                          isRecurringInstance:
+                                            ev.isRecurringInstance,
                                         })
                                       }
-                                      onClick={() => openEditTaskModal(task)}
+                                      onClick={() => openEditTaskModal(ev)}
                                       className={styles.monthTaskPill}
-                                      data-completed={task.completed}
+                                      data-completed={ev.completed}
                                       style={{
-                                        background: task.completed
+                                        background: ev.completed
                                           ? 'var(--affine-background-primary-color)'
                                           : `${color}22`,
                                         border: `1px solid ${
-                                          task.completed
+                                          ev.completed
                                             ? 'var(--affine-border-color)'
                                             : `${color}80`
                                         }`,
@@ -1119,10 +2158,10 @@ export const Component = () => {
                                     >
                                       <input
                                         type="checkbox"
-                                        checked={task.completed}
+                                        checked={ev.completed}
                                         onClick={e => e.stopPropagation()}
                                         onChange={() =>
-                                          handleToggleTask(task.id)
+                                          handleToggleTask(ev.masterId)
                                         }
                                         style={{
                                           cursor: 'pointer',
@@ -1132,13 +2171,29 @@ export const Component = () => {
                                       />
                                       <span
                                         className={styles.monthTaskTitle}
-                                        data-completed={task.completed}
+                                        data-completed={ev.completed}
                                       >
-                                        {!isEventAllDay(task) && (task.startTime || task.time)
-                                          ? `${task.startTime || task.time} `
+                                        {!isEventAllDay(ev) &&
+                                        (ev.startTime || ev.time)
+                                          ? `${ev.startTime || ev.time} `
                                           : ''}
-                                        {task.title}
+                                        {ev.title}
                                       </span>
+                                      {hasRecurrence && (
+                                        <span title="Evento recurrente">🔁</span>
+                                      )}
+                                      {ev.isMultiDay &&
+                                        ev.spanDayIndex &&
+                                        ev.spanTotalDays && (
+                                          <span
+                                            className={styles.eventMiniBadge}
+                                          >
+                                            {ev.spanDayIndex}/{ev.spanTotalDays}
+                                          </span>
+                                        )}
+                                      {ev.meetingUrl && (
+                                        <span title="Videollamada">🎥</span>
+                                      )}
                                     </div>
                                   );
                                 })}
@@ -1199,8 +2254,8 @@ export const Component = () => {
               </div>
             )}
 
-            {/* ==================== MODE 2: 7-DAY WEEKLY PLANNER VIEW (GOOGLE CALENDAR STYLE) ==================== */}
-            {viewMode === 'week' && (
+            {/* ==================== MODE 2 & 3: WEEK (7-DAY) & WORKWEEK (5-DAY) 24H VIEWS ==================== */}
+            {(viewMode === 'week' || viewMode === 'workweek') && (
               <div className={styles.weekViewContainer}>
                 {/* Weekly Note Banner */}
                 <div className={styles.weeklyBanner}>
@@ -1209,8 +2264,9 @@ export const Component = () => {
                       {currentWeekInfo.weekKey}
                     </span>
                     <span className={styles.weeklyBannerTitle}>
-                      Semana {currentWeekInfo.weekNumber} ({currentWeekInfo.start.format('DD MMM')} –{' '}
-                      {currentWeekInfo.end.format('DD MMM YYYY')})
+                      {viewMode === 'workweek'
+                        ? `Semana Laboral ${currentWeekInfo.weekNumber} (${activeWeekDays[0].format('DD MMM')} – ${activeWeekDays[activeWeekDays.length - 1].format('DD MMM YYYY')})`
+                        : `Semana ${currentWeekInfo.weekNumber} (${currentWeekInfo.start.format('DD MMM')} – ${currentWeekInfo.end.format('DD MMM YYYY')})`}
                     </span>
                   </div>
 
@@ -1226,14 +2282,18 @@ export const Component = () => {
                   </button>
                 </div>
 
-                {/* Google Calendar Time-Blocking Grid */}
+                {/* Google Calendar 24h Time-Blocking Grid */}
                 <div className={styles.timeGridContainer}>
                   {/* Top Column Headers (Day names and dates) */}
-                  <div className={styles.timeGridHeaderRow}>
-                    <div className={styles.timeGridGmtCell}>
-                      GMT
-                    </div>
-                    {currentWeekInfo.days.map((day, idx) => {
+                  <div
+                    className={
+                      viewMode === 'workweek'
+                        ? styles.timeGridHeaderRow5Col
+                        : styles.timeGridHeaderRow
+                    }
+                  >
+                    <div className={styles.timeGridGmtCell}>24h</div>
+                    {activeWeekDays.map((day, idx) => {
                       const dateStr = day.format(JOURNAL_DATE_FORMAT);
                       const isToday = dateStr === todayStr;
                       const hasDailyJournal = allJournalDates.has(dateStr);
@@ -1259,7 +2319,11 @@ export const Component = () => {
                           <div>
                             <button
                               onClick={() => handleOpenDailyJournal(dateStr)}
-                              title={hasDailyJournal ? 'Abrir Nota Diaria' : 'Crear Nota Diaria'}
+                              title={
+                                hasDailyJournal
+                                  ? 'Abrir Nota Diaria'
+                                  : 'Crear Nota Diaria'
+                              }
                               className={styles.timeGridJournalBtn}
                               data-exists={hasDailyJournal}
                             >
@@ -1272,12 +2336,16 @@ export const Component = () => {
                   </div>
 
                   {/* All-Day Events Strip */}
-                  <div className={styles.allDayStripRow}>
-                    <div className={styles.allDayLabelCell}>
-                      Todo el día
-                    </div>
+                  <div
+                    className={
+                      viewMode === 'workweek'
+                        ? styles.allDayStripRow5Col
+                        : styles.allDayStripRow
+                    }
+                  >
+                    <div className={styles.allDayLabelCell}>Todo el día</div>
 
-                    {currentWeekInfo.days.map(day => {
+                    {activeWeekDays.map(day => {
                       const dateStr = day.format(JOURNAL_DATE_FORMAT);
                       const dayTasks = tasksByDate.get(dateStr) || [];
                       const dayCards = boardCardsByDate.get(dateStr) || [];
@@ -1290,27 +2358,41 @@ export const Component = () => {
                           onDrop={() => handleDropOnDate(dateStr)}
                           className={styles.allDayDayCell}
                         >
-                          {allDayTasks.map(t => {
-                            const color = t.color || '#3b82f6';
+                          {allDayTasks.map(ev => {
+                            const color = ev.color || '#3b82f6';
                             return (
                               <div
-                                key={t.id}
-                                onClick={() => openEditTaskModal(t)}
+                                key={ev.id}
+                                draggable
+                                onDragStart={() =>
+                                  setDragItem({
+                                    type: 'task',
+                                    id: ev.masterId,
+                                    instanceDate: ev.instanceDate,
+                                    isRecurringInstance: ev.isRecurringInstance,
+                                  })
+                                }
+                                onClick={() => openEditTaskModal(ev)}
                                 className={styles.allDayTaskChip}
-                                data-completed={t.completed}
+                                data-completed={ev.completed}
                                 style={{
-                                  background: t.completed
+                                  background: ev.completed
                                     ? 'var(--affine-background-secondary-color)'
                                     : `${color}28`,
                                   border: `1px solid ${
-                                    t.completed
+                                    ev.completed
                                       ? 'var(--affine-border-color)'
                                       : `${color}80`
                                   }`,
                                   borderLeft: `3px solid ${color}`,
                                 }}
                               >
-                                {t.title}
+                                {ev.title}{' '}
+                                {ev.isMultiDay &&
+                                ev.spanDayIndex &&
+                                ev.spanTotalDays
+                                  ? `(Día ${ev.spanDayIndex}/${ev.spanTotalDays})`
+                                  : ''}
                               </div>
                             );
                           })}
@@ -1318,6 +2400,14 @@ export const Component = () => {
                           {dayCards.map(c => (
                             <div
                               key={`${c.boardId}-${c.id}`}
+                              draggable
+                              onDragStart={() =>
+                                setDragItem({
+                                  type: 'board-card',
+                                  boardId: c.boardId,
+                                  cardId: c.id,
+                                })
+                              }
                               onClick={() => handleOpenBoard(c.boardId)}
                               className={styles.allDayBoardChip}
                               data-done={c.isDoneColumn}
@@ -1330,14 +2420,13 @@ export const Component = () => {
                     })}
                   </div>
 
-                  {/* 18-Hour Vertical Time-Grid Area */}
+                  {/* 24-Hour Vertical Time-Grid Scroll Area (00:00 to 23:59) */}
                   <div
+                    ref={weekGridScrollRef}
                     className={styles.verticalGridScrollArea}
-                    style={{
-                      height: `${HOURS_ARRAY.length * PIXELS_PER_HOUR}px`,
-                    }}
+                    data-cols={viewMode === 'workweek' ? '5' : '7'}
                   >
-                    {/* Time Column (06:00 to 23:00) */}
+                    {/* Time Column (00:00 to 23:00) */}
                     <div className={styles.timeAxisColumn}>
                       {HOURS_ARRAY.map(hour => (
                         <div
@@ -1350,16 +2439,26 @@ export const Component = () => {
                       ))}
                     </div>
 
-                    {/* 7 Day Vertical Columns */}
-                    {currentWeekInfo.days.map(day => {
+                    {/* Day Vertical Columns */}
+                    {activeWeekDays.map(day => {
                       const dateStr = day.format(JOURNAL_DATE_FORMAT);
                       const isToday = dateStr === todayStr;
                       const dayTasks = tasksByDate.get(dateStr) || [];
-                      const timedTasks = dayTasks.filter(t => !isEventAllDay(t));
+                      const timedTasks = dayTasks.filter(
+                        t => !isEventAllDay(t)
+                      );
+                      const layoutItems = computeOverlappingEventsLayout(
+                        timedTasks,
+                        GRID_START_HOUR,
+                        PIXELS_PER_HOUR
+                      );
 
                       return (
                         <div
                           key={dateStr}
+                          data-day-column="true"
+                          onDragOver={e => e.preventDefault()}
+                          onDrop={e => handleDropOnTimeGrid(dateStr, e)}
                           onMouseDown={e => handleGridMouseDown(dateStr, e)}
                           onMouseMove={handleGridMouseMove}
                           onMouseUp={() => handleGridMouseUp(dateStr)}
@@ -1385,38 +2484,71 @@ export const Component = () => {
                             </div>
                           )}
 
-                          {/* Timed Event Blocks */}
-                          {timedTasks.map(t => {
-                            const pos = computeEventPosition(
-                              t.startTime || t.time,
-                              t.endTime,
-                              GRID_START_HOUR,
-                              PIXELS_PER_HOUR
-                            );
+                          {/* Timed Event Blocks with Side-by-Side Collision Layout & Bottom Resize */}
+                          {layoutItems.map(item => {
+                            const ev = item.event;
+                            const isResizingThis =
+                              resizingEvent?.taskId === ev.masterId &&
+                              resizingEvent?.instanceDate === ev.instanceDate;
+                            const effectiveEndTime = isResizingThis
+                              ? computeResizedEndTime(
+                                  resizingEvent.startTime,
+                                  resizingEvent.currentBottomY,
+                                  GRID_START_HOUR,
+                                  PIXELS_PER_HOUR
+                                )
+                              : ev.endTime;
+                            const resizedPos = isResizingThis
+                              ? computeEventPosition(
+                                  ev.startTime || ev.time,
+                                  effectiveEndTime,
+                                  GRID_START_HOUR,
+                                  PIXELS_PER_HOUR
+                                )
+                              : { top: item.top, height: item.height };
+
                             const timeLabel = formatEventTimeRange(
-                              t.startTime || t.time,
-                              t.endTime
+                              ev.startTime || ev.time,
+                              effectiveEndTime
                             );
-                            const color = t.color || '#3b82f6';
+                            const color = ev.color || '#3b82f6';
+                            const hasRecurrence =
+                              Boolean(
+                                ev.recurrence &&
+                                  ev.recurrence.frequency !== 'none'
+                              ) || ev.isRecurringInstance;
 
                             return (
                               <div
-                                key={t.id}
+                                key={ev.id}
                                 data-event-card="true"
-                                data-completed={t.completed}
+                                data-completed={ev.completed}
+                                draggable={!resizingEvent}
+                                onDragStart={e => {
+                                  e.stopPropagation();
+                                  setDragItem({
+                                    type: 'task',
+                                    id: ev.masterId,
+                                    instanceDate: ev.instanceDate,
+                                    isRecurringInstance: ev.isRecurringInstance,
+                                  });
+                                }}
                                 onClick={e => {
                                   e.stopPropagation();
-                                  openEditTaskModal(t);
+                                  openEditTaskModal(ev);
                                 }}
                                 className={styles.timedEventCard}
                                 style={{
-                                  top: `${pos.top}px`,
-                                  height: `${pos.height}px`,
-                                  background: t.completed
+                                  top: `${resizedPos.top}px`,
+                                  height: `${resizedPos.height}px`,
+                                  left: `calc(${item.leftPercent}% + 2px)`,
+                                  width: `calc(${item.widthPercent}% - 4px)`,
+                                  right: 'auto',
+                                  background: ev.completed
                                     ? 'var(--affine-background-secondary-color)'
                                     : `${color}24`,
                                   border: `1px solid ${
-                                    t.completed
+                                    ev.completed
                                       ? 'var(--affine-border-color)'
                                       : `${color}80`
                                   }`,
@@ -1426,9 +2558,11 @@ export const Component = () => {
                                 <div className={styles.timedEventHeader}>
                                   <input
                                     type="checkbox"
-                                    checked={t.completed}
+                                    checked={ev.completed}
                                     onClick={e => e.stopPropagation()}
-                                    onChange={() => handleToggleTask(t.id)}
+                                    onChange={() =>
+                                      handleToggleTask(ev.masterId)
+                                    }
                                     style={{
                                       accentColor: color,
                                       cursor: 'pointer',
@@ -1437,14 +2571,46 @@ export const Component = () => {
                                   />
                                   <span
                                     className={styles.timedEventTitle}
-                                    data-completed={t.completed}
+                                    data-completed={ev.completed}
                                   >
-                                    {t.title}
+                                    {ev.title}
                                   </span>
+                                  {hasRecurrence && (
+                                    <span title="Recurrente">🔁</span>
+                                  )}
                                 </div>
                                 <div className={styles.timedEventTimeLabel}>
-                                  🕒 {timeLabel}
+                                  <span>🕒 {timeLabel}</span>
+                                  {ev.meetingUrl && (
+                                    <a
+                                      href={ev.meetingUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={e => e.stopPropagation()}
+                                      className={styles.eventMeetBadge}
+                                      title="Unirse a videollamada"
+                                    >
+                                      🎥 Meet
+                                    </a>
+                                  )}
+                                  {ev.linkedDocId && (
+                                    <span
+                                      className={styles.eventMiniBadge}
+                                      title="Nota de reunión vinculada"
+                                    >
+                                      📝
+                                    </span>
+                                  )}
                                 </div>
+                                {/* 15-min Bottom Resize Handle */}
+                                <div
+                                  data-resize-handle="true"
+                                  onMouseDown={e =>
+                                    handleResizeMouseDown(ev, e)
+                                  }
+                                  className={styles.eventResizeHandle}
+                                  title="Arrastra para redimensionar duración (15 min)"
+                                />
                               </div>
                             );
                           })}
@@ -1461,7 +2627,8 @@ export const Component = () => {
                                 height: `${Math.max(
                                   15,
                                   Math.abs(
-                                    timeblockDrag.currentY - timeblockDrag.startY
+                                    timeblockDrag.currentY -
+                                      timeblockDrag.startY
                                   )
                                 )}px`,
                               }}
@@ -1485,7 +2652,7 @@ export const Component = () => {
               </div>
             )}
 
-            {/* ==================== MODE 4: DAILY TIME-BLOCKING VIEW ==================== */}
+            {/* ==================== MODE 4: DAILY 24H TIME-BLOCKING VIEW ==================== */}
             {viewMode === 'day' && (
               <div className={styles.dayViewContainer}>
                 {/* Day Header Banner */}
@@ -1493,7 +2660,9 @@ export const Component = () => {
                   className={styles.dayHeaderBanner}
                   data-today={cursorDate.isSame(dayjs(), 'day')}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: 12 }}
+                  >
                     <span style={{ fontSize: '24px' }}>🕒</span>
                     <div>
                       <div className={styles.dayHeaderTitle}>
@@ -1501,13 +2670,15 @@ export const Component = () => {
                       </div>
                       <div className={styles.dayHeaderSubtitle}>
                         {cursorDate.isSame(dayjs(), 'day')
-                          ? '🌟 Time-Blocking diario interactivo con arrastre'
+                          ? '🌟 Time-Blocking 24h con colisiones en paralelo y redimensionado de 15 min'
                           : 'Planificación por horas para el día seleccionado'}
                       </div>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', gap: 10 }}
+                  >
                     <button
                       onClick={() =>
                         handleOpenDailyJournal(
@@ -1543,8 +2714,11 @@ export const Component = () => {
                   </div>
                 </div>
 
-                {/* Day Vertical Grid with Drag-to-Create */}
-                <div className={styles.dayVerticalGridContainer}>
+                {/* Day 24h Vertical Grid with Drag-to-Create, Drag-to-Move & 15m Resize */}
+                <div
+                  ref={dayGridScrollRef}
+                  className={styles.dayVerticalGridContainer}
+                >
                   {/* Hours column */}
                   <div className={styles.timeAxisColumn}>
                     {HOURS_ARRAY.map(hour => (
@@ -1568,9 +2742,17 @@ export const Component = () => {
                     const isToday = dayStr === todayStr;
                     const dayTasks = tasksByDate.get(dayStr) || [];
                     const timedTasks = dayTasks.filter(t => !isEventAllDay(t));
+                    const layoutItems = computeOverlappingEventsLayout(
+                      timedTasks,
+                      GRID_START_HOUR,
+                      PIXELS_PER_HOUR
+                    );
 
                     return (
                       <div
+                        data-day-column="true"
+                        onDragOver={e => e.preventDefault()}
+                        onDrop={e => handleDropOnTimeGrid(dayStr, e)}
                         onMouseDown={e => handleGridMouseDown(dayStr, e)}
                         onMouseMove={handleGridMouseMove}
                         onMouseUp={() => handleGridMouseUp(dayStr)}
@@ -1593,38 +2775,66 @@ export const Component = () => {
                           />
                         )}
 
-                        {/* Timed Tasks */}
-                        {timedTasks.map(t => {
-                          const pos = computeEventPosition(
-                            t.startTime || t.time,
-                            t.endTime,
-                            GRID_START_HOUR,
-                            PIXELS_PER_HOUR
-                          );
-                          const color = t.color || '#3b82f6';
+                        {/* Timed Tasks with Collision Layout */}
+                        {layoutItems.map(item => {
+                          const ev = item.event;
+                          const isResizingThis =
+                            resizingEvent?.taskId === ev.masterId &&
+                            resizingEvent?.instanceDate === ev.instanceDate;
+                          const effectiveEndTime = isResizingThis
+                            ? computeResizedEndTime(
+                                resizingEvent.startTime,
+                                resizingEvent.currentBottomY,
+                                GRID_START_HOUR,
+                                PIXELS_PER_HOUR
+                              )
+                            : ev.endTime;
+                          const resizedPos = isResizingThis
+                            ? computeEventPosition(
+                                ev.startTime || ev.time,
+                                effectiveEndTime,
+                                GRID_START_HOUR,
+                                PIXELS_PER_HOUR
+                              )
+                            : { top: item.top, height: item.height };
+
+                          const color = ev.color || '#3b82f6';
                           const timeRange = formatEventTimeRange(
-                            t.startTime || t.time,
-                            t.endTime
+                            ev.startTime || ev.time,
+                            effectiveEndTime
                           );
 
                           return (
                             <div
-                              key={t.id}
+                              key={ev.id}
                               data-event-card="true"
-                              data-completed={t.completed}
+                              data-completed={ev.completed}
+                              draggable={!resizingEvent}
+                              onDragStart={e => {
+                                e.stopPropagation();
+                                setDragItem({
+                                  type: 'task',
+                                  id: ev.masterId,
+                                  instanceDate: ev.instanceDate,
+                                  isRecurringInstance: ev.isRecurringInstance,
+                                });
+                              }}
                               onClick={e => {
                                 e.stopPropagation();
-                                openEditTaskModal(t);
+                                openEditTaskModal(ev);
                               }}
                               className={styles.dayTimedEventCard}
                               style={{
-                                top: `${pos.top}px`,
-                                height: `${pos.height}px`,
-                                background: t.completed
+                                top: `${resizedPos.top}px`,
+                                height: `${resizedPos.height}px`,
+                                left: `calc(${item.leftPercent}% + 6px)`,
+                                width: `calc(${item.widthPercent}% - 12px)`,
+                                right: 'auto',
+                                background: ev.completed
                                   ? 'var(--affine-background-secondary-color)'
                                   : `${color}24`,
                                 border: `1px solid ${
-                                  t.completed
+                                  ev.completed
                                     ? 'var(--affine-border-color)'
                                     : `${color}80`
                                 }`,
@@ -1640,9 +2850,11 @@ export const Component = () => {
                               >
                                 <input
                                   type="checkbox"
-                                  checked={t.completed}
+                                  checked={ev.completed}
                                   onClick={e => e.stopPropagation()}
-                                  onChange={() => handleToggleTask(t.id)}
+                                  onChange={() =>
+                                    handleToggleTask(ev.masterId)
+                                  }
                                   style={{
                                     accentColor: color,
                                     cursor: 'pointer',
@@ -1651,19 +2863,46 @@ export const Component = () => {
                                 <div>
                                   <div
                                     className={styles.timedEventTitle}
-                                    data-completed={t.completed}
+                                    data-completed={ev.completed}
                                     style={{ fontSize: '13px' }}
                                   >
-                                    {t.title}
+                                    {ev.title}{' '}
+                                    {ev.isRecurringInstance ||
+                                    (ev.recurrence &&
+                                      ev.recurrence.frequency !== 'none')
+                                      ? '🔁'
+                                      : ''}
                                   </div>
                                   <div
                                     className={styles.timedEventTimeLabel}
                                     style={{ fontSize: '11px', marginTop: '2px' }}
                                   >
-                                    🕒 {timeRange} {t.category ? `· 🏷️ ${t.category}` : ''}
+                                    <span>
+                                      🕒 {timeRange}{' '}
+                                      {ev.category ? `· 🏷️ ${ev.category}` : ''}
+                                      {ev.location ? ` · 📍 ${ev.location}` : ''}
+                                    </span>
+                                    {ev.meetingUrl && (
+                                      <a
+                                        href={ev.meetingUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={e => e.stopPropagation()}
+                                        className={styles.eventMeetBadge}
+                                      >
+                                        🎥 Unirse
+                                      </a>
+                                    )}
                                   </div>
                                 </div>
                               </div>
+                              <div
+                                data-resize-handle="true"
+                                onMouseDown={e =>
+                                  handleResizeMouseDown(ev, e)
+                                }
+                                className={styles.eventResizeHandle}
+                              />
                             </div>
                           );
                         })}
@@ -1705,7 +2944,115 @@ export const Component = () => {
               </div>
             )}
 
-            {/* ==================== MODE 3: MONTHLY AGENDA & KPI VIEW ==================== */}
+            {/* ==================== MODE 5: 12-MONTH YEAR OVERVIEW ==================== */}
+            {viewMode === 'year' && (
+              <div className={styles.yearGridContainer}>
+                {MONTH_NAMES_ES.map((monthName, monthIdx) => {
+                  const monthStart = cursorDate
+                    .month(monthIdx)
+                    .startOf('month');
+                  const monthEnd = monthStart.endOf('month');
+                  const gridStart = monthStart.startOf('isoWeek');
+                  const gridEnd = monthEnd.endOf('isoWeek');
+                  const days: dayjs.Dayjs[] = [];
+                  let cur = gridStart;
+                  while (cur.isBefore(gridEnd) || cur.isSame(gridEnd, 'day')) {
+                    days.push(cur);
+                    cur = cur.add(1, 'day');
+                  }
+                  const monthPrefix = monthStart.format('YYYY-MM');
+                  const monthEventCount = expandedTasks.filter(e =>
+                    e.instanceDate.startsWith(monthPrefix)
+                  ).length;
+
+                  return (
+                    <div key={monthName} className={styles.yearMonthCard}>
+                      <div
+                        className={styles.yearMonthHeader}
+                        onClick={() => {
+                          setCursorDate(monthStart);
+                          setViewMode('month');
+                        }}
+                        title={`Abrir ${monthName} ${cursorDate.year()} en vista Mes`}
+                      >
+                        <span>
+                          {monthName} {cursorDate.year()}
+                        </span>
+                        {monthEventCount > 0 && (
+                          <span className={styles.eventMiniBadge}>
+                            {monthEventCount} ev.
+                          </span>
+                        )}
+                      </div>
+
+                      <div className={styles.yearMonthWeekdays}>
+                        {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d, i) => (
+                          <span key={i}>{d}</span>
+                        ))}
+                      </div>
+
+                      <div className={styles.yearMonthDaysGrid}>
+                        {days.map(day => {
+                          const dStr = day.format(JOURNAL_DATE_FORMAT);
+                          const isCurrentMonth = day.month() === monthIdx;
+                          const isDayToday = dStr === todayStr;
+                          const dayEvs = tasksByDate.get(dStr) || [];
+                          const dayBds = boardCardsByDate.get(dStr) || [];
+                          const totalItems = dayEvs.length + dayBds.length;
+
+                          return (
+                            <button
+                              key={dStr}
+                              type="button"
+                              onClick={() => {
+                                setCursorDate(day);
+                                setViewMode('day');
+                              }}
+                              className={styles.yearDayBtn}
+                              data-outside={!isCurrentMonth}
+                              data-today={isDayToday}
+                              data-has-events={totalItems > 0}
+                              title={
+                                totalItems > 0
+                                  ? `${dStr}: ${totalItems} evento(s)`
+                                  : dStr
+                              }
+                            >
+                              <span>{day.date()}</span>
+                              <div className={styles.yearDayDotsRow}>
+                                {dayEvs.slice(0, 3).map(ev => (
+                                  <span
+                                    key={ev.id}
+                                    className={styles.yearDayDot}
+                                    style={{
+                                      backgroundColor: isDayToday
+                                        ? '#ffffff'
+                                        : ev.color || '#3b82f6',
+                                    }}
+                                  />
+                                ))}
+                                {dayBds.length > 0 && dayEvs.length < 3 && (
+                                  <span
+                                    className={styles.yearDayDot}
+                                    style={{
+                                      backgroundColor: isDayToday
+                                        ? '#ffffff'
+                                        : '#a855f7',
+                                    }}
+                                  />
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* ==================== MODE 6: MONTHLY AGENDA & KPI VIEW ==================== */}
             {viewMode === 'agenda' && (
               <div className={styles.agendaContainer}>
                 {/* KPI Summary Row */}
@@ -1714,19 +3061,28 @@ export const Component = () => {
                     <span className={styles.kpiLabel}>
                       Total Tareas & Entregas ({currentMonthLabel})
                     </span>
-                    <span className={styles.kpiValue} style={{ color: '#3b82f6' }}>
+                    <span
+                      className={styles.kpiValue}
+                      style={{ color: '#3b82f6' }}
+                    >
                       {monthStatsAndGroups.totalCount}
                     </span>
                   </div>
                   <div className={styles.kpiCard}>
                     <span className={styles.kpiLabel}>Pendientes del Mes</span>
-                    <span className={styles.kpiValue} style={{ color: '#d97706' }}>
+                    <span
+                      className={styles.kpiValue}
+                      style={{ color: '#d97706' }}
+                    >
                       {monthStatsAndGroups.pendingCount}
                     </span>
                   </div>
                   <div className={styles.kpiCard}>
                     <span className={styles.kpiLabel}>Completadas</span>
-                    <span className={styles.kpiValue} style={{ color: '#10b981' }}>
+                    <span
+                      className={styles.kpiValue}
+                      style={{ color: '#10b981' }}
+                    >
                       {monthStatsAndGroups.completedCount}
                     </span>
                   </div>
@@ -1734,7 +3090,10 @@ export const Component = () => {
                     <span className={styles.kpiLabel}>
                       Notas Diarias & Semanales Creadas
                     </span>
-                    <span className={styles.kpiValue} style={{ color: '#9333ea' }}>
+                    <span
+                      className={styles.kpiValue}
+                      style={{ color: '#9333ea' }}
+                    >
                       {monthStatsAndGroups.journalsCreatedCount}
                     </span>
                   </div>
@@ -1799,7 +3158,9 @@ export const Component = () => {
                                       type="checkbox"
                                       checked={t.completed}
                                       onClick={e => e.stopPropagation()}
-                                      onChange={() => handleToggleTask(t.id)}
+                                      onChange={() =>
+                                        handleToggleTask(t.masterId)
+                                      }
                                       style={{
                                         cursor: 'pointer',
                                         accentColor: '#10b981',
@@ -1810,13 +3171,18 @@ export const Component = () => {
                                         className={styles.agendaItemTitle}
                                         data-completed={t.completed}
                                       >
-                                        {t.title}
+                                        {t.title}{' '}
+                                        {t.recurrence &&
+                                        t.recurrence.frequency !== 'none'
+                                          ? `🔁 (${formatRecurrenceSummary(t.recurrence)})`
+                                          : ''}
                                       </div>
                                       <div className={styles.agendaItemMeta}>
-                                        📅 {t.date}{' '}
+                                        📅 {t.instanceDate}{' '}
                                         {t.startTime || t.time
                                           ? `· 🕒 ${formatEventTimeRange(t.startTime || t.time, t.endTime)}`
                                           : ''}
+                                        {t.location ? ` · 📍 ${t.location}` : ''}
                                       </div>
                                     </div>
                                   </div>
@@ -1894,7 +3260,7 @@ export const Component = () => {
             )}
           </div>
 
-          {/* Right Collapsible Sidebar: Mini Calendar Navigator + Unscheduled Boards */}
+          {/* Right Collapsible Sidebar: Mini Calendar + Mis Calendarios + Unscheduled Boards */}
           {showUnscheduledPanel && (
             <div className={styles.rightSidebar}>
               {/* Mini Calendar Monthly Navigator */}
@@ -1905,7 +3271,9 @@ export const Component = () => {
                   </span>
                   <div style={{ display: 'flex', gap: '4px' }}>
                     <button
-                      onClick={() => setMiniCalMonth(m => m.subtract(1, 'month'))}
+                      onClick={() =>
+                        setMiniCalMonth(m => m.subtract(1, 'month'))
+                      }
                       className={styles.navBtn}
                       title="Mes anterior"
                     >
@@ -1938,7 +3306,9 @@ export const Component = () => {
                 {/* Mini day cells */}
                 <div className={styles.miniCalendarGrid}>
                   {(() => {
-                    const start = miniCalMonth.startOf('month').startOf('isoWeek');
+                    const start = miniCalMonth
+                      .startOf('month')
+                      .startOf('isoWeek');
                     const end = miniCalMonth.endOf('month').endOf('isoWeek');
                     const cells: dayjs.Dayjs[] = [];
                     let cur = start;
@@ -1948,8 +3318,10 @@ export const Component = () => {
                     }
                     return cells.map(day => {
                       const dStr = day.format(JOURNAL_DATE_FORMAT);
-                      const isCurrentMonth = day.month() === miniCalMonth.month();
-                      const isSelected = dStr === cursorDate.format(JOURNAL_DATE_FORMAT);
+                      const isCurrentMonth =
+                        day.month() === miniCalMonth.month();
+                      const isSelected =
+                        dStr === cursorDate.format(JOURNAL_DATE_FORMAT);
                       const isDayToday = dStr === todayStr;
 
                       return (
@@ -1957,7 +3329,7 @@ export const Component = () => {
                           key={dStr}
                           onClick={() => {
                             setCursorDate(day);
-                            if (viewMode === 'month') {
+                            if (viewMode === 'month' || viewMode === 'year') {
                               setViewMode('week');
                             }
                           }}
@@ -1974,6 +3346,119 @@ export const Component = () => {
                 </div>
               </div>
 
+              {/* Mis Calendarios Layer Manager & Google / .ics Sync Controls */}
+              <div className={styles.myCalendarsCard}>
+                <div className={styles.myCalendarsHeader}>
+                  <span>📅 Mis Calendarios</span>
+                  <span className={styles.calendarLayerBadge}>
+                    {calendarLayers.filter(l => l.visible).length}/
+                    {calendarLayers.length}
+                  </span>
+                </div>
+
+                <div className={styles.calendarLayerList}>
+                  {calendarLayers.map(layer => {
+                    const sourceBadge =
+                      layer.type === 'google-api'
+                        ? 'Google'
+                        : layer.type === 'google-ics'
+                          ? 'iCal'
+                          : 'Local';
+                    const isDefaultLayer = DEFAULT_CALENDAR_LAYERS.some(
+                      d => d.id === layer.id
+                    );
+
+                    return (
+                      <div key={layer.id} className={styles.calendarLayerRow}>
+                        <label className={styles.calendarLayerLeft}>
+                          <input
+                            type="checkbox"
+                            checked={layer.visible}
+                            onChange={() => handleToggleLayerVisible(layer.id)}
+                            style={{
+                              accentColor: layer.color,
+                              cursor: 'pointer',
+                              margin: 0,
+                            }}
+                          />
+                          <span
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              backgroundColor: layer.color,
+                              flexShrink: 0,
+                            }}
+                          />
+                          <span
+                            className={styles.calendarLayerName}
+                            title={layer.name}
+                          >
+                            {layer.name}
+                          </span>
+                        </label>
+
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                          }}
+                        >
+                          <span className={styles.calendarLayerBadge}>
+                            {sourceBadge}
+                          </span>
+                          {!isDefaultLayer && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleDeleteCalendarLayer(layer.id)
+                              }
+                              className={styles.navBtn}
+                              style={{ padding: '1px 4px', fontSize: '10px' }}
+                              title="Eliminar calendario y sus eventos"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className={styles.calendarLayerActionsRow}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSyncStatusMsg(null);
+                      setIsSyncModalOpen(true);
+                    }}
+                    data-testid="calendar-open-sync-modal-btn"
+                    className={styles.calendarLayerActionBtn}
+                  >
+                    🔄 Sincronizar Google / iCal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const ics = exportEventsToIcs(
+                        filteredTasks,
+                        'AFFiNITe Calendar'
+                      );
+                      triggerIcsDownload(
+                        ics,
+                        `affinite-calendar-${dayjs().format('YYYY-MM-DD')}.ics`
+                      );
+                    }}
+                    data-testid="calendar-export-ics-btn"
+                    className={styles.calendarLayerActionBtn}
+                  >
+                    📤 Exportar .ics
+                  </button>
+                </div>
+              </div>
+
               {/* Unscheduled Board Cards section */}
               <div>
                 <div className={styles.unscheduledTitleRow}>
@@ -1983,8 +3468,8 @@ export const Component = () => {
                   </span>
                 </div>
                 <div className={styles.unscheduledSubtext}>
-                  Arrastra una tarjeta a cualquier día del calendario o asígnale
-                  fecha límite:
+                  Arrastra una tarjeta a cualquier día o franja horaria del
+                  calendario:
                 </div>
               </div>
 
@@ -2053,13 +3538,13 @@ export const Component = () => {
           )}
         </div>
 
-        {/* Create / Edit Task Modal */}
+        {/* ==================== CREATE / EDIT EVENT MODAL (PKM PRO v3) ==================== */}
         <Modal
           open={isTaskModalOpen}
           onOpenChange={setIsTaskModalOpen}
-          width={560}
+          width={620}
           contentOptions={{
-            style: { padding: '24px', maxHeight: '88vh', overflowY: 'auto' },
+            style: { padding: '24px', maxHeight: '90vh', overflowY: 'auto' },
           }}
         >
           <div className={styles.modalForm}>
@@ -2069,12 +3554,54 @@ export const Component = () => {
                 : 'Nueva Tarea / Evento del Calendario'}
             </h2>
 
+            {/* PKM Superpower Action Bar */}
+            <div className={styles.pkmSuperpowerBar}>
+              <button
+                type="button"
+                onClick={handleCreateOrOpenMeetingDoc}
+                data-testid="calendar-modal-meeting-note-btn"
+                className={styles.pkmActionBtn}
+              >
+                📝{' '}
+                {formLinkedDocId
+                  ? 'Abrir Nota de Reunión vinculada'
+                  : 'Crear Nota de Reunión en AFFiNITe'}
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenGoogleTemplate}
+                data-testid="calendar-modal-google-template-btn"
+                className={styles.pkmActionBtn}
+              >
+                🌐 Añadir a Google Calendar
+              </button>
+              {formMeetingUrl.trim() && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    window.open(
+                      formMeetingUrl.trim(),
+                      '_blank',
+                      'noopener,noreferrer'
+                    )
+                  }
+                  className={styles.pkmActionBtn}
+                  style={{
+                    borderColor: 'rgba(16, 185, 129, 0.5)',
+                    color: '#10b981',
+                  }}
+                >
+                  🎥 Unirse a Videollamada
+                </button>
+              )}
+            </div>
+
             {/* Title */}
             <div className={styles.formGroup}>
               <label className={styles.formLabel}>Título</label>
               <input
                 type="text"
-                placeholder="Ej: Entregar reporte semanal, Revisión de arquitectura..."
+                placeholder="Ej: Sprint Planning, Entregar reporte semanal, Clase de Cálculo..."
                 value={formTitle}
                 onChange={e => setFormTitle(e.target.value)}
                 autoFocus
@@ -2082,42 +3609,80 @@ export const Component = () => {
               />
             </div>
 
-            {/* Color Preset Palette */}
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel}>Color de Evento</label>
-              <div className={styles.colorSwatchesRow}>
-                {COLOR_PRESETS.map(c => {
-                  const isSelected = formColor === c.id;
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setFormColor(c.id)}
-                      title={c.label}
-                      className={styles.colorSwatchBtn}
-                      data-selected={isSelected}
-                      style={{
-                        background: c.id,
-                        boxShadow: isSelected ? `0 0 10px ${c.id}` : 'none',
-                      }}
-                    >
-                      {isSelected && (
-                        <span style={{ fontSize: '11px', color: '#fff' }}>✓</span>
-                      )}
-                    </button>
-                  );
-                })}
+            {/* Calendar Layer & Color Swatches */}
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Calendario</label>
+                <select
+                  value={formCalendarId}
+                  onChange={e => {
+                    const nextCalId = e.target.value;
+                    setFormCalendarId(nextCalId);
+                    const layer = calendarLayers.find(l => l.id === nextCalId);
+                    if (layer) {
+                      setFormColor(layer.color);
+                    }
+                  }}
+                  className={styles.formSelect}
+                >
+                  {calendarLayers.map(layer => (
+                    <option key={layer.id} value={layer.id}>
+                      {layer.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Color de Evento</label>
+                <div className={styles.colorSwatchesRow}>
+                  {COLOR_PRESETS.map(c => {
+                    const isSelected = formColor === c.id;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setFormColor(c.id)}
+                        title={c.label}
+                        className={styles.colorSwatchBtn}
+                        data-selected={isSelected}
+                        style={{
+                          background: c.id,
+                          boxShadow: isSelected ? `0 0 10px ${c.id}` : 'none',
+                        }}
+                      >
+                        {isSelected && (
+                          <span style={{ fontSize: '11px', color: '#fff' }}>
+                            ✓
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
-            {/* Date & All-Day Toggle */}
+            {/* Start Date, End Date (Multi-Day) & All-Day Toggle */}
             <div className={styles.formRow} style={{ alignItems: 'end' }}>
               <div className={styles.formGroup}>
-                <label className={styles.formLabel}>Fecha</label>
+                <label className={styles.formLabel}>Fecha Inicio</label>
                 <input
                   type="date"
                   value={formDate}
                   onChange={e => setFormDate(e.target.value)}
+                  className={styles.formInput}
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>
+                  Fecha Fin (opcional multi-día)
+                </label>
+                <input
+                  type="date"
+                  value={formEndDate}
+                  min={formDate}
+                  onChange={e => setFormEndDate(e.target.value)}
                   className={styles.formInput}
                 />
               </div>
@@ -2162,6 +3727,86 @@ export const Component = () => {
               </div>
             )}
 
+            {/* Recurrence (RRULE) & Reminder */}
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Repetición (RRULE)</label>
+                <select
+                  value={formRecurrenceFreq}
+                  onChange={e =>
+                    setFormRecurrenceFreq(
+                      e.target.value as RecurrenceFrequency
+                    )
+                  }
+                  className={styles.formSelect}
+                >
+                  <option value="none">No se repite</option>
+                  <option value="daily">Todos los días</option>
+                  <option value="weekdays">Días laborales (Lun–Vie)</option>
+                  <option value="weekly">Semanal</option>
+                  <option value="monthly">Mensual</option>
+                  <option value="yearly">Anual</option>
+                </select>
+              </div>
+
+              {formRecurrenceFreq !== 'none' && (
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel}>
+                    Repetir hasta (opcional)
+                  </label>
+                  <input
+                    type="date"
+                    value={formRecurrenceUntil}
+                    min={formDate}
+                    onChange={e => setFormRecurrenceUntil(e.target.value)}
+                    className={styles.formInput}
+                  />
+                </div>
+              )}
+
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Recordatorio</label>
+                <select
+                  value={formReminderMinutes}
+                  onChange={e => setFormReminderMinutes(e.target.value)}
+                  className={styles.formSelect}
+                >
+                  <option value="">Sin recordatorio</option>
+                  <option value="5">5 minutos antes</option>
+                  <option value="10">10 minutos antes</option>
+                  <option value="15">15 minutos antes</option>
+                  <option value="30">30 minutos antes</option>
+                  <option value="60">1 hora antes</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Location & Conference Link (Meet / Zoom / Teams) */}
+            <div className={styles.formRow}>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Ubicación / Aula</label>
+                <input
+                  type="text"
+                  value={formLocation}
+                  onChange={e => setFormLocation(e.target.value)}
+                  placeholder="Ej: Sala 302, Edificio Ingeniería, Remoto..."
+                  className={styles.formInput}
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>
+                  Videollamada (Google Meet / Zoom / Teams)
+                </label>
+                <input
+                  type="url"
+                  value={formMeetingUrl}
+                  onChange={e => setFormMeetingUrl(e.target.value)}
+                  placeholder="https://meet.google.com/..."
+                  className={styles.formInput}
+                />
+              </div>
+            </div>
+
             {/* Priority & Category */}
             <div className={styles.formRow}>
               <div className={styles.formGroup}>
@@ -2197,20 +3842,49 @@ export const Component = () => {
               <textarea
                 value={formNotes}
                 onChange={e => setFormNotes(e.target.value)}
-                placeholder="Detalles, enlaces o criterios de entrega..."
+                placeholder="Detalles, agenda de la reunión o criterios de entrega..."
                 className={styles.formTextarea}
               />
             </div>
 
             <div className={styles.modalActionsRow}>
               {editingTask ? (
-                <button
-                  type="button"
-                  onClick={() => handleDeleteTask(editingTask.id)}
-                  className={styles.dangerActionButton}
-                >
-                  Eliminar
-                </button>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {editingTask.recurrence &&
+                  editingTask.recurrence.frequency !== 'none' &&
+                  editingOccurrenceDate ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDeleteSingleOccurrence(
+                            editingTask,
+                            editingOccurrenceDate
+                          )
+                        }
+                        className={styles.dangerActionButton}
+                        title="Excluir únicamente esta fecha de la serie recurrente"
+                      >
+                        Eliminar solo esta fecha
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTask(editingTask.id)}
+                        className={styles.dangerActionButton}
+                      >
+                        Eliminar toda la serie
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTask(editingTask.id)}
+                      className={styles.dangerActionButton}
+                    >
+                      Eliminar
+                    </button>
+                  )}
+                </div>
               ) : (
                 <div />
               )}
@@ -2231,6 +3905,305 @@ export const Component = () => {
                   Guardar
                 </button>
               </div>
+            </div>
+          </div>
+        </Modal>
+
+        {/* ==================== GOOGLE CALENDAR & .ICS SYNC MODAL ==================== */}
+        <Modal
+          open={isSyncModalOpen}
+          onOpenChange={setIsSyncModalOpen}
+          width={640}
+          contentOptions={{
+            style: { padding: '24px', maxHeight: '88vh', overflowY: 'auto' },
+          }}
+        >
+          <div className={styles.modalForm}>
+            <h2 className={styles.modalHeaderTitle}>
+              🔄 Sincronización con Google Calendar & iCalendar (.ics)
+            </h2>
+
+            {/* 3 Sync Tabs */}
+            <div className={styles.syncModalTabs}>
+              <button
+                type="button"
+                onClick={() => {
+                  setSyncTab('ics-url');
+                  setSyncStatusMsg(null);
+                }}
+                data-active={syncTab === 'ics-url'}
+                className={styles.syncModalTabBtn}
+              >
+                🔗 Suscripción URL .ics
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSyncTab('google-api');
+                  setSyncStatusMsg(null);
+                }}
+                data-active={syncTab === 'google-api'}
+                className={styles.syncModalTabBtn}
+              >
+                ☁️ Google Calendar API
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSyncTab('ics-file');
+                  setSyncStatusMsg(null);
+                }}
+                data-active={syncTab === 'ics-file'}
+                className={styles.syncModalTabBtn}
+              >
+                📁 Archivo .ics (RFC 5545)
+              </button>
+            </div>
+
+            {syncStatusMsg && (
+              <div className={styles.syncStatusBanner}>{syncStatusMsg}</div>
+            )}
+
+            {/* TAB 1: URL .ics Subscription */}
+            {syncTab === 'ics-url' && (
+              <>
+                <div className={styles.syncHelpBox}>
+                  💡 <strong>Cómo conectar tu Google Calendar en 10 segundos:</strong>{' '}
+                  En Google Calendar web ve a{' '}
+                  <em>Configuración → Tu calendario → Integrar el calendario</em>{' '}
+                  y copia la{' '}
+                  <strong>
+                    &ldquo;Dirección pública o secreta en formato iCal (.ics)&rdquo;
+                  </strong>
+                  . También funciona con Outlook, Apple iCloud y calendarios
+                  universitarios Moodle/Canvas.
+                </div>
+
+                <div className={styles.formRow}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>
+                      Nombre del Calendario
+                    </label>
+                    <input
+                      type="text"
+                      value={syncIcsName}
+                      onChange={e => setSyncIcsName(e.target.value)}
+                      placeholder="Ej: Google Personal, Universidad..."
+                      className={styles.formInput}
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>Color</label>
+                    <div className={styles.colorSwatchesRow}>
+                      {COLOR_PRESETS.map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => setSyncIcsColor(c.id)}
+                          className={styles.colorSwatchBtn}
+                          data-selected={syncIcsColor === c.id}
+                          style={{ background: c.id }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel}>
+                    URL del Feed iCal (https://...basic.ics o webcal://...)
+                  </label>
+                  <input
+                    type="url"
+                    value={syncIcsUrl}
+                    onChange={e => setSyncIcsUrl(e.target.value)}
+                    placeholder="https://calendar.google.com/calendar/ical/.../basic.ics"
+                    className={styles.formInput}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    disabled={isSyncing || !syncIcsUrl.trim()}
+                    onClick={handleSubscribeIcsFeed}
+                    className={styles.primaryActionButton}
+                  >
+                    {isSyncing
+                      ? 'Sincronizando...'
+                      : '🔗 Suscribir y Sincronizar ahora'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSyncing}
+                    onClick={handleRefreshAllIcsFeeds}
+                    className={styles.secondaryActionButton}
+                  >
+                    🔄 Actualizar todas las suscripciones .ics
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* TAB 2: Google Calendar REST API (Bidirectional) */}
+            {syncTab === 'google-api' && (
+              <>
+                <div className={styles.syncHelpBox}>
+                  ☁️ <strong>Sincronización Bidireccional con Google Calendar API v3:</strong>{' '}
+                  Importa eventos (incluyendo Google Meet, asistentes y reglas{' '}
+                  <code>RRULE</code>) o sube tus eventos locales de AFFiNITe a tu
+                  cuenta de Google.
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel}>
+                    Google OAuth 2.0 Access Token (Bearer)
+                  </label>
+                  <input
+                    type="password"
+                    value={googleConfig.accessToken || ''}
+                    onChange={e =>
+                      setGoogleConfig(prev => ({
+                        ...prev,
+                        accessToken: e.target.value,
+                      }))
+                    }
+                    placeholder="ya29.a0AfH6SM..."
+                    className={styles.formInput}
+                  />
+                </div>
+
+                <div className={styles.formRow}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>
+                      Calendar ID (por defecto: primary)
+                    </label>
+                    <input
+                      type="text"
+                      value={googleConfig.calendarId || 'primary'}
+                      onChange={e =>
+                        setGoogleConfig(prev => ({
+                          ...prev,
+                          calendarId: e.target.value,
+                        }))
+                      }
+                      placeholder="primary o tu-correo@gmail.com"
+                      className={styles.formInput}
+                    />
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>
+                      Client ID (opcional OAuth Desktop)
+                    </label>
+                    <input
+                      type="text"
+                      value={googleConfig.clientId || ''}
+                      onChange={e =>
+                        setGoogleConfig(prev => ({
+                          ...prev,
+                          clientId: e.target.value,
+                        }))
+                      }
+                      placeholder="123456-abc.apps.googleusercontent.com"
+                      className={styles.formInput}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    disabled={isSyncing}
+                    onClick={handleGoogleApiPull}
+                    className={styles.primaryActionButton}
+                  >
+                    📥 Importar de Google Calendar API
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSyncing}
+                    onClick={handleGoogleApiPush}
+                    className={styles.secondaryActionButton}
+                  >
+                    📤 Subir eventos locales a Google Calendar
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* TAB 3: Local .ics File Import / Export */}
+            {syncTab === 'ics-file' && (
+              <>
+                <div className={styles.syncHelpBox}>
+                  📁 <strong>Importar o Exportar archivo estándar RFC 5545 (.ics):</strong>{' '}
+                  Compatible con Google Calendar, Apple Calendar, Microsoft
+                  Outlook, Proton Calendar y Thunderbird.
+                </div>
+
+                <div className={styles.formRow}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>
+                      Calendario destino para importación
+                    </label>
+                    <select
+                      value={importTargetCalId}
+                      onChange={e => setImportTargetCalId(e.target.value)}
+                      className={styles.formSelect}
+                    >
+                      {calendarLayers.map(l => (
+                        <option key={l.id} value={l.id}>
+                          {l.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>
+                      Seleccionar archivo .ics desde tu equipo
+                    </label>
+                    <input
+                      type="file"
+                      accept=".ics,text/calendar"
+                      onChange={handleImportIcsFile}
+                      className={styles.formInput}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const ics = exportEventsToIcs(
+                        tasks,
+                        'AFFiNITe Calendar Completo'
+                      );
+                      triggerIcsDownload(
+                        ics,
+                        `affinite-full-backup-${dayjs().format('YYYY-MM-DD')}.ics`
+                      );
+                      setSyncStatusMsg(
+                        `✅ Archivo .ics exportado con ${tasks.length} eventos.`
+                      );
+                    }}
+                    className={styles.primaryActionButton}
+                  >
+                    📤 Descargar Calendario Completo (.ics)
+                  </button>
+                </div>
+              </>
+            )}
+
+            <div className={styles.modalActionsRow}>
+              <div />
+              <button
+                type="button"
+                onClick={() => setIsSyncModalOpen(false)}
+                className={styles.secondaryActionButton}
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         </Modal>
