@@ -55,6 +55,13 @@ import {
   isEventAllDay,
 } from './calendar-timeblock-helpers';
 import {
+  GOOGLE_SECRET_FIELDS,
+  loadGoogleSecrets,
+  saveGoogleSecrets,
+  splitGoogleConfig,
+  stripSecretsFromYjsConfig,
+} from './calendar-secrets';
+import {
   type BoardCardCalendarItem,
   type CalendarLayer,
   type CalendarTask,
@@ -232,6 +239,7 @@ export const Component = () => {
   const dayGridScrollRef = useRef<HTMLDivElement | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const firedRemindersRef = useRef<Set<string>>(new Set());
+  const isMigratingGoogleConfigRef = useRef(false);
 
   // Mini Calendar Navigator state
   const [miniCalMonth, setMiniCalMonth] = useState<dayjs.Dayjs>(() => dayjs());
@@ -331,6 +339,10 @@ export const Component = () => {
     const yMap = rootYDoc.getMap('affinite_calendar_v1');
 
     const syncFromYjs = () => {
+      if (isMigratingGoogleConfigRef.current) {
+        return;
+      }
+
       const rawTasks = yMap.get('tasks') as string | undefined;
       if (!rawTasks) {
         setTasks([]);
@@ -359,16 +371,65 @@ export const Component = () => {
         setCalendarLayers(DEFAULT_CALENDAR_LAYERS);
       }
 
+      const workspaceId = workspaceService.workspace.id;
+      const storage =
+        typeof window !== 'undefined' ? window.localStorage : undefined;
       const rawGConfig = yMap.get('google_config') as string | undefined;
+      let publicGConfig: Record<string, unknown> = {};
+
       if (rawGConfig) {
-        try {
-          const parsedGConfig = JSON.parse(rawGConfig);
-          if (parsedGConfig && typeof parsedGConfig === 'object') {
-            setGoogleConfig(parsedGConfig);
+        const { cleaned, leaked } = stripSecretsFromYjsConfig(rawGConfig);
+        const leakedKeys = Object.keys(leaked);
+
+        if (leakedKeys.length > 0 && !isMigratingGoogleConfigRef.current) {
+          if (storage) {
+            const existingSecrets = loadGoogleSecrets(storage, workspaceId);
+            const secretsToMigrate: Record<string, string> = {};
+            for (const [k, v] of Object.entries(leaked)) {
+              if (!existingSecrets[k]) {
+                secretsToMigrate[k] = v;
+              }
+            }
+            if (Object.keys(secretsToMigrate).length > 0) {
+              saveGoogleSecrets(storage, workspaceId, secretsToMigrate);
+            }
           }
-        } catch {
-          // ignore
+          isMigratingGoogleConfigRef.current = true;
+          try {
+            rootYDoc.transact(() => {
+              if (cleaned !== undefined) {
+                yMap.set('google_config', cleaned);
+              } else {
+                yMap.delete('google_config');
+              }
+            });
+          } finally {
+            isMigratingGoogleConfigRef.current = false;
+          }
         }
+
+        if (cleaned) {
+          try {
+            const parsedGConfig = JSON.parse(cleaned);
+            if (parsedGConfig && typeof parsedGConfig === 'object') {
+              publicGConfig = parsedGConfig as Record<string, unknown>;
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      const storedSecrets = storage
+        ? loadGoogleSecrets(storage, workspaceId)
+        : {};
+
+      if (rawGConfig || Object.keys(storedSecrets).length > 0) {
+        setGoogleConfig({
+          calendarId: 'primary',
+          ...publicGConfig,
+          ...storedSecrets,
+        });
       }
     };
 
@@ -405,10 +466,29 @@ export const Component = () => {
 
   const saveGoogleConfigToYjs = useCallback(
     (nextConfig: GoogleCalendarConfig) => {
+      const workspaceId = workspaceService.workspace.id;
+      const { publicConfig, secrets } = splitGoogleConfig(
+        nextConfig as unknown as Record<string, unknown>
+      );
+      for (const field of GOOGLE_SECRET_FIELDS) {
+        if (
+          field in nextConfig &&
+          (nextConfig as Record<string, unknown>)[field] === ''
+        ) {
+          secrets[field] = '';
+        }
+      }
+
+      const storage =
+        typeof window !== 'undefined' ? window.localStorage : undefined;
+      if (storage) {
+        saveGoogleSecrets(storage, workspaceId, secrets);
+      }
+
       const rootYDoc = workspaceService.workspace.rootYDoc;
       const yMap = rootYDoc.getMap('affinite_calendar_v1');
       rootYDoc.transact(() => {
-        yMap.set('google_config', JSON.stringify(nextConfig));
+        yMap.set('google_config', JSON.stringify(publicConfig));
       });
       setGoogleConfig(nextConfig);
     },
