@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateStreakProgress,
   formatTimeRemaining,
+  getInitialStreaks,
+  STREAK_TEMPLATES,
   type StreakItem,
   toggleStreakPause,
 } from '../streaks-calculator';
@@ -151,5 +153,42 @@ describe('Streaks Calculator & Timer Engine', () => {
     expect(progressAtResume.elapsedHours).toBe(4);
     expect(progressAtResume.remainingHours).toBe(6);
     expect(progressAtResume.progressPercent).toBe(40);
+  });
+
+  it('returns empty array as initial streaks for clean workspaces', () => {
+    expect(getInitialStreaks()).toEqual([]);
+  });
+
+  it('provides coherent streak templates with consistent IDs and titles', () => {
+    expect(STREAK_TEMPLATES.length).toBeGreaterThanOrEqual(3);
+
+    const programming = STREAK_TEMPLATES.find(
+      s => s.id === 'streak-programming-30d'
+    );
+    expect(programming).toBeDefined();
+    expect(programming?.title).toBe('Reto 30 Días de Programación');
+    expect(programming?.mode).toBe('days');
+    expect(programming?.targetCount).toBe(30);
+
+    const deepWork = STREAK_TEMPLATES.find(
+      s => s.id === 'streak-deep-work-8h'
+    );
+    expect(deepWork).toBeDefined();
+    expect(deepWork?.title).toBe('Sprint de Trabajo Continuo (8 Horas)');
+    expect(deepWork?.mode).toBe('hours');
+    expect(deepWork?.targetCount).toBe(8);
+
+    const hydration = STREAK_TEMPLATES.find(
+      s => s.id === 'streak-hydration-7d'
+    );
+    expect(hydration).toBeDefined();
+    expect(hydration?.title).toBe('Hábito de Hidratación (7 Días)');
+    expect(hydration?.mode).toBe('days');
+    expect(hydration?.targetCount).toBe(7);
+
+    // Verify obsolete inconsistent id is not present
+    expect(STREAK_TEMPLATES.some(s => s.id === 'streak-fasting-16h')).toBe(
+      false
+    );
   });
 });

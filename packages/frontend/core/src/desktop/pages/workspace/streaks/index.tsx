@@ -14,6 +14,8 @@ import * as styles from './streaks.css';
 import {
   calculateStreakProgress,
   formatTimeRemaining,
+  getInitialStreaks,
+  STREAK_TEMPLATES,
   type StreakItem,
   type StreakMode,
   toggleStreakPause,
@@ -34,39 +36,6 @@ const PRESET_COLORS = [
   '#ec4899',
 ];
 
-const DEFAULT_STREAKS: StreakItem[] = [
-  {
-    id: 'streak-30-days',
-    title: 'Reto 30 Días de Programación',
-    description: 'Construir proyectos y aprender nuevas tecnologías diariamente',
-    mode: 'days',
-    targetCount: 30,
-    startDateTime: dayjs().subtract(7, 'day').toISOString(),
-    targetDateTime: dayjs().add(23, 'day').toISOString(),
-    soundEnabled: true,
-    notificationEnabled: true,
-    color: '#f59e0b',
-    icon: '🔥',
-    category: 'Productividad',
-    status: 'running',
-  },
-  {
-    id: 'streak-fasting-16h',
-    title: 'Sprint de Trabajo Continuo (8 Horas)',
-    description: 'Sesión enfocada de desarrollo sin distracciones',
-    mode: 'hours',
-    targetCount: 8,
-    startDateTime: dayjs().subtract(2, 'hour').toISOString(),
-    targetDateTime: dayjs().add(6, 'hour').toISOString(),
-    soundEnabled: true,
-    notificationEnabled: true,
-    color: '#3b82f6',
-    icon: '⚡',
-    category: 'Trabajo',
-    status: 'running',
-  },
-];
-
 export const Component = () => {
   const workspaceService = useService(WorkspaceService);
   const { openConfirmModal } = useConfirmModal();
@@ -79,7 +48,7 @@ export const Component = () => {
         } catch {}
       }
     }
-    return DEFAULT_STREAKS;
+    return getInitialStreaks();
   });
 
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
@@ -104,12 +73,12 @@ export const Component = () => {
         const yMap = rootDoc.getMap('affinite_streaks_v1');
         const raw = yMap.get('streaks');
         if (raw) {
-          const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setStreaks(parsed);
-          }
-        } else {
-          yMap.set('streaks', JSON.stringify(DEFAULT_STREAKS));
+          try {
+            const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            if (Array.isArray(parsed)) {
+              setStreaks(parsed);
+            }
+          } catch {}
         }
 
         const observer = () => {
@@ -158,6 +127,10 @@ export const Component = () => {
     },
     [workspaceService]
   );
+
+  const handleLoadTemplates = useCallback(() => {
+    persistStreaks(STREAK_TEMPLATES);
+  }, [persistStreaks]);
 
   // Live timer tick every 1000ms & completion alarm trigger
   useEffect(() => {
@@ -435,7 +408,20 @@ export const Component = () => {
             {filteredStreaks.length === 0 ? (
               <div className={styles.emptyState}>
                 <span>🔥</span>
-                <div>No hay contadores de Streak en esta vista.</div>
+                <div>
+                  {streaks.length === 0
+                    ? 'No tienes contadores de Streak activos.'
+                    : 'No hay contadores de Streak en esta vista.'}
+                </div>
+                {streaks.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={handleLoadTemplates}
+                    className={styles.secondaryActionButton}
+                  >
+                    Cargar plantillas de ejemplo
+                  </button>
+                )}
               </div>
             ) : (
               <div className={styles.streaksGrid}>
