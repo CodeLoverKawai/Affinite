@@ -29,10 +29,20 @@ All notable changes to **AFFiNITe** will be documented in this file.
   - Resolución directa del documento raíz de BlockSuite (`this.model.store.spaceDoc`) con observador reactivo en vivo.
   - Normalización y migración transparente de IDs de hábitos (`parseHabitsPayload`, `resolveHabitById`, `LEGACY_HABIT_ID_MAP`) entre `/habits`, `<affine-habit-preview>` y el menú `/` del editor.
 
-### 📅 Supercharged Calendar Planner v2 (`/calendar`)
-- **Time-Blocking Visual, Vista Anual y Mini-Navegador**:
-  - Motor de posicionamiento proporcional por minutos y detección de colisiones en cascada para bloques horarios (`calendar-timeblock-helpers.ts`).
-  - Banner superior para eventos de todo el día (`All-Day Banner`), mini-calendario lateral interactivo, vista anual (`Year`), vista de lista de tareas (`Tasks`) e integración de `Streaks` activos en las celdas del calendario.
+### 📅 AFFiNITe Calendar Pro v3 — Paridad con Google Calendar + Superpoderes PKM (`/calendar`)
+- **Compatibilidad Integral con Google Calendar y Estándar RFC 5545 (`.ics`)**:
+  - **Motor RFC 5545 (`calendar-ics-engine.ts`)**: Importación y exportación bidireccional de archivos `.ics` con soporte de `VEVENT`, plegado de líneas, zonas horarias (`TZID` / `UTC`), `DTEND` exclusivo para eventos multi-día, `RRULE`, `EXDATE`, `VALARM` y detección automática de enlaces de Google Meet / Zoom.
+  - **Suscripciones URL `.ics` en Vivo sin CORS (`electron/src/main/calendar/index.ts`)**: Puente IPC nativo en Electron Main (`fetchIcsFeed`) que permite suscribirse a direcciones públicas o secretas en formato iCal (`https://` o `webcal://`) de Google Calendar, Outlook o Apple Calendar sin bloqueos CORS.
+  - **Sincronización Bidireccional con Google Calendar REST API v3**: Importación y publicación directa de eventos (`googleApiRequest` + `refreshGoogleAccessToken`) y botón de exportación rápida en 1 clic vía plantilla web de Google Calendar (`buildGoogleCalendarTemplateUrl`).
+- **Motor de Recurrencia (`RRULE`), Eventos Multi-Día y Capas de Calendario (`calendar-recurrence-engine.ts`)**:
+  - Repetición diaria, días laborales (`Lun–Vie`), semanal, mensual y anual con soporte de fecha límite (`until`) y exclusión de fechas individuales (`EXDATE` — *"Eliminar solo esta fecha"* vs *"Toda la serie"*).
+  - Gestor lateral **"📅 Mis Calendarios"** con visibilidad por capa, colores personalizados e indicadores de origen (`Local`, `iCal`, `Google`).
+- **Grilla de 24 Horas (`00:00–23:59`), Colisiones Lado a Lado e Interacción Directa (`calendar-timeblock-helpers.ts`)**:
+  - Algoritmo de clústeres de colisión (`computeOverlappingEventsLayout`) que organiza eventos simultáneos en columnas proporcionales lado a lado al estilo Google Calendar.
+  - **Drag-to-Move** entre horas/días y **redimensionado inferior (Bottom Resize)** con ajuste magnético en incrementos de 15 minutos (`computeMovedEventTimes`, `computeResizedEndTime`).
+  - **6 Vistas + Atajos de Teclado**: `Día (D)`, `Semana (W)`, `Semana Laboral L–V (X)`, `Mes (M)`, `Año 12 meses (Y)`, `Agenda (A)`, `Hoy (T)`, `Crear (C)` y `Buscar (/)`.
+- **Superpoderes PKM Nativos de AFFiNITe**:
+  - Creación y apertura en 1 clic de **Notas de Reunión en BlockSuite** (`linkedDocId`) vinculadas al evento, botón directo **`🎥 Unirse`** para videollamadas y recordatorios con alarma armónica Web Audio + notificación nativa.
   - Filtrado inteligente de tarjetas de `Tableros` por categoría y etiquetas reales (`filterBoardCardsByCategory`).
 
 ### 🛡️ Seguridad, Higiene Arquitectónica y Calidad de Código
@@ -40,7 +50,7 @@ All notable changes to **AFFiNITe** will be documented in this file.
   - Eliminación definitiva de restos de la integración legada con `Planka` (`planka-view.ts`, handlers IPC y secuestro de URLs `/boards/` en `link-preview-service.ts`) y del controlador `OidcController` inseguro.
   - Eliminación completa del subsistema experimental `Anx-Remix` / `Library` para mantener el núcleo 100% enfocado en productividad, documentos, tableros, matemáticas e IA local (documentado en `docs/retrospectives/2026-11-02-la-derrota-de-anx-remix.md`).
   - Endurecimiento de diagramas Mermaid con `securityLevel: 'strict'` y ciclo de vida seguro con `useEffect` para apertura/liberación de documentos en `Reportes Semanales`.
-  - **Cero errores de linter (`oxlint`)** en los 90 archivos de los módulos personalizados y **62/62 pruebas unitarias en verde (`vitest`)**.
+  - **Cero errores de linter (`oxlint`)** en todos los módulos personalizados y **79/79 pruebas unitarias en verde (`vitest`)**.
 
 ---
 
