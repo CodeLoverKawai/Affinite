@@ -1394,29 +1394,40 @@ export const Component = () => {
       const todaysEvents = tasksByDate.get(todayKey) || [];
 
       // Map calendar events to DatedItem shape for unified evaluator
-      const candidateItems: DatedItem[] = todaysEvents.map(ev => ({
-        id: ev.id,
-        source: (ev.calendarId === 'layer-habits'
-          ? 'habit'
-          : ev.calendarId === 'layer-streaks'
-            ? 'streak'
-            : ev.calendarId === 'layer-boards'
-              ? 'board'
-              : 'calendar') as DatedItemSource,
-        title: ev.title,
-        start:
-          ev.startTime || ev.time
-            ? `${todayKey} ${ev.startTime || ev.time}`
-            : todayKey,
-        allDay: isEventAllDay(ev),
-        category: ev.category || 'General',
-        done: ev.completed,
-        metadata: {
-          ...ev.metadata,
-          reminderMinutes: ev.reminderMinutes,
-          location: ev.location,
-        },
-      }));
+      const candidateItems: DatedItem[] = todaysEvents
+        .filter(ev => {
+          const isNative =
+            !ev.calendarId ||
+            ev.calendarId === 'cal-personal' ||
+            ev.calendarId.startsWith('cal-');
+          if (isNative && ev.reminderMinutes === undefined) {
+            return false;
+          }
+          return true;
+        })
+        .map(ev => ({
+          id: ev.id,
+          source: (ev.calendarId === 'layer-habits'
+            ? 'habit'
+            : ev.calendarId === 'layer-streaks'
+              ? 'streak'
+              : ev.calendarId === 'layer-boards'
+                ? 'board'
+                : 'calendar') as DatedItemSource,
+          title: ev.title,
+          start:
+            ev.startTime || ev.time
+              ? `${todayKey} ${ev.startTime || ev.time}`
+              : todayKey,
+          allDay: isEventAllDay(ev),
+          category: ev.category || 'General',
+          done: ev.completed,
+          metadata: {
+            ...ev.metadata,
+            reminderMinutes: ev.reminderMinutes,
+            location: ev.location,
+          },
+        }));
 
       const due = evaluateDueDatedItemReminders(
         candidateItems,
