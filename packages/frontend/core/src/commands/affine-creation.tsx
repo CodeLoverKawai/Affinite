@@ -1,20 +1,28 @@
 import type { useI18n } from '@affine/i18n';
 import { track } from '@affine/track';
 import type { DocMode } from '@blocksuite/affine/model';
-import { ImportIcon, PlusIcon } from '@blocksuite/icons/rc';
+import {
+  CheckBoxCheckSolidIcon,
+  DateTimeIcon,
+  ImportIcon,
+  PlusIcon,
+} from '@blocksuite/icons/rc';
 
 import type { usePageHelper } from '../blocksuite/block-suite-page-list/utils';
 import type { GlobalDialogService } from '../modules/dialogs';
+import type { WorkbenchService } from '../modules/workbench';
 import { registerAffineCommand } from './registry';
 
 export function registerAffineCreationCommands({
   pageHelper,
   t,
   globalDialogService,
+  workbenchService,
 }: {
   t: ReturnType<typeof useI18n>;
   pageHelper: ReturnType<typeof usePageHelper>;
   globalDialogService: GlobalDialogService;
+  workbenchService?: WorkbenchService;
 }) {
   const unsubs: Array<() => void> = [];
   unsubs.push(
@@ -81,6 +89,38 @@ export function registerAffineCreationCommands({
         });
 
         globalDialogService.open('import-workspace', undefined);
+      },
+    })
+  );
+
+  unsubs.push(
+    registerAffineCommand({
+      id: 'affine:quick-habit',
+      category: 'affine:creation',
+      icon: <CheckBoxCheckSolidIcon />,
+      label: 'New Habit / Nuevo Hábito',
+      run() {
+        if (workbenchService) {
+          workbenchService.workbench.open('/habits');
+        } else if (typeof window !== 'undefined') {
+          window.location.hash = '/habits';
+        }
+      },
+    })
+  );
+
+  unsubs.push(
+    registerAffineCommand({
+      id: 'affine:goto-calendar-today',
+      category: 'affine:navigation',
+      icon: <DateTimeIcon />,
+      label: 'Calendar: Today / Calendario: Hoy',
+      run() {
+        if (workbenchService) {
+          workbenchService.workbench.open('/calendar');
+        } else if (typeof window !== 'undefined') {
+          window.location.hash = '/calendar';
+        }
       },
     })
   );

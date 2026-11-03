@@ -1,7 +1,14 @@
 import type { useI18n } from '@affine/i18n';
 import { track } from '@affine/track';
 import type { Workspace } from '@blocksuite/affine/store';
-import { ArrowRightBigIcon } from '@blocksuite/icons/rc';
+import {
+  ArrowRightBigIcon,
+  CheckBoxCheckSolidIcon,
+  DateTimeIcon,
+  FirePanelIcon,
+  PresentationIcon,
+  ViewLayersIcon,
+} from '@blocksuite/icons/rc';
 
 import type { useNavigateHelper } from '../components/hooks/use-navigate-helper';
 import type { WorkspaceDialogService } from '../modules/dialogs';
@@ -129,6 +136,91 @@ export function registerAffineNavigationCommands({
         });
 
         navigationHelper.jumpToPage(docCollection.id, 'trash');
+      },
+    })
+  );
+
+  unsubs.push(
+    registerAffineCommand({
+      id: 'affine:goto-boards',
+      category: 'affine:navigation',
+      icon: <ViewLayersIcon />,
+      label: 'Go to Boards / Tableros',
+      run() {
+        track.$.cmdk.navigation.navigate({ to: 'boards' as any });
+        if (workbenchService) {
+          workbenchService.workbench.open('/boards');
+        } else {
+          navigationHelper.jumpToPage(docCollection.id, 'boards');
+        }
+      },
+    })
+  );
+
+  unsubs.push(
+    registerAffineCommand({
+      id: 'affine:goto-calendar',
+      category: 'affine:navigation',
+      icon: <DateTimeIcon />,
+      label: 'Go to Calendar / Calendario',
+      run() {
+        track.$.cmdk.navigation.navigate({ to: 'calendar' as any });
+        if (workbenchService) {
+          workbenchService.workbench.open('/calendar');
+        } else {
+          navigationHelper.jumpToPage(docCollection.id, 'calendar');
+        }
+      },
+    })
+  );
+
+  unsubs.push(
+    registerAffineCommand({
+      id: 'affine:goto-habits',
+      category: 'affine:navigation',
+      icon: <CheckBoxCheckSolidIcon />,
+      label: 'Go to Habits / Hábitos',
+      run() {
+        track.$.cmdk.navigation.navigate({ to: 'habits' as any });
+        if (workbenchService) {
+          workbenchService.workbench.open('/habits');
+        } else {
+          navigationHelper.jumpToPage(docCollection.id, 'habits');
+        }
+      },
+    })
+  );
+
+  unsubs.push(
+    registerAffineCommand({
+      id: 'affine:goto-streaks',
+      category: 'affine:navigation',
+      icon: <FirePanelIcon />,
+      label: 'Go to Streaks / Streaks',
+      run() {
+        track.$.cmdk.navigation.navigate({ to: 'streaks' as any });
+        if (workbenchService) {
+          workbenchService.workbench.open('/streaks');
+        } else {
+          navigationHelper.jumpToPage(docCollection.id, 'streaks');
+        }
+      },
+    })
+  );
+
+  unsubs.push(
+    registerAffineCommand({
+      id: 'affine:goto-weekly-reports',
+      category: 'affine:navigation',
+      icon: <PresentationIcon />,
+      label: 'Go to Weekly Reports / Reportes Semanales',
+      run() {
+        track.$.cmdk.navigation.navigate({ to: 'weeklyReports' as any });
+        if (workbenchService) {
+          workbenchService.workbench.open('/weekly-reports');
+        } else {
+          navigationHelper.jumpToPage(docCollection.id, 'weekly-reports');
+        }
       },
     })
   );
