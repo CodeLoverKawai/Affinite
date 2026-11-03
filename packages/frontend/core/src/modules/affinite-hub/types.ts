@@ -31,3 +31,6 @@ export type {
   WeeklyStreakSummary,
   WeeklyTaskSummary,
 } from './weekly-snapshot';
+
+export type { HubAIContextOptions } from './ai-context';
+
