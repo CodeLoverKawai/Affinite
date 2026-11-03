@@ -64,12 +64,12 @@ import {
   stripSecretsFromYjsConfig,
 } from './calendar-secrets';
 import {
-  extractBoardDatedItems,
-  extractHabitDatedItems,
-  extractStreakDatedItems,
+  AFFINITE_YMAP_CALENDAR,
+  AFFINITE_YMAP_HABITS,
+  AFFINITE_YMAP_STREAKS,
 } from '@affine/core/modules/affinite-hub';
 import {
-  datedItemToCalendarEvent,
+  extractHubEventsForRange,
   mergeHubCalendarLayers,
 } from './calendar-hub-layers';
 import {
@@ -96,7 +96,6 @@ export type {
   GoogleCalendarConfig,
   RecurrenceFrequency,
 };
-export { extractBoardDatedItems };
 
 dayjs.extend(isLeapYear);
 dayjs.extend(isoWeek);
@@ -362,7 +361,7 @@ export const Component = () => {
   // 1. Sync Native Calendar Tasks, Calendar Layers, and Google Config from root workspace Yjs map
   useEffect(() => {
     const rootYDoc = workspaceService.workspace.rootYDoc;
-    const yMap = rootYDoc.getMap('affinite_calendar_v1');
+    const yMap = rootYDoc.getMap(AFFINITE_YMAP_CALENDAR);
 
     const syncFromYjs = () => {
       if (isMigratingGoogleConfigRef.current) {
@@ -643,8 +642,8 @@ export const Component = () => {
     const rootYDoc = workspaceService.workspace.rootYDoc;
     if (!rootYDoc || typeof rootYDoc.getMap !== 'function') return;
 
-    const habitsMap = rootYDoc.getMap('affinite_habits_v1');
-    const streaksMap = rootYDoc.getMap('affinite_streaks_v1');
+    const habitsMap = rootYDoc.getMap(AFFINITE_YMAP_HABITS);
+    const streaksMap = rootYDoc.getMap(AFFINITE_YMAP_STREAKS);
 
     const handleHubChange = () => {
       setHubVersion(v => v + 1);
@@ -1223,42 +1222,7 @@ export const Component = () => {
     const rangeStartStr = rangeStart.format(JOURNAL_DATE_FORMAT);
     const rangeEndStr = rangeEnd.format(JOURNAL_DATE_FORMAT);
 
-    const events: ExpandedCalendarEvent[] = [];
-
-    // 1. Extract streaks
-    try {
-      const streaks = extractStreakDatedItems(rootYDoc);
-      for (const streak of streaks) {
-        const sDate = streak.start ? streak.start.slice(0, 10) : '';
-        const eDate = streak.end ? streak.end.slice(0, 10) : sDate;
-        if (
-          sDate &&
-          sDate <= rangeEndStr &&
-          (!eDate || eDate >= rangeStartStr)
-        ) {
-          events.push(datedItemToCalendarEvent(streak));
-        }
-      }
-    } catch {
-      // ignore
-    }
-
-    // 2. Extract habits for each day in range
-    try {
-      let curr = rangeStart;
-      while (curr.isBefore(rangeEnd) || curr.isSame(rangeEnd, 'day')) {
-        const dateStr = curr.format(JOURNAL_DATE_FORMAT);
-        const habits = extractHabitDatedItems(rootYDoc, dateStr);
-        for (const habit of habits) {
-          events.push(datedItemToCalendarEvent(habit));
-        }
-        curr = curr.add(1, 'day');
-      }
-    } catch {
-      // ignore
-    }
-
-    return events;
+    return extractHubEventsForRange(rootYDoc, rangeStartStr, rangeEndStr);
   }, [cursorDate, hubVersion, workspaceService]);
 
   const filteredHubEvents = useMemo(() => {
