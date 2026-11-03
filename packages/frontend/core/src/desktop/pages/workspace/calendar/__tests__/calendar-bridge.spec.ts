@@ -30,7 +30,16 @@ describe('calendar-bridge', () => {
     } catch (e) {
       expect(e).toBeInstanceOf(CalendarBridgeError);
       expect((e as CalendarBridgeError).status).toBe(401);
+      expect((e as CalendarBridgeError).message).toBe('Invalid Credentials');
     }
+  });
+  test('Google: valores no-objeto o falsy retornan {} defensivamente', () => {
+    expect(unwrapGoogleResult(null)).toEqual({});
+    expect(unwrapGoogleResult(undefined)).toEqual({});
+    expect(unwrapGoogleResult(123)).toEqual({});
+    expect(unwrapGoogleResult('raw-string')).toEqual({});
+    expect(unwrapGoogleResult(true)).toEqual({});
+    expect(unwrapGoogleResult(false)).toEqual({});
   });
   test('withTokenRefresh reintenta una vez tras 401 con token nuevo', async () => {
     const calls: string[] = [];

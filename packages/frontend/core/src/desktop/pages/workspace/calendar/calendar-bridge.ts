@@ -19,7 +19,8 @@ export function unwrapIcsResult(result: unknown): string {
 }
 
 export function unwrapGoogleResult(result: unknown): Record<string, unknown> {
-  const r = (result ?? {}) as Wrapped & { data?: unknown };
+  if (!result || typeof result !== 'object') return {};
+  const r = result as Wrapped & { data?: unknown };
   if (typeof r.ok === 'boolean') {
     if (!r.ok) throw new CalendarBridgeError(r.error ?? 'Google API request failed', r.status);
     return (r.data && typeof r.data === 'object' ? r.data : {}) as Record<string, unknown>;
