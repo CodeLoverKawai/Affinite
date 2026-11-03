@@ -48,8 +48,28 @@ export const workbenchRoutes = [
     Component: Journals,
   },
   {
+    path: '/chat',
+    lazy: () => import('../desktop/pages/workspace/chat/index'),
+  },
+  {
     path: '/boards',
     lazy: () => import('../desktop/pages/workspace/boards/index'),
+  },
+  {
+    path: '/calendar',
+    lazy: () => import('../desktop/pages/workspace/calendar/index'),
+  },
+  {
+    path: '/weekly-reports',
+    lazy: () => import('../desktop/pages/workspace/weekly-reports/index'),
+  },
+  {
+    path: '/habits',
+    lazy: () => import('../desktop/pages/workspace/habits/index'),
+  },
+  {
+    path: '/streaks',
+    lazy: () => import('../desktop/pages/workspace/streaks/index'),
   },
   {
     path: '/trash',
