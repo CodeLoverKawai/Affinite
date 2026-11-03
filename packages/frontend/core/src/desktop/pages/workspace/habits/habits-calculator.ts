@@ -40,6 +40,45 @@ export function normalizeHabitId(id: string): string {
   return LEGACY_HABIT_ID_MAP[id] ?? id;
 }
 
+export function normalizeHabitCreatedAt(
+  createdAt?: number | string | null,
+  fallbackNow = Date.now()
+): number {
+  if (typeof createdAt === 'number') {
+    return Number.isFinite(createdAt) && createdAt > 0
+      ? Math.floor(createdAt)
+      : fallbackNow;
+  }
+
+  if (typeof createdAt === 'string') {
+    const trimmed = createdAt.trim();
+    if (!trimmed) {
+      return fallbackNow;
+    }
+
+    if (/^\d+(\.\d+)?$/.test(trimmed)) {
+      const num = Number(trimmed);
+      if (Number.isFinite(num) && num > 0) {
+        return Math.floor(num);
+      }
+    }
+
+    const parsed = Date.parse(trimmed);
+    if (!Number.isNaN(parsed) && parsed > 0) {
+      return parsed;
+    }
+
+    const d = dayjs(trimmed);
+    if (d.isValid() && d.valueOf() > 0) {
+      return d.valueOf();
+    }
+
+    return fallbackNow;
+  }
+
+  return fallbackNow;
+}
+
 export function resolveHabitById<T extends { id: string; title?: string }>(
   habits: T[],
   id?: string,

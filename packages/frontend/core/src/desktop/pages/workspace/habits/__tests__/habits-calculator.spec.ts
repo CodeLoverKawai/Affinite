@@ -6,6 +6,7 @@ import {
   calculateWeeklyConsistency,
   isHabitDoneOnDate,
   LEGACY_HABIT_ID_MAP,
+  normalizeHabitCreatedAt,
   parseHabitsPayload,
   resolveHabitById,
   type HabitItem,
@@ -227,4 +228,44 @@ describe('Habits Calculator', () => {
       expect(panelItem?.searchAlias).toContain('habits');
     });
   });
+
+  describe('normalizeHabitCreatedAt', () => {
+    it('should preserve valid positive numbers and floor them', () => {
+      const fixedTimestamp = 1730500000000;
+      expect(normalizeHabitCreatedAt(fixedTimestamp)).toBe(1730500000000);
+      expect(normalizeHabitCreatedAt(1730500000000.85)).toBe(1730500000000);
+    });
+
+    it('should parse ISO and date strings to millisecond timestamps', () => {
+      const isoStr = '2026-10-01T12:00:00.000Z';
+      expect(normalizeHabitCreatedAt(isoStr)).toBe(Date.parse(isoStr));
+
+      const dateStr = '2026-10-01';
+      expect(normalizeHabitCreatedAt(dateStr)).toBe(Date.parse(dateStr));
+
+      // String representation of a numeric timestamp
+      expect(normalizeHabitCreatedAt('1730500000000')).toBe(1730500000000);
+    });
+
+    it('should fallback to fallbackNow for null, undefined, empty string, NaN, or non-positive numbers', () => {
+      const fallback = 1730000000000;
+      expect(normalizeHabitCreatedAt(undefined, fallback)).toBe(fallback);
+      expect(normalizeHabitCreatedAt(null, fallback)).toBe(fallback);
+      expect(normalizeHabitCreatedAt('', fallback)).toBe(fallback);
+      expect(normalizeHabitCreatedAt('   ', fallback)).toBe(fallback);
+      expect(normalizeHabitCreatedAt(NaN, fallback)).toBe(fallback);
+      expect(normalizeHabitCreatedAt(0, fallback)).toBe(fallback);
+      expect(normalizeHabitCreatedAt(-100, fallback)).toBe(fallback);
+      expect(normalizeHabitCreatedAt('invalid-date-string', fallback)).toBe(fallback);
+    });
+
+    it('should default fallbackNow to approximately Date.now() when not provided', () => {
+      const before = Date.now();
+      const result = normalizeHabitCreatedAt(undefined);
+      const after = Date.now();
+      expect(result).toBeGreaterThanOrEqual(before);
+      expect(result).toBeLessThanOrEqual(after);
+    });
+  });
 });
+

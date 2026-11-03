@@ -48,6 +48,7 @@ export interface BoardCard {
   columnId: string;
   title: string;
   description?: string;
+  category?: string;
   labels?: string[];
   checklist?: BoardChecklistItem[];
   comments?: BoardComment[];
