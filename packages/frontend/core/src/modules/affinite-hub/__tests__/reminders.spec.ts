@@ -56,12 +56,20 @@ describe('affinite-hub reminders module', () => {
       expect(shouldTriggerReminder(target, 10, fixedNow, firedSet)).toBe(false);
     });
 
-    test('returns false when target time is already in the past', () => {
+    test('returns false when target time is substantially in the past', () => {
       // 5 minutes ago
       const target = '2026-11-02T09:55:00Z';
       const firedSet = new Set<string>();
 
       expect(shouldTriggerReminder(target, 10, fixedNow, firedSet)).toBe(false);
+    });
+
+    test('tolerates sub-minute polling jitter for event starting up to 1 minute ago', () => {
+      // 30 seconds ago (-0.5 minutes, floor gives -1)
+      const target = '2026-11-02T09:59:30Z';
+      const firedSet = new Set<string>();
+
+      expect(shouldTriggerReminder(target, 0, fixedNow, firedSet)).toBe(true);
     });
 
     test('returns false when reminder key is already present in firedSet', () => {
@@ -320,7 +328,7 @@ describe('affinite-hub reminders module', () => {
   describe('triggerDesktopNotification', () => {
     test('plays completion sound by default and constructs Notification if permission granted', () => {
       const soundSpy = vi
-        .spyOn(soundModule, 'playCompletionSound')
+        .spyOn(soundModule, 'playChimeSound')
         .mockImplementation(() => {});
       const notificationConstructorSpy = vi.fn();
 
@@ -347,7 +355,7 @@ describe('affinite-hub reminders module', () => {
 
     test('does not play sound when playSound is false', () => {
       const soundSpy = vi
-        .spyOn(soundModule, 'playCompletionSound')
+        .spyOn(soundModule, 'playChimeSound')
         .mockImplementation(() => {});
       const notificationConstructorSpy = vi.fn();
 
@@ -376,7 +384,7 @@ describe('affinite-hub reminders module', () => {
 
     test('does not create Notification if permission is denied', () => {
       const soundSpy = vi
-        .spyOn(soundModule, 'playCompletionSound')
+        .spyOn(soundModule, 'playChimeSound')
         .mockImplementation(() => {});
       const notificationConstructorSpy = vi.fn();
 
@@ -400,7 +408,7 @@ describe('affinite-hub reminders module', () => {
 
     test('does not create Notification if window is undefined', () => {
       const soundSpy = vi
-        .spyOn(soundModule, 'playCompletionSound')
+        .spyOn(soundModule, 'playChimeSound')
         .mockImplementation(() => {});
 
       // @ts-expect-error test SSR/node
@@ -413,8 +421,8 @@ describe('affinite-hub reminders module', () => {
       expect(soundSpy).toHaveBeenCalledTimes(1);
     });
 
-    test('swallows errors if playCompletionSound throws', () => {
-      vi.spyOn(soundModule, 'playCompletionSound').mockImplementation(() => {
+    test('swallows errors if playChimeSound throws', () => {
+      vi.spyOn(soundModule, 'playChimeSound').mockImplementation(() => {
         throw new Error('Audio hardware unavailable');
       });
 
@@ -424,7 +432,7 @@ describe('affinite-hub reminders module', () => {
     });
 
     test('swallows errors if Notification constructor throws', () => {
-      vi.spyOn(soundModule, 'playCompletionSound').mockImplementation(() => {});
+      vi.spyOn(soundModule, 'playChimeSound').mockImplementation(() => {});
 
       class ThrowingNotification {
         static permission: NotificationPermission = 'granted';
@@ -444,7 +452,7 @@ describe('affinite-hub reminders module', () => {
     });
 
     test('allows custom icon to override default /favicon.ico', () => {
-      vi.spyOn(soundModule, 'playCompletionSound').mockImplementation(() => {});
+      vi.spyOn(soundModule, 'playChimeSound').mockImplementation(() => {});
       const notificationConstructorSpy = vi.fn();
 
       class MockNotification {

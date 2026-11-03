@@ -1,4 +1,4 @@
-import { playCompletionSound } from './sound';
+import { playChimeSound } from './sound';
 import type { DatedItem } from './types';
 
 /**
@@ -39,7 +39,7 @@ export function triggerDesktopNotification(
 ): void {
   if (playSound) {
     try {
-      playCompletionSound();
+      playChimeSound();
     } catch {
       // Audio playback swallows errors safely
     }
@@ -79,8 +79,9 @@ export function shouldTriggerReminder(
 
   const diffMinutes = Math.floor((targetTime - now.getTime()) / 60000);
 
+  // Allow a 1-minute grace margin for sub-minute polling jitter
   if (
-    diffMinutes >= 0 &&
+    diffMinutes >= -1 &&
     diffMinutes <= offsetMinutes &&
     !firedSet.has(reminderKey)
   ) {
