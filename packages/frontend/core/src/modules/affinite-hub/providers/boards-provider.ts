@@ -38,7 +38,11 @@ export function extractBoardDatedItems(
   }
 
   try {
-    const yDoc = boardDocOrYDoc.yDoc ?? boardDocOrYDoc;
+    const yDoc =
+      boardDocOrYDoc.spaceDoc ??
+      boardDocOrYDoc.yDoc ??
+      boardDocOrYDoc.doc ??
+      boardDocOrYDoc;
     if (!yDoc || typeof yDoc.getMap !== 'function') {
       return [];
     }

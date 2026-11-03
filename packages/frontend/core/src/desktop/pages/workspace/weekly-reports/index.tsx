@@ -94,12 +94,19 @@ export const Component = () => {
   const docs = useLiveData(docsService.list.docs$);
 
   const boardDocs = useMemo(() => {
-    return docs.filter(doc => {
-      const isTrash = doc.trash$.value;
-      const props = doc.properties$.value;
-      return !isTrash && props['custom:isBoard'] === 'true';
-    });
-  }, [docs]);
+    const docCollection = workspaceService.workspace.docCollection;
+    return docs
+      .filter(doc => {
+        const isTrash = doc.trash$.value;
+        const props = doc.properties$.value;
+        return !isTrash && props['custom:isBoard'] === 'true';
+      })
+      .map(doc => ({
+        id: doc.id,
+        spaceDoc: docCollection.getDoc(doc.id)?.spaceDoc,
+        yDoc: docCollection.getDoc(doc.id)?.spaceDoc,
+      }));
+  }, [docs, workspaceService]);
 
   const [hubVersion, setHubVersion] = useState(0);
   useEffect(() => {
