@@ -1,4 +1,9 @@
-import type { DatedItem } from '@affine/core/modules/affinite-hub';
+import {
+  type DatedItem,
+  extractHabitDatedItems,
+  extractStreakDatedItems,
+} from '@affine/core/modules/affinite-hub';
+import dayjs from 'dayjs';
 
 import type { CalendarLayer, ExpandedCalendarEvent } from './calendar-types';
 
@@ -220,4 +225,54 @@ export function datedItemToCalendarEvent(
     spanDayIndex,
     spanTotalDays,
   };
+}
+
+/**
+ * Extracts all Hub events (habits and streaks) within a date range [startDateStr, endDateStr]
+ * and maps them to ExpandedCalendarEvents for calendar display.
+ */
+export function extractHubEventsForRange(
+  rootDocOrWrapper: any,
+  startDateStr: string,
+  endDateStr: string
+): ExpandedCalendarEvent[] {
+  if (!rootDocOrWrapper || !startDateStr || !endDateStr) {
+    return [];
+  }
+
+  const events: ExpandedCalendarEvent[] = [];
+
+  // 1. Extract streaks
+  try {
+    const streaks = extractStreakDatedItems(rootDocOrWrapper);
+    for (const streak of streaks) {
+      const sDate = streak.start ? streak.start.slice(0, 10) : '';
+      const eDate = streak.end ? streak.end.slice(0, 10) : sDate;
+      if (sDate && sDate <= endDateStr && (!eDate || eDate >= startDateStr)) {
+        events.push(datedItemToCalendarEvent(streak));
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  // 2. Extract habits for each day in range
+  try {
+    let curr = dayjs(startDateStr);
+    const end = dayjs(endDateStr);
+    if (curr.isValid() && end.isValid()) {
+      while (curr.isBefore(end) || curr.isSame(end, 'day')) {
+        const dateStr = curr.format('YYYY-MM-DD');
+        const habits = extractHabitDatedItems(rootDocOrWrapper, dateStr);
+        for (const habit of habits) {
+          events.push(datedItemToCalendarEvent(habit));
+        }
+        curr = curr.add(1, 'day');
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  return events;
 }

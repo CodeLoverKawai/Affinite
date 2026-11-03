@@ -64,6 +64,19 @@ import {
   stripSecretsFromYjsConfig,
 } from './calendar-secrets';
 import {
+  extractBoardDatedItems,
+  extractHabitDatedItems,
+  extractStreakDatedItems,
+} from '@affine/core/modules/affinite-hub';
+import {
+  datedItemToCalendarEvent,
+  mergeHubCalendarLayers,
+} from './calendar-hub-layers';
+import {
+  toggleBoardCardCompletionInYjs,
+  toggleHabitCompletionInYjs,
+} from './calendar-hub-mutations';
+import {
   type BoardCardCalendarItem,
   type CalendarLayer,
   type CalendarTask,
@@ -83,6 +96,7 @@ export type {
   GoogleCalendarConfig,
   RecurrenceFrequency,
 };
+export { extractBoardDatedItems };
 
 dayjs.extend(isLeapYear);
 dayjs.extend(isoWeek);
@@ -233,7 +247,7 @@ export const Component = () => {
   const [cursorDate, setCursorDate] = useState<dayjs.Dayjs>(() => dayjs());
   const [tasks, setTasks] = useState<CalendarTask[]>([]);
   const [calendarLayers, setCalendarLayers] = useState<CalendarLayer[]>(
-    () => DEFAULT_CALENDAR_LAYERS
+    () => mergeHubCalendarLayers(DEFAULT_CALENDAR_LAYERS)
   );
   const [googleConfig, setGoogleConfig] = useState<GoogleCalendarConfig>({
     calendarId: 'primary',
@@ -374,13 +388,15 @@ export const Component = () => {
         try {
           const parsedCals = JSON.parse(rawCals);
           if (Array.isArray(parsedCals) && parsedCals.length > 0) {
-            setCalendarLayers(parsedCals);
+            setCalendarLayers(mergeHubCalendarLayers(parsedCals));
+          } else {
+            setCalendarLayers(mergeHubCalendarLayers(DEFAULT_CALENDAR_LAYERS));
           }
         } catch {
-          setCalendarLayers(DEFAULT_CALENDAR_LAYERS);
+          setCalendarLayers(mergeHubCalendarLayers(DEFAULT_CALENDAR_LAYERS));
         }
       } else {
-        setCalendarLayers(DEFAULT_CALENDAR_LAYERS);
+        setCalendarLayers(mergeHubCalendarLayers(DEFAULT_CALENDAR_LAYERS));
       }
 
       const workspaceId = workspaceService.workspace.id;
@@ -609,53 +625,39 @@ export const Component = () => {
       try {
         const { doc, release } = docsService.open(boardId);
         try {
-          const yMap = doc.yDoc.getMap('board_data');
-          const colsRaw = yMap.get('columns') as string | undefined;
-          const cardsRaw = yMap.get('cards') as string | undefined;
-          const columns: Array<{ id: string; title: string }> = colsRaw
-            ? JSON.parse(colsRaw)
-            : [];
-          const cards: RawBoardCard[] = cardsRaw ? JSON.parse(cardsRaw) : [];
-          const targetCard = cards.find(c => c.id === cardId);
-          if (!targetCard || columns.length === 0) return;
-
-          const currentCol = columns.find(c => c.id === targetCard.columnId);
-          const currentlyDone = currentCol
-            ? isDoneColName(currentCol.title)
-            : false;
-
-          let nextColumns = [...columns];
-          let targetColId = targetCard.columnId;
-
-          if (currentlyDone) {
-            const firstTodoCol =
-              nextColumns.find(c => !isDoneColName(c.title)) || nextColumns[0];
-            targetColId = firstTodoCol.id;
-          } else {
-            let doneCol = nextColumns.find(c => isDoneColName(c.title));
-            if (!doneCol) {
-              doneCol = { id: `col-${Date.now()}`, title: 'Done' };
-              nextColumns = [...nextColumns, doneCol];
-            }
-            targetColId = doneCol.id;
-          }
-
-          const nextCards = cards.map(c =>
-            c.id === cardId ? { ...c, columnId: targetColId } : c
-          );
-          doc.yDoc.transact(() => {
-            yMap.set('columns', JSON.stringify(nextColumns));
-            yMap.set('cards', JSON.stringify(nextCards));
-          });
+          toggleBoardCardCompletionInYjs(doc.yDoc, cardId);
         } finally {
           release();
         }
       } catch (err) {
-        console.error('Failed to toggle board card done status', err);
+        console.error('Failed to toggle board card status:', err);
       }
     },
     [docsService]
   );
+
+  // 3. Sync Hub Habits and Streaks from root workspace Yjs doc
+  const [hubVersion, setHubVersion] = useState(0);
+
+  useEffect(() => {
+    const rootYDoc = workspaceService.workspace.rootYDoc;
+    if (!rootYDoc || typeof rootYDoc.getMap !== 'function') return;
+
+    const habitsMap = rootYDoc.getMap('affinite_habits_v1');
+    const streaksMap = rootYDoc.getMap('affinite_streaks_v1');
+
+    const handleHubChange = () => {
+      setHubVersion(v => v + 1);
+    };
+
+    habitsMap.observeDeep(handleHubChange);
+    streaksMap.observeDeep(handleHubChange);
+
+    return () => {
+      habitsMap.unobserveDeep(handleHubChange);
+      streaksMap.unobserveDeep(handleHubChange);
+    };
+  }, [workspaceService]);
 
   // Navigation & Journal Actions
   const handleOpenDailyJournal = useCallback(
@@ -841,16 +843,6 @@ export const Component = () => {
     saveTasksToYjs,
     tasks,
   ]);
-
-  const handleToggleTask = useCallback(
-    (taskId: string) => {
-      const next = tasks.map(t =>
-        t.id === taskId ? { ...t, completed: !t.completed } : t
-      );
-      saveTasksToYjs(next);
-    },
-    [saveTasksToYjs, tasks]
-  );
 
   const handleDeleteTask = useCallback(
     (taskId: string) => {
@@ -1205,6 +1197,7 @@ export const Component = () => {
 
   const filteredBoardCards = useMemo(() => {
     if (selectedSource === 'tasks') return [];
+    if (!visibleCalendarIds.has('layer-boards')) return [];
     const list = filterBoardCardsByCategory(boardCards, selectedCategory);
     if (!normalizedFilter) return list;
     return list.filter(
@@ -1212,7 +1205,94 @@ export const Component = () => {
         c.title.toLowerCase().includes(normalizedFilter) ||
         c.boardTitle.toLowerCase().includes(normalizedFilter)
     );
-  }, [boardCards, normalizedFilter, selectedCategory, selectedSource]);
+  }, [
+    boardCards,
+    normalizedFilter,
+    selectedCategory,
+    selectedSource,
+    visibleCalendarIds,
+  ]);
+
+  const hubEvents = useMemo(() => {
+    void hubVersion;
+    const rootYDoc = workspaceService?.workspace?.rootYDoc;
+    if (!rootYDoc) return [];
+
+    const rangeStart = cursorDate.startOf('year').subtract(1, 'month');
+    const rangeEnd = cursorDate.endOf('year').add(1, 'month');
+    const rangeStartStr = rangeStart.format(JOURNAL_DATE_FORMAT);
+    const rangeEndStr = rangeEnd.format(JOURNAL_DATE_FORMAT);
+
+    const events: ExpandedCalendarEvent[] = [];
+
+    // 1. Extract streaks
+    try {
+      const streaks = extractStreakDatedItems(rootYDoc);
+      for (const streak of streaks) {
+        const sDate = streak.start ? streak.start.slice(0, 10) : '';
+        const eDate = streak.end ? streak.end.slice(0, 10) : sDate;
+        if (
+          sDate &&
+          sDate <= rangeEndStr &&
+          (!eDate || eDate >= rangeStartStr)
+        ) {
+          events.push(datedItemToCalendarEvent(streak));
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // 2. Extract habits for each day in range
+    try {
+      let curr = rangeStart;
+      while (curr.isBefore(rangeEnd) || curr.isSame(rangeEnd, 'day')) {
+        const dateStr = curr.format(JOURNAL_DATE_FORMAT);
+        const habits = extractHabitDatedItems(rootYDoc, dateStr);
+        for (const habit of habits) {
+          events.push(datedItemToCalendarEvent(habit));
+        }
+        curr = curr.add(1, 'day');
+      }
+    } catch {
+      // ignore
+    }
+
+    return events;
+  }, [cursorDate, hubVersion, workspaceService]);
+
+  const filteredHubEvents = useMemo(() => {
+    if (selectedSource === 'boards') return [];
+    let list = hubEvents.filter(ev => {
+      const calId = ev.calendarId;
+      if (calId && !visibleCalendarIds.has(calId)) {
+        return false;
+      }
+      return true;
+    });
+
+    if (selectedCategory !== 'Todas') {
+      list = list.filter(
+        ev =>
+          (ev.category || 'General').toLowerCase() ===
+          selectedCategory.toLowerCase()
+      );
+    }
+    if (!normalizedFilter) return list;
+    return list.filter(
+      ev =>
+        ev.title.toLowerCase().includes(normalizedFilter) ||
+        (ev.category || '').toLowerCase().includes(normalizedFilter) ||
+        (ev.notes || '').toLowerCase().includes(normalizedFilter) ||
+        (ev.location || '').toLowerCase().includes(normalizedFilter)
+    );
+  }, [
+    hubEvents,
+    normalizedFilter,
+    selectedCategory,
+    selectedSource,
+    visibleCalendarIds,
+  ]);
 
   // Expand recurring & multi-day events across a generous window around cursorDate's year
   const expandedTasks = useMemo(() => {
@@ -1224,8 +1304,13 @@ export const Component = () => {
       .endOf('year')
       .add(1, 'month')
       .format(JOURNAL_DATE_FORMAT);
-    return expandEventsForRange(filteredTasks, rangeStartStr, rangeEndStr);
-  }, [cursorDate, filteredTasks]);
+    const baseTasks = expandEventsForRange(
+      filteredTasks,
+      rangeStartStr,
+      rangeEndStr
+    );
+    return [...baseTasks, ...filteredHubEvents];
+  }, [cursorDate, filteredHubEvents, filteredTasks]);
 
   const tasksByDate = useMemo(() => {
     const map = new Map<string, ExpandedCalendarEvent[]>();
@@ -1251,6 +1336,97 @@ export const Component = () => {
   const unscheduledBoardCards = useMemo(() => {
     return filteredBoardCards.filter(c => !c.dueDate && !c.isDoneColumn);
   }, [filteredBoardCards]);
+
+  const handleToggleTask = useCallback(
+    (taskId: string, occurrenceDate?: string) => {
+      // 1. Habit Completion
+      const foundEvent = expandedTasks.find(
+        e => e.masterId === taskId || e.id === taskId
+      );
+      const isHabit =
+        taskId.startsWith('habit-') ||
+        foundEvent?.calendarId === 'layer-habits';
+
+      if (isHabit) {
+        const dateStr =
+          occurrenceDate ||
+          foundEvent?.instanceDate ||
+          foundEvent?.date ||
+          dayjs().format(JOURNAL_DATE_FORMAT);
+        toggleHabitCompletionInYjs(
+          workspaceService.workspace.rootYDoc,
+          taskId,
+          dateStr
+        );
+        setHubVersion(v => v + 1);
+        return;
+      }
+
+      // 2. Board Card Completion
+      const isBoard =
+        taskId.startsWith('board-') ||
+        foundEvent?.calendarId === 'layer-boards';
+
+      if (isBoard) {
+        const cleanCardId = taskId.replace(/^board-/, '');
+        const foundCard = boardCards.find(
+          c => c.id === cleanCardId || c.id === taskId
+        );
+        if (foundCard) {
+          try {
+            const { doc, release } = docsService.open(foundCard.boardId);
+            try {
+              toggleBoardCardCompletionInYjs(doc.yDoc, taskId);
+            } finally {
+              release();
+            }
+          } catch {
+            // ignore
+          }
+          return;
+        }
+
+        // Search through boardDocs if not in current boardCards
+        for (const bDoc of boardDocs) {
+          try {
+            const { doc, release } = docsService.open(bDoc.id);
+            try {
+              const yMap = doc.yDoc.getMap('board_data');
+              const cardsRaw = yMap.get('cards') as string | undefined;
+              if (
+                cardsRaw &&
+                (cardsRaw.includes(`"id":"${cleanCardId}"`) ||
+                  cardsRaw.includes(`"id":"${taskId}"`))
+              ) {
+                toggleBoardCardCompletionInYjs(doc.yDoc, taskId);
+                return;
+              }
+            } finally {
+              release();
+            }
+          } catch {
+            // ignore
+          }
+        }
+        return;
+      }
+
+      // 3. Native Calendar Tasks
+      const next = tasks.map(t =>
+        t.id === taskId ? { ...t, completed: !t.completed } : t
+      );
+      saveTasksToYjs(next);
+    },
+    [
+      boardCards,
+      boardDocs,
+      docsService,
+      expandedTasks,
+      saveTasksToYjs,
+      tasks,
+      workspaceService,
+    ]
+  );
 
   // Reminder Notification Check Interval (every 30s)
   useEffect(() => {
@@ -1545,6 +1721,26 @@ export const Component = () => {
 
   const handleDeleteCalendarLayer = useCallback(
     (layerId: string) => {
+      const HUB_LAYER_IDS = new Set([
+        'layer-boards',
+        'layer-habits',
+        'layer-streaks',
+        'layer-journals',
+      ]);
+      const HUB_LAYER_TYPES = new Set([
+        'boards',
+        'habits',
+        'streaks',
+        'journals',
+      ]);
+      const targetLayer = calendarLayers.find(l => l.id === layerId);
+      if (
+        HUB_LAYER_IDS.has(layerId) ||
+        (targetLayer?.type && HUB_LAYER_TYPES.has(targetLayer.type)) ||
+        DEFAULT_CALENDAR_LAYERS.some(d => d.id === layerId)
+      ) {
+        return;
+      }
       const nextLayers = calendarLayers.filter(l => l.id !== layerId);
       saveCalendarsToYjs(nextLayers);
       const nextTasks = tasks.filter(t => t.calendarId !== layerId);
@@ -2322,7 +2518,10 @@ export const Component = () => {
                                         checked={ev.completed}
                                         onClick={e => e.stopPropagation()}
                                         onChange={() =>
-                                          handleToggleTask(ev.masterId)
+                                          handleToggleTask(
+                                            ev.masterId,
+                                            ev.instanceDate
+                                          )
                                         }
                                         style={{
                                           cursor: 'pointer',
@@ -2722,7 +2921,10 @@ export const Component = () => {
                                     checked={ev.completed}
                                     onClick={e => e.stopPropagation()}
                                     onChange={() =>
-                                      handleToggleTask(ev.masterId)
+                                      handleToggleTask(
+                                        ev.masterId,
+                                        ev.instanceDate
+                                      )
                                     }
                                     style={{
                                       accentColor: color,
@@ -3014,7 +3216,10 @@ export const Component = () => {
                                   checked={ev.completed}
                                   onClick={e => e.stopPropagation()}
                                   onChange={() =>
-                                    handleToggleTask(ev.masterId)
+                                    handleToggleTask(
+                                      ev.masterId,
+                                      ev.instanceDate
+                                    )
                                   }
                                   style={{
                                     accentColor: color,
@@ -3320,7 +3525,10 @@ export const Component = () => {
                                       checked={t.completed}
                                       onClick={e => e.stopPropagation()}
                                       onChange={() =>
-                                        handleToggleTask(t.masterId)
+                                        handleToggleTask(
+                                          t.masterId,
+                                          t.instanceDate
+                                        )
                                       }
                                       style={{
                                         cursor: 'pointer',
@@ -3524,10 +3732,26 @@ export const Component = () => {
                         ? 'Google'
                         : layer.type === 'google-ics'
                           ? 'iCal'
-                          : 'Local';
-                    const isDefaultLayer = DEFAULT_CALENDAR_LAYERS.some(
-                      d => d.id === layer.id
-                    );
+                          : layer.type === 'boards'
+                            ? 'Kanban'
+                            : layer.type === 'habits'
+                              ? 'Hábitos'
+                              : layer.type === 'streaks'
+                                ? 'Metas'
+                                : layer.type === 'journals'
+                                  ? 'Diarios'
+                                  : 'Local';
+                    const isDefaultLayer =
+                      DEFAULT_CALENDAR_LAYERS.some(d => d.id === layer.id) ||
+                      [
+                        'layer-boards',
+                        'layer-habits',
+                        'layer-streaks',
+                        'layer-journals',
+                      ].includes(layer.id) ||
+                      ['boards', 'habits', 'streaks', 'journals'].includes(
+                        layer.type || ''
+                      );
 
                     return (
                       <div key={layer.id} className={styles.calendarLayerRow}>
