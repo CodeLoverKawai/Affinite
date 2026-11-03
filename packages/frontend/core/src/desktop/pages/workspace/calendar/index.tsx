@@ -1396,6 +1396,9 @@ export const Component = () => {
       // Map calendar events to DatedItem shape for unified evaluator
       const candidateItems: DatedItem[] = todaysEvents
         .filter(ev => {
+          if (isEventAllDay(ev)) {
+            return false;
+          }
           const isNative =
             !ev.calendarId ||
             ev.calendarId === 'cal-personal' ||

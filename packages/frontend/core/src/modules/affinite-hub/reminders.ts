@@ -150,7 +150,7 @@ export function evaluateDueDatedItemReminders(
         ? item.metadata.reminderMinutes
         : 10;
 
-    const reminderKey = `${item.id}-${item.start}`;
+    const reminderKey = `${item.id}-${targetDateTimeStr}`;
 
     if (
       shouldTriggerReminder(

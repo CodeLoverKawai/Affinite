@@ -193,7 +193,7 @@ describe('affinite-hub reminders module', () => {
       const due = evaluateDueDatedItemReminders(items, localNow, firedSet);
       expect(due).toHaveLength(1);
       expect(due[0].id).toBe('item-habit');
-      expect(firedSet.has('item-habit-2026-11-02')).toBe(true);
+      expect(firedSet.has('item-habit-2026-11-02 10:00')).toBe(true);
     });
 
     test('respects custom reminderMinutes offset in metadata', () => {
