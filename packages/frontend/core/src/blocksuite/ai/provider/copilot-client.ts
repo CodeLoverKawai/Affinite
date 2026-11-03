@@ -1,5 +1,6 @@
 import { showAILoginRequiredAtom } from '@affine/core/components/affine/auth/ai-login-required';
 import type { AIToolsConfig } from '@affine/core/modules/ai-button';
+import { buildHubAIContext } from '@affine/core/modules/affinite-hub';
 import { UserFriendlyError } from '@affine/error';
 import {
   type addContextBlobMutation,
@@ -76,6 +77,7 @@ export interface LocalAISession {
   pinned?: boolean;
   title?: string;
   messages: LocalAIMessage[];
+  params?: Record<string, any>;
   contextId?: string;
   contextDocs?: Array<{
     id: string;
@@ -244,7 +246,43 @@ function buildSystemInstructionForPromptName(
   }
 }
 
-async function executeLocalAIChat(
+export function resolveActiveWorkspaceIntelligence(
+  customRootDoc?: any
+): string | undefined {
+  try {
+    if (customRootDoc) {
+      return buildHubAIContext(customRootDoc);
+    }
+    if (typeof window === 'undefined') return undefined;
+    const currentWorkspace = (window as any).currentWorkspace;
+    const rootYDoc = currentWorkspace?.rootYDoc ?? (window as any).rootYDoc;
+    if (!rootYDoc) return undefined;
+
+    // Extraer posibles tableros si existen en docCollection
+    const boardDocs: any[] = [];
+    const docCollection = currentWorkspace?.docCollection;
+    if (docCollection?.docs) {
+      for (const doc of docCollection.docs.values()) {
+        const isBoard =
+          doc?.meta?.isBoard ||
+          (doc?.properties && doc.properties['custom:isBoard'] === 'true');
+        if (isBoard) {
+          boardDocs.push({
+            id: doc.id,
+            spaceDoc: doc.spaceDoc,
+            yDoc: doc.spaceDoc,
+          });
+        }
+      }
+    }
+
+    return buildHubAIContext(rootYDoc, { boardDocs });
+  } catch {
+    return undefined;
+  }
+}
+
+export async function executeLocalAIChat(
   session: LocalAISession,
   overrideModelId?: string,
   fetcher?: (input: string, init?: RequestInit) => Promise<Response>,
@@ -272,10 +310,21 @@ async function executeLocalAIChat(
     prompt = `Selected context:\n${msgParams.selectedMarkdown}\n\n${prompt}`;
   }
 
-  const systemPrompt = buildSystemInstructionForPromptName(
+  const baseSystemPrompt = buildSystemInstructionForPromptName(
     session.promptName,
     msgParams
   );
+  const hubContext =
+    session.params?.workspaceIntelligence ??
+    resolveActiveWorkspaceIntelligence(
+      session.params?.rootYDoc ??
+        session.params?.overrideRootYDoc ??
+        (latestUserMsg?.params as any)?.rootYDoc ??
+        (latestUserMsg?.params as any)?.overrideRootYDoc
+    );
+  const systemPrompt = hubContext
+    ? `${baseSystemPrompt}\n\n${hubContext}`
+    : baseSystemPrompt;
 
   const historyMessages = userMessages.map(m => ({
     role: m.role,
@@ -389,7 +438,7 @@ export function createLocalEventSource(
       if (!listeners.has(type)) {
         listeners.set(type, new Set());
       }
-      listeners.get(type)!.add(listener);
+      listeners.get(type)?.add(listener);
     },
     removeEventListener(type: string, listener: any) {
       listeners.get(type)?.delete(listener);
