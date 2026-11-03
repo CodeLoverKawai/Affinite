@@ -99,7 +99,8 @@ export function parseWeekRange(
     }
 
     const d = dayjs(trimmed);
-    const monday = d.startOf('isoWeek');
+    const target = d.isValid() ? d : dayjs();
+    const monday = target.startOf('isoWeek');
     const weekKey = `${monday.isoWeekYear()}-W${String(monday.isoWeek()).padStart(2, '0')}`;
     const dates = Array.from({ length: 7 }, (_, i) =>
       monday.add(i, 'day').format('YYYY-MM-DD')
@@ -175,7 +176,10 @@ export function buildWeeklySnapshot(
       let dayCompleted = 0;
       for (const item of items) {
         const habitId = String(
-          item.metadata?.habitId ?? item.id.replace(new RegExp(`-${dateStr}$`), '')
+          item.metadata?.habitId ||
+            (item.id.endsWith(`-${dateStr}`)
+              ? item.id.slice(0, -(dateStr.length + 1))
+              : item.id)
         );
         if (!habitStats.has(habitId)) {
           habitStats.set(habitId, {
@@ -252,7 +256,7 @@ export function buildWeeklySnapshot(
     const streakItems = extractStreakDatedItems(resolvedDoc);
     for (const item of streakItems) {
       const sDay = item.start ? item.start.slice(0, 10) : '';
-      const tDay = item.end ? item.end.slice(0, 10) : sDay;
+      const tDay = item.end ? item.end.slice(0, 10) : '';
 
       const overlaps = (!sDay || sDay <= end) && (!tDay || tDay >= start);
       if (overlaps) {
@@ -337,19 +341,26 @@ export function buildWeeklySnapshot(
     completionRate: boardCompletionRate,
   };
 
-  // 5. Global consistency score calculation
+  // 5. Global consistency score calculation (50% habits, 50% actionable tasks/boards)
+  const actionableTotal = tasks.total + boards.totalCardsDue;
+  const actionableCompleted = tasks.completed + boards.completedCards;
+  const actionableRate =
+    actionableTotal > 0
+      ? Math.round((actionableCompleted / actionableTotal) * 100)
+      : 0;
+
   const habitsExist = habits.totalTargetCompletions > 0;
-  const tasksExist = tasks.total > 0;
+  const actionableExist = actionableTotal > 0;
 
   let consistencyScore = 0;
-  if (habitsExist && tasksExist) {
+  if (habitsExist && actionableExist) {
     consistencyScore = Math.round(
-      habits.completionRate * 0.6 + tasks.completionRate * 0.4
+      habits.completionRate * 0.5 + actionableRate * 0.5
     );
   } else if (habitsExist) {
     consistencyScore = habits.completionRate;
-  } else if (tasksExist) {
-    consistencyScore = tasks.completionRate;
+  } else if (actionableExist) {
+    consistencyScore = actionableRate;
   } else {
     consistencyScore = 0;
   }

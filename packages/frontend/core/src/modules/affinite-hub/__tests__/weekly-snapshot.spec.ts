@@ -201,6 +201,13 @@ describe('weekly-snapshot module', () => {
           status: 'running', // active, does NOT end this week
         },
         {
+          id: 'streak-open-ended',
+          title: 'Hábito continuo sin fin',
+          startDateTime: '2026-10-15',
+          mode: 'days',
+          status: 'running', // active open-ended from previous month
+        },
+        {
           id: 'streak-sprint-1',
           title: 'Mini Sprint de diseño',
           startDateTime: '2026-11-02',
@@ -230,9 +237,9 @@ describe('weekly-snapshot module', () => {
 
       const snapshot = buildWeeklySnapshot(doc, '2026-W45');
 
-      // Relevant overlapping streaks: streak-running (active), streak-sprint-1 (completed), streak-sprint-2 (active)
+      // Relevant overlapping streaks: streak-running (active), streak-open-ended (active), streak-sprint-1 (completed), streak-sprint-2 (active)
       // streak-past is excluded
-      expect(snapshot.streaks.activeCount).toBe(2);
+      expect(snapshot.streaks.activeCount).toBe(3);
       expect(snapshot.streaks.completedCount).toBe(1);
 
       // Sprints ending this week: streak-sprint-1 (Nov 5) and streak-sprint-2 (Nov 7)
@@ -348,10 +355,11 @@ describe('weekly-snapshot module', () => {
   });
 
   describe('buildWeeklySnapshot - consistencyScore calculation', () => {
-    test('weights habits (60%) and tasks (40%) when both exist', () => {
+    test('weights habits (50%) and actionable tasks/boards (50%) when both exist', () => {
       const doc = new Y.Doc();
       const habitsMap = doc.getMap(AFFINITE_YMAP_HABITS);
       const calendarMap = doc.getMap(AFFINITE_YMAP_CALENDAR);
+      const boardMap = doc.getMap(AFFINITE_YMAP_BOARD);
 
       // Habit with 7 days, 4 completed => 4/7 = 57% completion rate
       habitsMap.set(
@@ -374,7 +382,7 @@ describe('weekly-snapshot module', () => {
         ])
       );
 
-      // Tasks: 2 total, 2 completed => 100% completion rate
+      // Tasks: 2 total, 2 completed
       calendarMap.set(
         'tasks',
         JSON.stringify([
@@ -383,12 +391,23 @@ describe('weekly-snapshot module', () => {
         ])
       );
 
+      // Board card: 1 total due in week, not completed => 2 completed out of 3 total = 67%
+      boardMap.set(
+        'cards',
+        JSON.stringify([
+          { id: 'b1', title: 'Card 1', dueDate: '2026-11-05', columnId: 'col-todo' },
+        ])
+      );
+      boardMap.set('columns', JSON.stringify([{ id: 'col-todo', title: 'To Do' }]));
+
       const snapshot = buildWeeklySnapshot(doc, '2026-W45');
       expect(snapshot.habits.completionRate).toBe(57);
       expect(snapshot.tasks.completionRate).toBe(100);
+      expect(snapshot.boards.completionRate).toBe(0);
 
-      // Score = Math.round(57 * 0.6 + 100 * 0.4) = Math.round(34.2 + 40) = 74
-      expect(snapshot.consistencyScore).toBe(74);
+      // Actionable total = 2 tasks + 1 board = 3 items. Completed = 2. Rate = 2/3 = 67%
+      // Score = Math.round(57 * 0.5 + 67 * 0.5) = Math.round(28.5 + 33.5) = 62
+      expect(snapshot.consistencyScore).toBe(62);
     });
 
     test('uses only habits completionRate when no tasks exist', () => {
