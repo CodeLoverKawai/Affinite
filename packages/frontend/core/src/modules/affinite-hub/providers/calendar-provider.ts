@@ -39,16 +39,17 @@ export function extractCalendarDatedItems(
   }
 
   try {
-    const doc =
-      typeof rootDoc.getMap === 'function'
-        ? (resolveRootYDoc(rootDoc) ?? rootDoc)
+    const doc = rootDoc?.yDoc ?? rootDoc?.doc ?? rootDoc;
+    const resolvedDoc =
+      typeof doc?.getMap === 'function'
+        ? (resolveRootYDoc(doc) ?? doc)
         : null;
 
-    if (!doc || typeof doc.getMap !== 'function') {
+    if (!resolvedDoc || typeof resolvedDoc.getMap !== 'function') {
       return [];
     }
 
-    const yMap = doc.getMap(AFFINITE_YMAP_CALENDAR);
+    const yMap = resolvedDoc.getMap(AFFINITE_YMAP_CALENDAR);
     if (!yMap) {
       return [];
     }

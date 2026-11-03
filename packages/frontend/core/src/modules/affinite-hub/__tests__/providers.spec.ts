@@ -178,6 +178,27 @@ describe('extractHabitDatedItems', () => {
     expect(items[0].done).toBe(true);
     expect(items[0].id).toBe('habit-meditate-2026-11-02');
   });
+
+  test('acepta tanto Y.Doc directo como envoltorios { yDoc: doc } y { doc }', () => {
+    const doc = new Y.Doc();
+    const map = doc.getMap(AFFINITE_YMAP_HABITS);
+    map.set('habits', [
+      {
+        id: 'h-water',
+        title: 'Beber 2L de agua',
+        category: 'salud',
+        entries: { '2026-11-02': true },
+      },
+    ]);
+
+    const direct = extractHabitDatedItems(doc, '2026-11-02');
+    const withYDoc = extractHabitDatedItems({ yDoc: doc }, '2026-11-02');
+    const withDoc = extractHabitDatedItems({ doc }, '2026-11-02');
+
+    expect(direct).toHaveLength(1);
+    expect(withYDoc).toEqual(direct);
+    expect(withDoc).toEqual(direct);
+  });
 });
 
 describe('extractStreakDatedItems', () => {
@@ -263,6 +284,33 @@ describe('extractStreakDatedItems', () => {
         status: 'completed',
       }),
     });
+  });
+
+  test('acepta tanto Y.Doc directo como envoltorios { yDoc: doc } y { doc }', () => {
+    const doc = new Y.Doc();
+    const map = doc.getMap(AFFINITE_YMAP_STREAKS);
+    map.set(
+      'streaks',
+      JSON.stringify([
+        {
+          id: 'streak-code',
+          title: 'Codificación diaria',
+          mode: 'days',
+          startDateTime: '2026-11-01',
+          targetDateTime: '2026-11-30',
+          category: 'trabajo',
+          status: 'running',
+        },
+      ])
+    );
+
+    const direct = extractStreakDatedItems(doc);
+    const withYDoc = extractStreakDatedItems({ yDoc: doc });
+    const withDoc = extractStreakDatedItems({ doc });
+
+    expect(direct).toHaveLength(1);
+    expect(withYDoc).toEqual(direct);
+    expect(withDoc).toEqual(direct);
   });
 });
 
@@ -503,5 +551,29 @@ describe('extractCalendarDatedItems', () => {
         priority: undefined,
       },
     });
+  });
+
+  test('acepta tanto Y.Doc directo como envoltorios { yDoc: doc } y { doc }', () => {
+    const doc = new Y.Doc();
+    const map = doc.getMap(AFFINITE_YMAP_CALENDAR);
+    map.set(
+      'tasks',
+      JSON.stringify([
+        {
+          id: 't-meeting',
+          title: 'Reunión de sprint',
+          date: '2026-11-03',
+          completed: false,
+        },
+      ])
+    );
+
+    const direct = extractCalendarDatedItems(doc);
+    const withYDoc = extractCalendarDatedItems({ yDoc: doc });
+    const withDoc = extractCalendarDatedItems({ doc });
+
+    expect(direct).toHaveLength(1);
+    expect(withYDoc).toEqual(direct);
+    expect(withDoc).toEqual(direct);
   });
 });

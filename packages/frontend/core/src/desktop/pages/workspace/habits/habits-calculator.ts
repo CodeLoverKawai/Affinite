@@ -1,6 +1,10 @@
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 
+import {
+  LEGACY_HABIT_ID_MAP,
+  normalizeHabitId,
+} from '@affine/core/modules/affinite-hub';
 import { getWeekDateRange } from '../../../../modules/journal';
 
 dayjs.extend(isoWeek);
@@ -21,13 +25,7 @@ export interface HabitItem {
   entries: Record<string, boolean | number>;
 }
 
-export const LEGACY_HABIT_ID_MAP: Record<string, string> = {
-  'h-water': 'habit-water',
-  'h-exercise': 'habit-exercise',
-  'h-read': 'habit-reading',
-  'h-meditate': 'habit-meditation',
-  'h-code': 'habit-code',
-};
+export { LEGACY_HABIT_ID_MAP, normalizeHabitId };
 
 const REVERSE_LEGACY_HABIT_ID_MAP: Record<string, string> = Object.fromEntries(
   Object.entries(LEGACY_HABIT_ID_MAP).map(([legacyId, canonicalId]) => [
@@ -35,10 +33,6 @@ const REVERSE_LEGACY_HABIT_ID_MAP: Record<string, string> = Object.fromEntries(
     legacyId,
   ])
 );
-
-export function normalizeHabitId(id: string): string {
-  return LEGACY_HABIT_ID_MAP[id] ?? id;
-}
 
 export function normalizeHabitCreatedAt(
   createdAt?: number | string | null,
