@@ -22,8 +22,13 @@ export interface HabitItem {
   color?: string;
   frequency?: 'daily' | 'weekly' | string;
   createdAt?: number | string;
+  reminderTime?: string; // Formato HH:mm (e.g. '08:30')
+  reminderMinutes?: number; // Minutos de antelación para el recordatorio (e.g. 10)
   entries: Record<string, boolean | number>;
 }
+
+export type Habit = HabitItem;
+
 
 export { LEGACY_HABIT_ID_MAP, normalizeHabitId };
 
@@ -149,6 +154,15 @@ export function parseHabitsPayload(raw: unknown): HabitItem[] | null {
         typeof item.targetValue === 'number' ? item.targetValue : undefined,
       unit: typeof item.unit === 'string' ? item.unit : undefined,
       color: typeof item.color === 'string' ? item.color : undefined,
+      reminderTime:
+        typeof item.reminderTime === 'string' && item.reminderTime.trim()
+          ? item.reminderTime.trim()
+          : undefined,
+      reminderMinutes:
+        typeof item.reminderMinutes === 'number' &&
+        Number.isFinite(item.reminderMinutes)
+          ? item.reminderMinutes
+          : undefined,
       entries: { ...rawEntries },
     } as HabitItem;
   });

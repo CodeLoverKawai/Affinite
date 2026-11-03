@@ -72,22 +72,42 @@ export function extractHabitDatedItems(
             entryVal >= (habit.targetValue ?? 1)
           : Boolean(entryVal);
 
+      const hasReminderTime =
+        typeof habit.reminderTime === 'string' &&
+        habit.reminderTime.trim().length > 0;
+      const start = hasReminderTime
+        ? `${targetDateStr} ${habit.reminderTime.trim()}`
+        : targetDateStr;
+      const allDay = !hasReminderTime;
+
+      const metadata: Record<string, unknown> = {
+        habitId,
+        type: habit.type,
+        targetValue: habit.targetValue,
+        unit: habit.unit,
+      };
+
+      if (habit.reminderTime !== undefined) {
+        metadata.reminderTime = habit.reminderTime;
+      }
+      if (habit.reminderMinutes !== undefined) {
+        metadata.reminderMinutes =
+          typeof habit.reminderMinutes === 'number'
+            ? habit.reminderMinutes
+            : undefined;
+      }
+
       result.push({
         id: `${cleanId}-${targetDateStr}`,
         source: 'habit',
         title,
-        start: targetDateStr,
-        allDay: true,
+        start,
+        allDay,
         category,
         color,
         done,
         href: '/habits',
-        metadata: {
-          habitId,
-          type: habit.type,
-          targetValue: habit.targetValue,
-          unit: habit.unit,
-        },
+        metadata,
       });
     }
 

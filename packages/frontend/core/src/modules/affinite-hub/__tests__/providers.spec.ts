@@ -199,6 +199,57 @@ describe('extractHabitDatedItems', () => {
     expect(withYDoc).toEqual(direct);
     expect(withDoc).toEqual(direct);
   });
+
+  test('soporta reminderTime y reminderMinutes en hábitos convirtiendo allDay a false y formateando start', () => {
+    const doc = new Y.Doc();
+    const map = doc.getMap(AFFINITE_YMAP_HABITS);
+
+    const habits = [
+      {
+        id: 'habit-morning-meditation',
+        title: 'Meditación matutina',
+        category: 'mente',
+        reminderTime: '08:45',
+        reminderMinutes: 15,
+        entries: { '2026-11-02': false },
+      },
+      {
+        id: 'habit-workout',
+        title: 'Entrenamiento',
+        category: 'fitness',
+        // Sin reminderTime ni reminderMinutes
+        entries: { '2026-11-02': false },
+      },
+      {
+        id: 'habit-empty-reminder',
+        title: 'Lectura',
+        category: 'estudio',
+        reminderTime: '   ',
+        entries: { '2026-11-02': false },
+      },
+    ];
+
+    map.set('habits', JSON.stringify(habits));
+
+    const items = extractHabitDatedItems(doc, '2026-11-02');
+    expect(items).toHaveLength(3);
+
+    // Hábito con recordatorio
+    expect(items[0].start).toBe('2026-11-02 08:45');
+    expect(items[0].allDay).toBe(false);
+    expect(items[0].metadata?.reminderTime).toBe('08:45');
+    expect(items[0].metadata?.reminderMinutes).toBe(15);
+
+    // Hábito sin reminderTime
+    expect(items[1].start).toBe('2026-11-02');
+    expect(items[1].allDay).toBe(true);
+    expect(items[1].metadata?.reminderTime).toBeUndefined();
+    expect(items[1].metadata?.reminderMinutes).toBeUndefined();
+
+    // Hábito con reminderTime en blanco/vacío
+    expect(items[2].start).toBe('2026-11-02');
+    expect(items[2].allDay).toBe(true);
+  });
 });
 
 describe('extractStreakDatedItems', () => {
