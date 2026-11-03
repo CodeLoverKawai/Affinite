@@ -1,10 +1,17 @@
 import {
   CheckBoxCheckSolidIcon,
+  DateTimeIcon,
   EdgelessIcon,
   JournalIcon,
   PlusIcon,
   SearchIcon,
 } from '@blocksuite/icons/rc';
+import {
+  AFFINITE_YMAP_CALENDAR,
+  AFFINITE_YMAP_HABITS,
+  AFFINITE_YMAP_STREAKS,
+  buildWeeklySnapshot,
+} from '@affine/core/modules/affinite-hub';
 import { useLiveData, useService } from '@toeverything/infra';
 import dayjs from 'dayjs';
 import isLeapYear from 'dayjs/plugin/isLeapYear';
@@ -26,11 +33,14 @@ import {
   ViewTitle,
   WorkbenchService,
 } from '../../../../modules/workbench';
+import { WorkspaceService } from '../../../../modules/workspace';
 import * as styles from './weekly-reports.css';
 
 dayjs.extend(isLeapYear);
 dayjs.extend(isoWeek);
 dayjs.extend(isoWeeksInYear);
+
+const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
 const SPANISH_MONTHS = [
   'enero',
@@ -71,6 +81,7 @@ export const Component = () => {
   const docsService = useService(DocsService);
   const journalService = useService(JournalService);
   const workbenchService = useService(WorkbenchService);
+  const workspaceService = useService(WorkspaceService);
   const workbench = workbenchService.workbench;
 
   const [selectedWeekKey, setSelectedWeekKey] = useState<string>(() =>
@@ -81,6 +92,42 @@ export const Component = () => {
   const [daySnippets, setDaySnippets] = useState<Record<string, string>>({});
 
   const docs = useLiveData(docsService.list.docs$);
+
+  const boardDocs = useMemo(() => {
+    return docs.filter(doc => {
+      const isTrash = doc.trash$.value;
+      const props = doc.properties$.value;
+      return !isTrash && props['custom:isBoard'] === 'true';
+    });
+  }, [docs]);
+
+  const [hubVersion, setHubVersion] = useState(0);
+  useEffect(() => {
+    const rootYDoc = workspaceService.workspace.rootYDoc;
+    if (!rootYDoc || typeof rootYDoc.getMap !== 'function') return;
+
+    const habitsMap = rootYDoc.getMap(AFFINITE_YMAP_HABITS);
+    const streaksMap = rootYDoc.getMap(AFFINITE_YMAP_STREAKS);
+    const calendarMap = rootYDoc.getMap(AFFINITE_YMAP_CALENDAR);
+
+    const handleUpdate = () => setHubVersion(v => v + 1);
+
+    habitsMap.observeDeep(handleUpdate);
+    streaksMap.observeDeep(handleUpdate);
+    calendarMap.observeDeep(handleUpdate);
+
+    return () => {
+      habitsMap.unobserveDeep(handleUpdate);
+      streaksMap.unobserveDeep(handleUpdate);
+      calendarMap.unobserveDeep(handleUpdate);
+    };
+  }, [workspaceService]);
+
+  const weeklySnapshot = useMemo(() => {
+    void hubVersion;
+    const rootYDoc = workspaceService.workspace.rootYDoc;
+    return buildWeeklySnapshot(rootYDoc, selectedWeekKey, boardDocs);
+  }, [boardDocs, hubVersion, selectedWeekKey, workspaceService]);
 
   // Extract docs with journal dates
   const docList = useMemo(() => {
@@ -475,29 +522,157 @@ export const Component = () => {
               </div>
             </div>
 
-            {/* Weekly Habits Consistency Section */}
-            <div className={styles.streakCard}>
-              <div className={styles.masterNoteInfo}>
-                <span className={styles.emojiLarge}>🔥</span>
-                <div>
-                  <h4 className={styles.streakTitle}>
-                    Hábitos & Rutinas de la Semana ({selectedWeekKey})
-                  </h4>
-                  <p className={styles.streakDescription}>
-                    Monitorea tus hábitos, rachas de consistencia y registros
-                    diarios en la suite de hábitos.
-                  </p>
+            {/* Weekly Habits & Intelligence Hub Card */}
+            <div className={styles.snapshotCard}>
+              <div className={styles.snapshotHeader}>
+                <div className={styles.masterNoteInfo}>
+                  <span className={styles.emojiLarge}>🔥</span>
+                  <div>
+                    <h4 className={styles.streakTitle}>
+                      Hábitos & Rutinas de la Semana ({selectedWeekKey})
+                    </h4>
+                    <p className={styles.streakDescription}>
+                      Monitorea tus hábitos, rachas de consistencia y registros
+                      diarios consolidados en tiempo real.
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  className={styles.consistencyBadge}
+                  data-tier={
+                    weeklySnapshot.consistencyScore >= 80
+                      ? 'high'
+                      : weeklySnapshot.consistencyScore >= 50
+                        ? 'mid'
+                        : 'low'
+                  }
+                >
+                  <span>🎯 {weeklySnapshot.consistencyScore}% Consistencia</span>
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => workbench.open('/habits')}
-                className={styles.habitChip}
-              >
-                <CheckBoxCheckSolidIcon className={styles.smallIcon} />
-                <span>Ver Matriz de Hábitos →</span>
-              </button>
+              {/* Key Metrics Grid */}
+              <div className={styles.metricsGrid}>
+                <div className={styles.metricBox}>
+                  <span className={styles.metricLabel}>Hábitos</span>
+                  <div className={styles.metricNumber}>
+                    {weeklySnapshot.habits.completionRate}%
+                  </div>
+                  <span className={styles.dayDotLabel}>
+                    {weeklySnapshot.habits.totalCompleted}/{weeklySnapshot.habits.totalTargetCompletions} completados
+                  </span>
+                  <div className={styles.progressBarTrack}>
+                    <div
+                      className={styles.progressBarFill}
+                      style={{ width: `${weeklySnapshot.habits.completionRate}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.metricBox}>
+                  <span className={styles.metricLabel}>Tareas de Calendario</span>
+                  <div className={styles.metricNumber}>
+                    {weeklySnapshot.tasks.completed}/{weeklySnapshot.tasks.total}
+                  </div>
+                  <span className={styles.dayDotLabel}>
+                    {weeklySnapshot.tasks.completionRate}% completadas
+                  </span>
+                  <div className={styles.progressBarTrack}>
+                    <div
+                      className={styles.progressBarFill}
+                      style={{ width: `${weeklySnapshot.tasks.completionRate}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.metricBox}>
+                  <span className={styles.metricLabel}>Tableros Kanban</span>
+                  <div className={styles.metricNumber}>
+                    {weeklySnapshot.boards.completedCards}/{weeklySnapshot.boards.totalCardsDue}
+                  </div>
+                  <span className={styles.dayDotLabel}>
+                    {weeklySnapshot.boards.completionRate}% tarjetas entregadas
+                  </span>
+                  <div className={styles.progressBarTrack}>
+                    <div
+                      className={styles.progressBarFill}
+                      style={{ width: `${weeklySnapshot.boards.completionRate}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.metricBox}>
+                  <span className={styles.metricLabel}>Streaks Activos</span>
+                  <div className={styles.metricNumber}>
+                    {weeklySnapshot.streaks.activeCount}
+                  </div>
+                  <span className={styles.dayDotLabel}>
+                    en progreso
+                  </span>
+                </div>
+              </div>
+
+              {/* 7-Day Consistency Matrix (L, M, M, J, V, S, D) */}
+              <div className={styles.daysRow}>
+                {weeklySnapshot.habits.days.map((day, idx) => {
+                  const dayLabel = DAY_LABELS[idx] ?? `D${idx + 1}`;
+                  const isCompleted = day.rate === 100 && day.targetCount > 0;
+                  const isPartial = day.rate > 0 && day.rate < 100;
+                  return (
+                    <div key={day.date} className={styles.dayDotBox}>
+                      <span className={styles.dayDotLabel}>{dayLabel}</span>
+                      <div
+                        className={styles.dayDotIndicator}
+                        data-completed={isCompleted ? 'true' : undefined}
+                        data-partial={isPartial ? 'true' : undefined}
+                        title={`${day.date}: ${day.completedCount}/${day.targetCount} (${day.rate}%)`}
+                      />
+                      <span className={styles.dayDotLabel}>{day.rate}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Sprints ending this week (if any) */}
+              {weeklySnapshot.streaks.sprintsEndingThisWeek.length > 0 && (
+                <div className={styles.streaksList}>
+                  <span className={styles.metricLabel}>
+                    🏁 Sprints que finalizan esta semana ({weeklySnapshot.streaks.sprintsEndingThisWeek.length}):
+                  </span>
+                  {weeklySnapshot.streaks.sprintsEndingThisWeek.map(sprint => (
+                    <div key={sprint.id} className={styles.streakChip}>
+                      <span>{sprint.title}</span>
+                      <span
+                        className={styles.consistencyBadge}
+                        data-tier={sprint.isCompleted ? 'high' : 'mid'}
+                      >
+                        {sprint.isCompleted ? '✅ Completado' : '⏳ Pendiente'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className={styles.headerActions}>
+                <button
+                  type="button"
+                  onClick={() => workbench.open('/habits')}
+                  className={styles.habitChip}
+                >
+                  <CheckBoxCheckSolidIcon className={styles.smallIcon} />
+                  <span>Ver Matriz de Hábitos →</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => workbench.open('/calendar')}
+                  className={styles.habitChip}
+                >
+                  <DateTimeIcon className={styles.smallIcon} />
+                  <span>Ver Calendario →</span>
+                </button>
+              </div>
             </div>
 
             {/* Yearly Weeks History Grid / List */}

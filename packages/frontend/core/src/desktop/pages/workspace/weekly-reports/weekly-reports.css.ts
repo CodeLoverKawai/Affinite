@@ -571,3 +571,159 @@ export const historyProgressFill = style([
     },
   },
 ]);
+
+export const snapshotCard = style([
+  surfaceCard,
+  {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+    padding: '20px',
+    borderRadius: '12px',
+    backgroundColor: 'var(--affine-background-secondary-color, rgba(0, 0, 0, 0.02))',
+    border: `1px solid var(--affine-border-color, ${cssVarV2('layer/insideBorder/border')})`,
+  },
+]);
+
+export const snapshotHeader = style({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: '12px',
+});
+
+export const consistencyBadge = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  padding: '4px 12px',
+  borderRadius: '16px',
+  fontSize: '12px',
+  fontWeight: 600,
+  backgroundColor: 'rgba(16, 185, 129, 0.12)',
+  border: '1px solid rgba(16, 185, 129, 0.3)',
+  color: '#059669',
+  selectors: {
+    '&[data-tier="low"]': {
+      backgroundColor: 'rgba(239, 68, 68, 0.12)',
+      borderColor: 'rgba(239, 68, 68, 0.3)',
+      color: '#dc2626',
+    },
+    '&[data-tier="mid"]': {
+      backgroundColor: 'rgba(245, 158, 11, 0.12)',
+      borderColor: 'rgba(245, 158, 11, 0.3)',
+      color: '#d97706',
+    },
+  },
+});
+
+export const metricsGrid = style({
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+  gap: '12px',
+});
+
+export const metricBox = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '6px',
+  padding: '12px 14px',
+  borderRadius: '10px',
+  backgroundColor: cssVarV2('layer/background/primary'),
+  border: `1px solid var(--affine-border-color, ${cssVarV2('layer/insideBorder/border')})`,
+});
+
+export const metricNumber = style({
+  fontSize: '18px',
+  fontWeight: 700,
+  letterSpacing: '-0.01em',
+  color: 'var(--affine-text-primary-color, inherit)',
+});
+
+export const metricLabel = style({
+  fontSize: '12px',
+  color: cssVarV2('text/secondary'),
+  fontWeight: 500,
+});
+
+export const progressBarTrack = style([
+  progressTrack,
+  {
+    height: '6px',
+    marginTop: '4px',
+    borderRadius: '3px',
+    backgroundColor: 'var(--affine-border-color, rgba(0, 0, 0, 0.08))',
+  },
+]);
+
+export const progressBarFill = style([
+  progressFill,
+  {
+    borderRadius: '3px',
+    backgroundColor: 'var(--affine-brand-color, #1e96eb)',
+    transition: 'width 0.3s ease',
+  },
+]);
+
+export const daysRow = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '8px',
+  padding: '12px 16px',
+  borderRadius: '10px',
+  backgroundColor: cssVarV2('layer/background/primary'),
+  border: `1px solid var(--affine-border-color, ${cssVarV2('layer/insideBorder/border')})`,
+});
+
+export const dayDotBox = style({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '6px',
+  flex: 1,
+});
+
+export const dayDotLabel = style({
+  fontSize: '11px',
+  fontWeight: 600,
+  color: cssVarV2('text/secondary'),
+});
+
+export const dayDotIndicator = style({
+  width: '12px',
+  height: '12px',
+  borderRadius: '50%',
+  backgroundColor: cssVarV2('layer/insideBorder/border'),
+  transition: 'background-color 0.2s ease, transform 0.15s ease',
+  selectors: {
+    '&[data-completed="true"]': {
+      backgroundColor: '#10b981',
+      boxShadow: '0 0 6px rgba(16, 185, 129, 0.4)',
+    },
+    '&[data-partial="true"]': {
+      backgroundColor: '#f59e0b',
+    },
+  },
+});
+
+export const streaksList = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '8px',
+});
+
+export const streakChip = style({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '8px',
+  padding: '8px 12px',
+  borderRadius: '8px',
+  fontSize: '12px',
+  backgroundColor: cssVarV2('layer/background/primary'),
+  border: `1px solid var(--affine-border-color, ${cssVarV2('layer/insideBorder/border')})`,
+  color: 'var(--affine-text-primary-color, inherit)',
+});
+
