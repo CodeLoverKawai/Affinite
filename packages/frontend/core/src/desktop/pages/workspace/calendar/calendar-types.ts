@@ -76,7 +76,14 @@ export interface CalendarLayer {
   name: string;
   color: string;
   visible: boolean;
-  type: 'local' | 'google-ics' | 'google-api';
+  type:
+    | 'local'
+    | 'google-ics'
+    | 'google-api'
+    | 'boards'
+    | 'habits'
+    | 'streaks'
+    | 'journals';
   icsUrl?: string;
   googleCalendarId?: string; // e.g., 'primary' or user@gmail.com
   lastSyncedAt?: string;
