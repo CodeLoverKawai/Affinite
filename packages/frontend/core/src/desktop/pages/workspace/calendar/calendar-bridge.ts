@@ -42,3 +42,29 @@ export async function withTokenRefresh<T>(opts: {
     return opts.request(fresh);
   }
 }
+
+export function normalizeCalendarFeedUrl(rawUrl: string): string {
+  return rawUrl.trim().replace(/^webcal:\/\//i, 'https://');
+}
+
+export function isCorsSafeUrl(url: string, currentOrigin?: string): boolean {
+  if (!url) return false;
+  if (url.startsWith('/') && !url.startsWith('//')) return true;
+  try {
+    const parsed = new URL(url);
+    const origin = currentOrigin || (typeof window !== 'undefined' ? window.location.origin : '');
+    return Boolean(origin && parsed.origin === origin);
+  } catch {
+    return false;
+  }
+}
+
+export function buildCalendarProxyUrl(targetUrl: string, proxyEndpoint?: string): string {
+  const normalized = normalizeCalendarFeedUrl(targetUrl);
+  if (!proxyEndpoint || isCorsSafeUrl(normalized)) {
+    return normalized;
+  }
+  const separator = proxyEndpoint.includes('?') ? '&' : '?';
+  return `${proxyEndpoint}${separator}url=${encodeURIComponent(normalized)}`;
+}
+

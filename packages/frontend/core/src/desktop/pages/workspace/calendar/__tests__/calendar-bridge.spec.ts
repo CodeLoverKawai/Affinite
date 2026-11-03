@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import {
+  buildCalendarProxyUrl,
   CalendarBridgeError,
+  isCorsSafeUrl,
+  normalizeCalendarFeedUrl,
   unwrapGoogleResult,
   unwrapIcsResult,
   withTokenRefresh,
@@ -77,4 +80,76 @@ describe('calendar-bridge', () => {
       })
     ).rejects.toThrow('unauthorized');
   });
+
+  describe('normalizeCalendarFeedUrl', () => {
+    test('convierte webcal:// a https://', () => {
+      expect(normalizeCalendarFeedUrl('webcal://example.com/cal.ics')).toBe('https://example.com/cal.ics');
+    });
+
+    test('soporta esquema webcal insensible a mayúsculas y espacios en blanco', () => {
+      expect(normalizeCalendarFeedUrl('   WEBCAL://example.com/cal.ics  ')).toBe('https://example.com/cal.ics');
+    });
+
+    test('mantiene https:// sin alterar salvo trim', () => {
+      expect(normalizeCalendarFeedUrl('  https://example.com/cal.ics ')).toBe('https://example.com/cal.ics');
+    });
+  });
+
+  describe('isCorsSafeUrl', () => {
+    test('retorna false para url vacía o nula', () => {
+      expect(isCorsSafeUrl('')).toBe(false);
+      expect(isCorsSafeUrl(null as unknown as string)).toBe(false);
+    });
+
+    test('identifica rutas relativas como seguras', () => {
+      expect(isCorsSafeUrl('/feed.ics')).toBe(true);
+      expect(isCorsSafeUrl('/api/calendar/v1')).toBe(true);
+    });
+
+    test('rechaza URLs relativas al protocolo //', () => {
+      expect(isCorsSafeUrl('//example.com/feed.ics')).toBe(false);
+    });
+
+    test('acepta URLs del mismo origen cuando coincide currentOrigin', () => {
+      expect(isCorsSafeUrl('https://app.affine.pro/feed.ics', 'https://app.affine.pro')).toBe(true);
+    });
+
+    test('rechaza URLs de distinto origen', () => {
+      expect(isCorsSafeUrl('https://calendar.google.com/feed.ics', 'https://app.affine.pro')).toBe(false);
+    });
+
+    test('retorna false para URLs malformadas que no son rutas relativas', () => {
+      expect(isCorsSafeUrl('ht!tp://:::invalid')).toBe(false);
+    });
+  });
+
+  describe('buildCalendarProxyUrl', () => {
+    test('sin proxy devuelve la URL normalizada', () => {
+      expect(buildCalendarProxyUrl('webcal://example.com/cal.ics')).toBe('https://example.com/cal.ics');
+      expect(buildCalendarProxyUrl('https://example.com/cal.ics', '')).toBe('https://example.com/cal.ics');
+    });
+
+    test('con proxy envuelve URL externa codificada', () => {
+      expect(buildCalendarProxyUrl('https://google.com/cal.ics', '/api/calendar/proxy')).toBe(
+        '/api/calendar/proxy?url=https%3A%2F%2Fgoogle.com%2Fcal.ics'
+      );
+    });
+
+    test('con proxy normaliza webcal:// antes de codificar', () => {
+      expect(buildCalendarProxyUrl('webcal://google.com/cal.ics', '/api/calendar/proxy')).toBe(
+        '/api/calendar/proxy?url=https%3A%2F%2Fgoogle.com%2Fcal.ics'
+      );
+    });
+
+    test('no envuelve URLs relativas o seguras', () => {
+      expect(buildCalendarProxyUrl('/feed.ics', '/api/calendar/proxy')).toBe('/feed.ics');
+    });
+
+    test('maneja proxyEndpoint con query params existentes usando &', () => {
+      expect(buildCalendarProxyUrl('https://google.com/cal.ics', '/api/proxy?type=ics')).toBe(
+        '/api/proxy?type=ics&url=https%3A%2F%2Fgoogle.com%2Fcal.ics'
+      );
+    });
+  });
 });
+
