@@ -169,12 +169,13 @@ export function useRegisterWorkspaceCommands() {
       globalDialogService,
       pageHelper: pageHelper,
       t,
+      workbenchService,
     });
 
     return () => {
       unsub();
     };
-  }, [store, pageHelper, t, globalDialogService]);
+  }, [store, pageHelper, t, globalDialogService, workbenchService]);
 
   // register AffineHelpCommands
   useEffect(() => {
