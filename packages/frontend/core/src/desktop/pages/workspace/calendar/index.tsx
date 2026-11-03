@@ -26,7 +26,6 @@ import {
   WorkbenchService,
 } from '../../../../modules/workbench';
 import { WorkspaceService } from '../../../../modules/workspace';
-import { playStreakCompletionSound } from '../streaks/streaks-sound';
 import * as styles from './calendar.css';
 import {
   CalendarBridgeError,
@@ -67,6 +66,11 @@ import {
   AFFINITE_YMAP_CALENDAR,
   AFFINITE_YMAP_HABITS,
   AFFINITE_YMAP_STREAKS,
+  type DatedItem,
+  type DatedItemSource,
+  evaluateDueDatedItemReminders,
+  requestNotificationPermission,
+  triggerDesktopNotification,
 } from '@affine/core/modules/affinite-hub';
 import {
   extractHubEventsForRange,
@@ -1382,52 +1386,54 @@ export const Component = () => {
 
   // Reminder Notification Check Interval (every 30s)
   useEffect(() => {
+    requestNotificationPermission().catch(() => {});
+
     const checkReminders = () => {
-      const nowDt = dayjs();
-      const todayKey = nowDt.format(JOURNAL_DATE_FORMAT);
-      const nowMinutes = nowDt.hour() * 60 + nowDt.minute();
+      const now = new Date();
+      const todayKey = dayjs(now).format(JOURNAL_DATE_FORMAT);
       const todaysEvents = tasksByDate.get(todayKey) || [];
 
-      for (const ev of todaysEvents) {
-        if (
-          ev.completed ||
-          isEventAllDay(ev) ||
-          ev.reminderMinutes === undefined
-        ) {
-          continue;
-        }
-        const timeStr = ev.startTime || ev.time;
-        if (!timeStr) continue;
-        const [hh, mm] = timeStr.split(':').map(Number);
-        if (Number.isNaN(hh) || Number.isNaN(mm)) continue;
-        const eventMinutes = hh * 60 + mm;
-        const diff = eventMinutes - nowMinutes;
+      // Map calendar events to DatedItem shape for unified evaluator
+      const candidateItems: DatedItem[] = todaysEvents.map(ev => ({
+        id: ev.id,
+        source: (ev.calendarId === 'layer-habits'
+          ? 'habit'
+          : ev.calendarId === 'layer-streaks'
+            ? 'streak'
+            : ev.calendarId === 'layer-boards'
+              ? 'board'
+              : 'calendar') as DatedItemSource,
+        title: ev.title,
+        start:
+          ev.startTime || ev.time
+            ? `${todayKey} ${ev.startTime || ev.time}`
+            : todayKey,
+        allDay: isEventAllDay(ev),
+        category: ev.category || 'General',
+        done: ev.completed,
+        metadata: {
+          ...ev.metadata,
+          reminderMinutes: ev.reminderMinutes,
+          location: ev.location,
+        },
+      }));
 
-        if (
-          diff >= 0 &&
-          diff <= ev.reminderMinutes &&
-          !firedRemindersRef.current.has(ev.id)
-        ) {
-          firedRemindersRef.current.add(ev.id);
-          try {
-            playStreakCompletionSound();
-          } catch {
-            // ignore audio autoplay restrictions
-          }
-          if (
-            typeof window !== 'undefined' &&
-            'Notification' in window &&
-            Notification.permission === 'granted'
-          ) {
-            try {
-              new Notification(`⏰ Recordatorio: ${ev.title}`, {
-                body: `${timeStr}${ev.location ? ` · 📍 ${ev.location}` : ''}`,
-              });
-            } catch {
-              // ignore
-            }
-          }
-        }
+      const due = evaluateDueDatedItemReminders(
+        candidateItems,
+        now,
+        firedRemindersRef.current
+      );
+
+      for (const item of due) {
+        const timeStr = item.start.includes(' ')
+          ? item.start.split(' ')[1]
+          : '';
+        const locationStr = item.metadata?.location
+          ? ` · 📍 ${item.metadata.location}`
+          : '';
+        triggerDesktopNotification(`⏰ Recordatorio: ${item.title}`, {
+          body: `${timeStr}${locationStr}`.trim(),
+        });
       }
     };
 

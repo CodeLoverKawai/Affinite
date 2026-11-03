@@ -88,7 +88,10 @@ export function extractHabitDatedItems(
       };
 
       if (habit.reminderTime !== undefined) {
-        metadata.reminderTime = habit.reminderTime;
+        metadata.reminderTime =
+          typeof habit.reminderTime === 'string'
+            ? habit.reminderTime.trim()
+            : habit.reminderTime;
       }
       if (habit.reminderMinutes !== undefined) {
         metadata.reminderMinutes =
