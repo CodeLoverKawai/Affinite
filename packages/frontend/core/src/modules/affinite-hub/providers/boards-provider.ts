@@ -93,6 +93,10 @@ export function extractBoardDatedItems(
       }
     }
 
+    const effectiveBoardId =
+      boardId ||
+      (typeof boardDocOrYDoc?.id === 'string' ? boardDocOrYDoc.id : undefined);
+
     const result: DatedItem[] = [];
 
     for (const card of cards) {
@@ -112,10 +116,15 @@ export function extractBoardDatedItems(
       const category = normalizeCategory(categoryRaw);
       const color = CATEGORY_COLORS[category];
       const allDay = !card.dueDate.includes('T');
-      const href = boardId ? `/boards?boardId=${boardId}` : '/boards';
+      const href = effectiveBoardId
+        ? `/boards?boardId=${effectiveBoardId}`
+        : '/boards';
+
+      const rawId = String(card.id ?? '');
+      const cleanCardId = rawId.startsWith('board-') ? rawId : `board-${rawId}`;
 
       result.push({
-        id: `board-${card.id}`,
+        id: cleanCardId,
         source: 'board',
         title: card.title || '',
         start: card.dueDate,
@@ -128,7 +137,7 @@ export function extractBoardDatedItems(
         metadata: {
           cardId: card.id,
           columnId: card.columnId,
-          boardId,
+          boardId: effectiveBoardId,
         },
       });
     }

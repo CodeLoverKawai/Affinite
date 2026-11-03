@@ -84,6 +84,10 @@ export function extractCalendarDatedItems(
       }
 
       const rawDate = task.date || task.start || '';
+      if (!rawDate || typeof rawDate !== 'string') {
+        continue;
+      }
+
       const isAllDay =
         task.isAllDay !== undefined
           ? Boolean(task.isAllDay)

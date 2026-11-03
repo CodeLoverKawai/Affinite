@@ -78,9 +78,9 @@ describe('extractHabitDatedItems', () => {
     const items = extractHabitDatedItems(doc, '2026-11-02');
     expect(items).toHaveLength(3);
 
-    // Hábito con icono y cuantitativo completo
+    // Hábito con icono y cuantitativo completo (evita doble prefijo habit-)
     expect(items[0]).toEqual({
-      id: 'habit-habit-water-2026-11-02',
+      id: 'habit-water-2026-11-02',
       source: 'habit',
       title: '💧 Beber 2L de agua',
       start: '2026-11-02',
@@ -99,7 +99,7 @@ describe('extractHabitDatedItems', () => {
 
     // Hábito sin icono, alias de categoría, color personalizado y done: false
     expect(items[1]).toEqual({
-      id: 'habit-habit-workout-2026-11-02',
+      id: 'habit-workout-2026-11-02',
       source: 'habit',
       title: 'Entrenamiento funcional',
       start: '2026-11-02',
@@ -127,6 +127,39 @@ describe('extractHabitDatedItems', () => {
     expect(nextDayItems[2].done).toBe(false);
   });
 
+  test('evalúa done: false para hábitos cuantitativos con progreso parcial y done: true al alcanzar targetValue', () => {
+    const doc = new Y.Doc();
+    const map = doc.getMap(AFFINITE_YMAP_HABITS);
+
+    const habits = [
+      {
+        id: 'habit-steps',
+        title: 'Caminar 10k pasos',
+        type: 'quantitative',
+        targetValue: 10000,
+        entries: {
+          '2026-11-01': 2500, // Progreso parcial (< 10000)
+          '2026-11-02': 10000, // Exacto (>= 10000)
+          '2026-11-03': 12000, // Superado (>= 10000)
+        },
+      },
+    ];
+
+    map.set('habits', JSON.stringify(habits));
+
+    // Progreso parcial: done debe ser false
+    const partial = extractHabitDatedItems(doc, '2026-11-01');
+    expect(partial[0].done).toBe(false);
+
+    // Meta alcanzada: done debe ser true
+    const exact = extractHabitDatedItems(doc, '2026-11-02');
+    expect(exact[0].done).toBe(true);
+
+    // Meta superada: done debe ser true
+    const exceeded = extractHabitDatedItems(doc, '2026-11-03');
+    expect(exceeded[0].done).toBe(true);
+  });
+
   test('extrae hábitos cuando están almacenados como array directo en Y.Map', () => {
     const doc = new Y.Doc();
     const map = doc.getMap(AFFINITE_YMAP_HABITS);
@@ -143,6 +176,7 @@ describe('extractHabitDatedItems', () => {
     expect(items).toHaveLength(1);
     expect(items[0].category).toBe('Mente');
     expect(items[0].done).toBe(true);
+    expect(items[0].id).toBe('habit-meditate-2026-11-02');
   });
 });
 
@@ -162,7 +196,7 @@ describe('extractStreakDatedItems', () => {
     expect(extractStreakDatedItems(doc)).toEqual([]);
   });
 
-  test('extrae streaks activos y completados proyectados a DatedItem', () => {
+  test('extrae streaks activos y completados proyectados a DatedItem evitando doble prefijo', () => {
     const doc = new Y.Doc();
     const map = doc.getMap(AFFINITE_YMAP_STREAKS);
 
@@ -195,7 +229,7 @@ describe('extractStreakDatedItems', () => {
     expect(items).toHaveLength(2);
 
     expect(items[0]).toEqual({
-      id: 'streak-streak-code',
+      id: 'streak-code',
       source: 'streak',
       title: '💻 Codificación diaria',
       start: '2026-11-01',
@@ -213,7 +247,7 @@ describe('extractStreakDatedItems', () => {
     });
 
     expect(items[1]).toEqual({
-      id: 'streak-streak-fasting',
+      id: 'streak-fasting',
       source: 'streak',
       title: 'Ayuno intermitente',
       start: '2026-11-02T20:00:00.000Z',
@@ -341,9 +375,16 @@ describe('extractBoardDatedItems', () => {
     expect(items[2].id).toBe('board-card-4');
     expect(items[2].done).toBe(true);
 
-    // Si boardId se omite, href es '/boards'
+    // Si boardId se omite y boardDocOrYDoc tiene .id, usa ese .id como boardId
+    const wrapperWithId = { id: 'board-doc-999', yDoc: doc };
+    const itemsFromDoc = extractBoardDatedItems(wrapperWithId);
+    expect(itemsFromDoc[0].href).toBe('/boards?boardId=board-doc-999');
+    expect(itemsFromDoc[0].metadata?.boardId).toBe('board-doc-999');
+
+    // Si boardId se omite y no hay .id, href es '/boards'
     const itemsWithoutBoardId = extractBoardDatedItems(doc);
     expect(itemsWithoutBoardId[0].href).toBe('/boards');
+    expect(itemsWithoutBoardId[0].metadata?.boardId).toBeUndefined();
   });
 });
 
@@ -354,6 +395,21 @@ describe('extractCalendarDatedItems', () => {
 
     const doc = new Y.Doc();
     expect(extractCalendarDatedItems(doc)).toEqual([]);
+  });
+
+  test('ignora tareas sin fecha de inicio (date o start)', () => {
+    const doc = new Y.Doc();
+    const map = doc.getMap(AFFINITE_YMAP_CALENDAR);
+    map.set(
+      'tasks',
+      JSON.stringify([
+        { id: 't-nodate', title: 'Tarea sin fecha' },
+        { id: 't-valid', title: 'Tarea válida', date: '2026-11-04' },
+      ])
+    );
+    const items = extractCalendarDatedItems(doc);
+    expect(items).toHaveLength(1);
+    expect(items[0].id).toBe('calendar-t-valid');
   });
 
   test('extrae tareas nativas del calendario y filtra por dateRange correctamente', () => {
@@ -398,7 +454,7 @@ describe('extractCalendarDatedItems', () => {
 
     map.set('tasks', JSON.stringify(tasks));
 
-    // Sin filtro: retorna todas
+    // Sin filtro: retorna todas las válidas
     const allItems = extractCalendarDatedItems(doc);
     expect(allItems).toHaveLength(4);
 

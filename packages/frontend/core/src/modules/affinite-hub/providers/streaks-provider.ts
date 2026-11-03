@@ -92,8 +92,13 @@ export function extractStreakDatedItems(rootDoc: any): DatedItem[] {
         metadata.progressPercent = progressPercent;
       }
 
+      const rawId = String(streak.id ?? '');
+      const cleanStreakId = rawId.startsWith('streak-')
+        ? rawId
+        : `streak-${rawId}`;
+
       result.push({
-        id: `streak-${streak.id}`,
+        id: cleanStreakId,
         source: 'streak',
         title,
         start: streak.startDateTime,

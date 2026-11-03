@@ -57,13 +57,22 @@ export function extractHabitDatedItems(
       }
 
       const habitId = normalizeHabitId(String(habit.id ?? ''));
+      const cleanId = habitId.startsWith('habit-')
+        ? habitId
+        : `habit-${habitId}`;
       const category = normalizeCategory(habit.category);
       const color = habit.color || CATEGORY_COLORS[category];
       const title = (habit.icon ? `${habit.icon} ` : '') + (habit.title ?? '');
-      const done = Boolean(habit.entries?.[targetDateStr]);
+
+      const entryVal = habit.entries?.[targetDateStr];
+      const done =
+        habit.type === 'quantitative'
+          ? typeof entryVal === 'number' &&
+            entryVal >= (habit.targetValue ?? 1)
+          : Boolean(entryVal);
 
       result.push({
-        id: `habit-${habitId}-${targetDateStr}`,
+        id: `${cleanId}-${targetDateStr}`,
         source: 'habit',
         title,
         start: targetDateStr,
