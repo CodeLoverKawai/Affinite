@@ -29,6 +29,11 @@ describe('calendar-hub-mutations', () => {
       expect(isDoneColumnName('In Progress')).toBe(false);
       expect(isDoneColumnName('Backlog')).toBe(false);
       expect(isDoneColumnName('En revisión')).toBe(false);
+      expect(isDoneColumnName('Not Done')).toBe(false);
+      expect(isDoneColumnName('Incomplete')).toBe(false);
+      expect(isDoneColumnName('No completado')).toBe(false);
+      expect(isDoneColumnName('Unfinished')).toBe(false);
+      expect(isDoneColumnName('Sin terminar')).toBe(false);
       expect(isDoneColumnName('')).toBe(false);
       expect(isDoneColumnName(undefined)).toBe(false);
     });

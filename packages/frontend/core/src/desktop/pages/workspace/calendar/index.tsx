@@ -73,6 +73,7 @@ import {
   mergeHubCalendarLayers,
 } from './calendar-hub-layers';
 import {
+  isDoneColumnName,
   toggleBoardCardCompletionInYjs,
   toggleHabitCompletionInYjs,
 } from './calendar-hub-mutations';
@@ -206,19 +207,6 @@ const HOURS_ARRAY = Array.from(
   { length: GRID_END_HOUR - GRID_START_HOUR + 1 },
   (_, i) => GRID_START_HOUR + i
 );
-
-function isDoneColName(name: string): boolean {
-  const n = name.trim().toLowerCase();
-  return (
-    n === 'done' ||
-    n === 'completado' ||
-    n === 'completadas' ||
-    n === 'hecho' ||
-    n === 'finalizado' ||
-    n.includes('done') ||
-    n.includes('complet')
-  );
-}
 
 function triggerIcsDownload(icsContent: string, filename: string) {
   if (typeof window === 'undefined') return;
@@ -560,7 +548,7 @@ export const Component = () => {
                 dueDate: c.dueDate || undefined,
                 category: c.category || undefined,
                 labels: Array.isArray(c.labels) ? c.labels : [],
-                isDoneColumn: isDoneColName(colTitle),
+                isDoneColumn: isDoneColumnName(colTitle),
               });
             }
           } finally {

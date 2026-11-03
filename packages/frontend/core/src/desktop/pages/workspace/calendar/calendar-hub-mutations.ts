@@ -14,7 +14,11 @@ export function isDoneColumnName(name?: string): boolean {
   if (!name || typeof name !== 'string') {
     return false;
   }
-  return /complet|hech|finaliz|done|terminad|finish/i.test(name.trim());
+  const trimmed = name.trim();
+  if (/^(not\s+|no\s+|sin\s+|un|in)/i.test(trimmed)) {
+    return false;
+  }
+  return /\b(done|finish|finished)\b|complet|hech|finaliz|terminad/i.test(trimmed);
 }
 
 /**
