@@ -184,6 +184,129 @@ describe('weekly-snapshot module', () => {
         rate: 43, // 3/7 = 42.8% -> 43%
       });
     });
+
+    test('calcula totalTargetCompletions sumando expectativas individuales y topHabits proporcional a cada meta', () => {
+      const doc = new Y.Doc();
+      const habitsMap = doc.getMap(AFFINITE_YMAP_HABITS);
+
+      // 1 diario (meta 7) + 1 L-M-V (meta 3) = totalTargetCompletions 10 (no 14)
+      const habitsData = [
+        {
+          id: 'habit-daily-read',
+          title: 'Lectura diaria',
+          type: 'boolean',
+          schedule: { mode: 'daily' },
+          entries: {
+            '2026-11-02': true,
+            '2026-11-03': true,
+            '2026-11-04': true,
+            '2026-11-05': true,
+            '2026-11-06': true,
+            '2026-11-07': false,
+            '2026-11-08': false, // 5 de 7
+          },
+        },
+        {
+          id: 'habit-gym-mwf',
+          title: 'Gimnasio L-M-V',
+          type: 'boolean',
+          schedule: { mode: 'weekdays', days: [1, 3, 5] },
+          entries: {
+            '2026-11-02': true, // Lunes (programado)
+            '2026-11-04': true, // Miércoles (programado)
+            '2026-11-06': true, // Viernes (programado)
+          },
+        },
+      ];
+
+      habitsMap.set('habits', JSON.stringify(habitsData));
+
+      const snapshot = buildWeeklySnapshot(doc, '2026-W45');
+
+      expect(snapshot.habits.totalActive).toBe(2);
+      // Meta total = 7 (diario) + 3 (L-M-V) = 10
+      expect(snapshot.habits.totalTargetCompletions).toBe(10);
+      // Total completado = 5 (diario) + 3 (gym) = 8
+      expect(snapshot.habits.totalCompleted).toBe(8);
+      // 8 / 10 = 80%
+      expect(snapshot.habits.completionRate).toBe(80);
+
+      // Top habits:
+      // Lectura diaria: 5/7 = 71%
+      // Gimnasio L-M-V: 3/3 = 100% (proporcional a su meta de 3, no a 7)
+      expect(snapshot.habits.topHabits).toEqual([
+        {
+          id: 'habit-daily-read',
+          title: 'Lectura diaria',
+          completedDays: 5,
+          rate: 71,
+        },
+        {
+          id: 'habit-gym-mwf',
+          title: 'Gimnasio L-M-V',
+          completedDays: 3,
+          rate: 100,
+        },
+      ]);
+    });
+
+    test('incluye completaciones de hábitos weekly-count en el resumen semanal', () => {
+      const doc = new Y.Doc();
+      const habitsMap = doc.getMap(AFFINITE_YMAP_HABITS);
+
+      const habitsData = [
+        {
+          id: 'habit-call-family',
+          title: 'Llamar a familiares',
+          type: 'boolean',
+          schedule: { mode: 'weekly-count', timesPerWeek: 3 },
+          entries: {
+            '2026-11-03': true,
+            '2026-11-07': true,
+          },
+        },
+        {
+          id: 'habit-interval-run',
+          title: 'Correr día de por medio',
+          type: 'boolean',
+          // Ancla 2026-11-02 (Lunes) -> Lun, Mié, Vie, Dom en W45 (4 días)
+          schedule: { mode: 'interval', every: 2, anchor: '2026-11-02' },
+          entries: {
+            '2026-11-02': true,
+            '2026-11-04': true,
+            '2026-11-06': true,
+            '2026-11-08': true,
+          },
+        },
+      ];
+
+      habitsMap.set('habits', JSON.stringify(habitsData));
+
+      const snapshot = buildWeeklySnapshot(doc, '2026-W45');
+
+      expect(snapshot.habits.totalActive).toBe(2);
+      // Meta = 3 (weekly-count) + 4 (intervalo cada 2 días en semana de 7) = 7
+      expect(snapshot.habits.totalTargetCompletions).toBe(7);
+      // Completados = 2 (weekly-count) + 4 (interval) = 6
+      expect(snapshot.habits.totalCompleted).toBe(6);
+      // 6 / 7 = 85.7% -> 86%
+      expect(snapshot.habits.completionRate).toBe(86);
+
+      expect(snapshot.habits.topHabits).toEqual([
+        {
+          id: 'habit-interval-run',
+          title: 'Correr día de por medio',
+          completedDays: 4,
+          rate: 100,
+        },
+        {
+          id: 'habit-call-family',
+          title: 'Llamar a familiares',
+          completedDays: 2,
+          rate: 67, // 2 / 3 = 66.6% -> 67%
+        },
+      ]);
+    });
   });
 
   describe('buildWeeklySnapshot - streaks aggregation', () => {

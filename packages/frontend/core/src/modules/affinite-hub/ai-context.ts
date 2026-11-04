@@ -3,6 +3,7 @@ import isLeapYear from 'dayjs/plugin/isLeapYear';
 import isoWeek from 'dayjs/plugin/isoWeek';
 import isoWeeksInYear from 'dayjs/plugin/isoWeeksInYear';
 
+import { describeSchedule, normalizeSchedule } from './habit-schedule';
 import {
   extractBoardDatedItems,
   extractCalendarDatedItems,
@@ -144,8 +145,15 @@ export function buildHubAIContext(
       const check = item.done ? '[x]' : '[ ]';
       const label = SOURCE_LABELS[item.source] || item.source;
       const timeStr = item.start ? item.start.replace('T', ' ') : '';
+      let title = item.title;
+      if (item.source === 'habit' && item.metadata?.schedule) {
+        const schedule = normalizeSchedule(item.metadata.schedule);
+        if (schedule.mode !== 'daily') {
+          title = `${title} · ${describeSchedule(schedule)}`;
+        }
+      }
       agendaLines.push(
-        `- ${check} [${label}] ${item.title}${timeStr ? ` (${timeStr})` : ''}`
+        `- ${check} [${label}] ${title}${timeStr ? ` (${timeStr})` : ''}`
       );
     }
   }

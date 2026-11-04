@@ -13,6 +13,7 @@ import {
   AFFINITE_YMAP_HABITS,
   AFFINITE_YMAP_STREAKS,
 } from '../keys';
+import { readHabitsFromDoc } from '../providers/habits-provider';
 
 describe('extractHabitDatedItems', () => {
   test('maneja documento null, undefined o mapa vacío sin error', () => {
@@ -249,6 +250,82 @@ describe('extractHabitDatedItems', () => {
     // Hábito con reminderTime en blanco/vacío
     expect(items[2].start).toBe('2026-11-02');
     expect(items[2].allDay).toBe(true);
+  });
+
+  test('filtra hábitos según schedule: L-M-V solo en lunes, miércoles y viernes; weekly-count omitido; daily normal', () => {
+    const doc = new Y.Doc();
+    const map = doc.getMap(AFFINITE_YMAP_HABITS);
+
+    const habits = [
+      {
+        id: 'habit-daily',
+        title: 'Hábito diario',
+        schedule: { mode: 'daily' },
+      },
+      {
+        id: 'habit-mwf',
+        title: 'Gimnasio L-M-V',
+        schedule: { mode: 'weekdays', days: [1, 3, 5] },
+      },
+      {
+        id: 'habit-weekly',
+        title: 'Llamar a familia',
+        schedule: { mode: 'weekly-count', timesPerWeek: 2 },
+      },
+    ];
+
+    map.set('habits', JSON.stringify(habits));
+
+    // 2026-11-02 = Lunes (isoWeekday 1): daily y mwf presentes; weekly omitido
+    const mondayItems = extractHabitDatedItems(doc, '2026-11-02');
+    expect(mondayItems).toHaveLength(2);
+    expect(mondayItems.map(i => i.metadata?.habitId)).toEqual(['habit-daily', 'habit-mwf']);
+    expect(mondayItems[1].metadata?.schedule).toEqual({ mode: 'weekdays', days: [1, 3, 5] });
+
+    // 2026-11-03 = Martes (isoWeekday 2): solo daily presente; mwf y weekly omitidos
+    const tuesdayItems = extractHabitDatedItems(doc, '2026-11-03');
+    expect(tuesdayItems).toHaveLength(1);
+    expect(tuesdayItems[0].metadata?.habitId).toBe('habit-daily');
+
+    // 2026-11-04 = Miércoles (isoWeekday 3): daily y mwf presentes
+    const wednesdayItems = extractHabitDatedItems(doc, '2026-11-04');
+    expect(wednesdayItems).toHaveLength(2);
+    expect(wednesdayItems.map(i => i.metadata?.habitId)).toEqual(['habit-daily', 'habit-mwf']);
+
+    // 2026-11-05 = Jueves (isoWeekday 4): solo daily presente
+    const thursdayItems = extractHabitDatedItems(doc, '2026-11-05');
+    expect(thursdayItems).toHaveLength(1);
+    expect(thursdayItems[0].metadata?.habitId).toBe('habit-daily');
+
+    // 2026-11-06 = Viernes (isoWeekday 5): daily y mwf presentes
+    const fridayItems = extractHabitDatedItems(doc, '2026-11-06');
+    expect(fridayItems).toHaveLength(2);
+    expect(fridayItems.map(i => i.metadata?.habitId)).toEqual(['habit-daily', 'habit-mwf']);
+  });
+});
+
+describe('readHabitsFromDoc', () => {
+  test('devuelve arreglo vacío ante doc nulo, indefinido o corrupto', () => {
+    expect(readHabitsFromDoc(null)).toEqual([]);
+    expect(readHabitsFromDoc(undefined)).toEqual([]);
+    expect(readHabitsFromDoc({})).toEqual([]);
+
+    const doc = new Y.Doc();
+    const map = doc.getMap(AFFINITE_YMAP_HABITS);
+    map.set('habits', 'not-valid-json');
+    expect(readHabitsFromDoc(doc)).toEqual([]);
+  });
+
+  test('lee y parsea hábitos desde string JSON o array nativo', () => {
+    const doc = new Y.Doc();
+    const map = doc.getMap(AFFINITE_YMAP_HABITS);
+
+    const list = [{ id: 'h1', title: 'Habit 1' }];
+    map.set('habits', JSON.stringify(list));
+    expect(readHabitsFromDoc(doc)).toEqual(list);
+
+    map.set('habits', list);
+    expect(readHabitsFromDoc(doc)).toEqual(list);
   });
 });
 

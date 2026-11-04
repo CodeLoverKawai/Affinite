@@ -1,13 +1,11 @@
 import { CATEGORY_COLORS, normalizeCategory } from '../categories';
+import { isHabitScheduledOn, normalizeSchedule } from '../habit-schedule';
 import { AFFINITE_YMAP_HABITS, normalizeHabitId } from '../keys';
 import type { DatedItem } from '../types';
 import { resolveRootYDoc } from '../yjs-root';
 
-export function extractHabitDatedItems(
-  rootDoc: any,
-  targetDateStr: string
-): DatedItem[] {
-  if (!rootDoc || !targetDateStr) {
+export function readHabitsFromDoc(rootDoc: any): any[] {
+  if (!rootDoc) {
     return [];
   }
 
@@ -32,28 +30,48 @@ export function extractHabitDatedItems(
       return [];
     }
 
-    let habits: any[] = [];
     if (typeof raw === 'string') {
       try {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          habits = parsed;
-        } else {
-          return [];
+          return parsed;
         }
+        return [];
       } catch {
         return [];
       }
     } else if (Array.isArray(raw)) {
-      habits = raw;
-    } else {
-      return [];
+      return raw;
     }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+export function extractHabitDatedItems(
+  rootDoc: any,
+  targetDateStr: string
+): DatedItem[] {
+  if (!rootDoc || !targetDateStr) {
+    return [];
+  }
+
+  try {
+    const habits = readHabitsFromDoc(rootDoc);
 
     const result: DatedItem[] = [];
 
     for (const habit of habits) {
       if (!habit || typeof habit !== 'object') {
+        continue;
+      }
+
+      const schedule = habit.schedule
+        ? normalizeSchedule(habit.schedule)
+        : { mode: 'daily' as const };
+
+      if (!isHabitScheduledOn(schedule, targetDateStr)) {
         continue;
       }
 
@@ -85,6 +103,7 @@ export function extractHabitDatedItems(
         type: habit.type,
         targetValue: habit.targetValue,
         unit: habit.unit,
+        schedule: habit.schedule,
       };
 
       if (habit.reminderTime !== undefined) {

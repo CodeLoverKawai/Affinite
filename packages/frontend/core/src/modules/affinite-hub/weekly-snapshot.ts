@@ -4,11 +4,17 @@ import isoWeek from 'dayjs/plugin/isoWeek';
 import isoWeeksInYear from 'dayjs/plugin/isoWeeksInYear';
 
 import {
+  expectedCompletionsInRange,
+  normalizeSchedule,
+} from './habit-schedule';
+import { normalizeHabitId } from './keys';
+import {
   extractBoardDatedItems,
   extractCalendarDatedItems,
   extractHabitDatedItems,
   extractStreakDatedItems,
 } from './providers';
+import { readHabitsFromDoc } from './providers/habits-provider';
 import { resolveRootYDoc } from './yjs-root';
 
 dayjs.extend(isLeapYear);
@@ -17,7 +23,7 @@ dayjs.extend(isoWeeksInYear);
 
 export interface WeeklyHabitSummary {
   totalActive: number;
-  totalTargetCompletions: number; // totalActive * 7
+  totalTargetCompletions: number; // sum of expected completions in range
   totalCompleted: number;
   completionRate: number; // 0 to 100 percentage
   days: Array<{
@@ -162,10 +168,29 @@ export function buildWeeklySnapshot(
       : null;
 
   // 1. Habits aggregation
+  const allHabits = resolvedDoc ? readHabitsFromDoc(resolvedDoc) : [];
   const habitStats = new Map<
     string,
-    { id: string; title: string; completedDays: number }
+    { id: string; title: string; completedDays: number; expected: number }
   >();
+
+  for (const habit of allHabits) {
+    if (!habit || typeof habit !== 'object') continue;
+    const rawId = String(habit.id ?? '');
+    const habitId = normalizeHabitId(rawId);
+    const title = (habit.icon ? `${habit.icon} ` : '') + (habit.title ?? '');
+    const schedule = habit.schedule
+      ? normalizeSchedule(habit.schedule)
+      : { mode: 'daily' as const };
+    const expected = expectedCompletionsInRange(schedule, start, end);
+    habitStats.set(habitId, {
+      id: habitId,
+      title,
+      completedDays: 0,
+      expected,
+    });
+  }
+
   const habitDays: WeeklyHabitSummary['days'] = [];
   let totalHabitCompleted = 0;
 
@@ -186,6 +211,7 @@ export function buildWeeklySnapshot(
             id: habitId,
             title: item.title,
             completedDays: 0,
+            expected: dates.length,
           });
         }
         if (item.done) {
@@ -218,8 +244,49 @@ export function buildWeeklySnapshot(
     }
   }
 
+  // Include completions of weekly-count habits in the week
+  for (const habit of allHabits) {
+    if (!habit || typeof habit !== 'object') continue;
+    const schedule = habit.schedule
+      ? normalizeSchedule(habit.schedule)
+      : { mode: 'daily' as const };
+    if (schedule.mode === 'weekly-count') {
+      let weeklyCompleted = 0;
+      for (const dateStr of dates) {
+        const entryVal = habit.entries?.[dateStr];
+        const done =
+          habit.type === 'quantitative'
+            ? typeof entryVal === 'number' &&
+              entryVal >= (habit.targetValue ?? 1)
+            : Boolean(entryVal);
+        if (done) {
+          weeklyCompleted++;
+        }
+      }
+      totalHabitCompleted += weeklyCompleted;
+      const habitId = normalizeHabitId(String(habit.id ?? ''));
+      const stats = habitStats.get(habitId);
+      if (stats) {
+        stats.completedDays += weeklyCompleted;
+      }
+    }
+  }
+
   const totalActive = habitStats.size;
-  const totalTargetCompletions = totalActive * dates.length;
+  const totalTargetCompletions =
+    allHabits.length > 0
+      ? allHabits.reduce(
+          (acc, h) =>
+            acc +
+            expectedCompletionsInRange(
+              h?.schedule ? normalizeSchedule(h.schedule) : { mode: 'daily' },
+              start,
+              end
+            ),
+          0
+        )
+      : totalActive * dates.length;
+
   const habitCompletionRate =
     totalTargetCompletions > 0
       ? Math.round((totalHabitCompleted / totalTargetCompletions) * 100)
@@ -231,7 +298,7 @@ export function buildWeeklySnapshot(
       title: h.title,
       completedDays: h.completedDays,
       rate:
-        dates.length > 0 ? Math.round((h.completedDays / dates.length) * 100) : 0,
+        h.expected > 0 ? Math.round((h.completedDays / h.expected) * 100) : 0,
     }))
     .sort(
       (a, b) =>

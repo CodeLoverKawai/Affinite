@@ -291,6 +291,36 @@ describe('ai-context module (buildHubAIContext)', () => {
       expect(nov4Indices.length).toBeGreaterThan(0);
       expect(Math.max(...nov3Indices)).toBeLessThan(Math.min(...nov4Indices));
     });
+
+    test('incluye descripción de repetición cuando el hábito tiene programación no diaria', () => {
+      const rootDoc = new Y.Doc();
+      const habitsMap = rootDoc.getMap(AFFINITE_YMAP_HABITS);
+
+      const habitsData = [
+        {
+          id: 'habit-gym',
+          title: 'Entrenamiento Gimnasio',
+          icon: '🏋️',
+          category: 'fitness',
+          schedule: { mode: 'weekdays', days: [1, 3, 5] },
+          entries: {
+            '2026-11-04': false,
+          },
+        },
+      ];
+      habitsMap.set('habits', JSON.stringify(habitsData));
+
+      // 2026-11-04 es Miércoles (isoWeekday 3)
+      const fixedNow = new Date('2026-11-04T08:00:00Z');
+      const markdown = buildHubAIContext(rootDoc, {
+        now: fixedNow,
+        maxUpcomingDays: 1,
+      });
+
+      expect(markdown).toContain(
+        '- [ ] [Hábito] 🏋️ Entrenamiento Gimnasio · Lun · Mié · Vie (2026-11-04)'
+      );
+    });
   });
 
   describe('barrel and type exports', () => {
