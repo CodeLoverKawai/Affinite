@@ -1,5 +1,6 @@
 export * from './ai-context';
 export * from './categories';
+export * from './habit-catalog';
 export * from './habit-schedule';
 export * from './keys';
 export * from './providers';
