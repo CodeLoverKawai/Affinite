@@ -527,3 +527,245 @@ export const modalFooterRight = style({
   alignItems: 'center',
   gap: '8px',
 });
+
+export const iconPickerContainer = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '8px',
+});
+
+export const iconGroupTabs = style({
+  display: 'flex',
+  gap: '4px',
+  overflowX: 'auto',
+  paddingBottom: '4px',
+  scrollbarWidth: 'thin',
+});
+
+export const iconGroupTab = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '4px',
+  padding: '4px 8px',
+  borderRadius: '6px',
+  border: `1px solid ${cssVarV2('layer/insideBorder/border')}`,
+  backgroundColor: cssVarV2('layer/background/secondary'),
+  color: cssVarV2('text/secondary'),
+  fontSize: '11px',
+  fontWeight: 600,
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  transition: 'all 0.15s ease',
+  selectors: {
+    '&:hover': {
+      color: cssVarV2('text/primary'),
+      borderColor: cssVar('brandColor'),
+    },
+    '&[data-active="true"]': {
+      backgroundColor: cssVar('hoverColor'),
+      borderColor: cssVar('brandColor'),
+      color: cssVar('brandColor'),
+      fontWeight: 700,
+    },
+  },
+});
+
+export const iconGroupTabActive = style({
+  backgroundColor: cssVar('hoverColor'),
+  borderColor: cssVar('brandColor'),
+  color: cssVar('brandColor'),
+  fontWeight: 700,
+});
+
+export const iconCategoryHeader = style({
+  fontSize: '11px',
+  fontWeight: 700,
+  color: cssVarV2('text/secondary'),
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+});
+
+export const iconSearchInput = style([
+  formInput,
+  {
+    fontSize: '12px',
+    padding: '6px 10px',
+  },
+]);
+
+export const customEmojiInput = style([
+  formInput,
+  {
+    width: '60px',
+    textAlign: 'center',
+    fontSize: '18px',
+    padding: '4px',
+  },
+]);
+
+export const colorPickerRow = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  flexWrap: 'wrap',
+});
+
+export const colorNativeInput = style({
+  width: '32px',
+  height: '32px',
+  borderRadius: '6px',
+  border: `1px solid ${cssVarV2('layer/insideBorder/border')}`,
+  padding: '2px',
+  cursor: 'pointer',
+  backgroundColor: 'transparent',
+});
+
+export const scheduleSegmentedRow = style([
+  segmentedControl,
+  {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, 1fr)',
+    width: '100%',
+    padding: '2px',
+  },
+]);
+
+export const scheduleSegmentBtn = style([
+  segmentButton,
+  {
+    fontSize: '11px',
+    padding: '6px 4px',
+    textAlign: 'center',
+    justifyContent: 'center',
+    selectors: {
+      '&[data-active="true"]': {
+        backgroundColor: cssVarV2('layer/background/primary'),
+        color: cssVar('brandColor'),
+        fontWeight: 700,
+        boxShadow: cssVar('buttonShadow'),
+      },
+    },
+  },
+]);
+
+export const scheduleSegmentBtnActive = style({
+  backgroundColor: cssVarV2('layer/background/primary'),
+  color: cssVar('brandColor'),
+  fontWeight: 700,
+  boxShadow: cssVar('buttonShadow'),
+});
+
+export const weekdayChipsRow = style({
+  display: 'flex',
+  gap: '6px',
+  justifyContent: 'space-between',
+  marginTop: '4px',
+});
+
+export const weekdayChip = style({
+  flex: 1,
+  height: '32px',
+  borderRadius: '6px',
+  border: `1px solid ${cssVarV2('layer/insideBorder/border')}`,
+  backgroundColor: cssVarV2('layer/background/secondary'),
+  color: cssVarV2('text/secondary'),
+  fontSize: '12px',
+  fontWeight: 700,
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  transition: 'all 0.15s ease',
+  selectors: {
+    '&:hover': {
+      borderColor: cssVar('brandColor'),
+    },
+    '&[data-active="true"]': {
+      backgroundColor: cssVar('brandColor'),
+      borderColor: cssVar('brandColor'),
+      color: '#ffffff',
+    },
+  },
+});
+
+export const weekdayChipActive = style({
+  backgroundColor: cssVar('brandColor'),
+  borderColor: cssVar('brandColor'),
+  color: '#ffffff',
+});
+
+export const schedulePreviewText = style({
+  fontSize: '11px',
+  color: cssVarV2('text/secondary'),
+  marginTop: '4px',
+  fontStyle: 'italic',
+});
+
+export const unscheduledDayCell = style({
+  opacity: 0.25,
+  cursor: 'not-allowed !important',
+  pointerEvents: 'none',
+  filter: 'grayscale(1)',
+});
+
+export const reminderRow = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '10px',
+});
+
+export const reminderInput = style([
+  formInput,
+  {
+    width: '130px',
+    fontSize: '13px',
+  },
+]);
+
+export const reminderSelect = style([
+  formSelect,
+  {
+    flex: 1,
+    fontSize: '13px',
+  },
+]);
+
+export const emptyStateContainer = style([
+  surfaceCard,
+  {
+    padding: '48px 24px',
+    alignItems: 'center',
+    justifyContent: 'center',
+    textAlign: 'center',
+    gap: '12px',
+  },
+]);
+
+export const emptyStateIcon = style({
+  fontSize: '48px',
+  lineHeight: 1,
+});
+
+export const emptyStateTitle = style({
+  fontSize: '18px',
+  fontWeight: 700,
+  color: cssVarV2('text/primary'),
+});
+
+export const emptyStateDesc = style({
+  fontSize: '13px',
+  color: cssVarV2('text/secondary'),
+  maxWidth: '420px',
+});
+
+export const templateButton = style([
+  secondaryActionButton,
+  {
+    marginTop: '8px',
+    padding: '8px 16px',
+    fontSize: '13px',
+    fontWeight: 600,
+    gap: '6px',
+  },
+]);
+
