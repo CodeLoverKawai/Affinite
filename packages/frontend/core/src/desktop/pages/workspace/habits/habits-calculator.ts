@@ -2,8 +2,12 @@ import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 
 import {
+  expectedCompletionsInRange,
+  type HabitSchedule,
+  isHabitScheduledOn,
   LEGACY_HABIT_ID_MAP,
   normalizeHabitId,
+  normalizeSchedule,
 } from '@affine/core/modules/affinite-hub';
 import { getWeekDateRange } from '../../../../modules/journal';
 
@@ -20,6 +24,7 @@ export interface HabitItem {
   targetValue?: number;
   unit?: string;
   color?: string;
+  schedule?: HabitSchedule;
   frequency?: 'daily' | 'weekly' | string;
   createdAt?: number | string;
   reminderTime?: string; // Formato HH:mm (e.g. '08:30')
@@ -28,6 +33,7 @@ export interface HabitItem {
 }
 
 export type Habit = HabitItem;
+export type { HabitSchedule };
 
 
 export { LEGACY_HABIT_ID_MAP, normalizeHabitId };
@@ -143,6 +149,11 @@ export function parseHabitsPayload(raw: unknown): HabitItem[] | null {
         ? (item.entries as Record<string, boolean | number>)
         : {};
 
+    const schedule =
+      item.schedule !== undefined && item.schedule !== null
+        ? normalizeSchedule(item.schedule)
+        : undefined;
+
     return {
       ...item,
       id,
@@ -154,6 +165,7 @@ export function parseHabitsPayload(raw: unknown): HabitItem[] | null {
         typeof item.targetValue === 'number' ? item.targetValue : undefined,
       unit: typeof item.unit === 'string' ? item.unit : undefined,
       color: typeof item.color === 'string' ? item.color : undefined,
+      schedule,
       reminderTime:
         typeof item.reminderTime === 'string' && item.reminderTime.trim()
           ? item.reminderTime.trim()
@@ -189,17 +201,35 @@ export interface StreakResult {
   currentStreak: number;
   bestStreak: number;
   totalCompletions: number;
+  unit?: 'days' | 'weeks';
+}
+
+function getPreviousScheduledDate(
+  date: dayjs.Dayjs,
+  schedule: HabitSchedule
+): dayjs.Dayjs | null {
+  let curr = date.subtract(1, 'day');
+  for (let i = 0; i < 366; i++) {
+    if (isHabitScheduledOn(schedule, curr.format('YYYY-MM-DD'))) {
+      return curr;
+    }
+    curr = curr.subtract(1, 'day');
+  }
+  return null;
 }
 
 export function calculateStreak(
   entries: Record<string, boolean | number>,
   type: HabitType = 'boolean',
   targetValue?: number,
-  referenceDateStr?: string
+  referenceDateStr?: string,
+  schedule?: HabitSchedule
 ): StreakResult {
-  const refDate = referenceDateStr
-    ? dayjs(referenceDateStr)
-    : dayjs();
+  const normSchedule = schedule ? normalizeSchedule(schedule) : undefined;
+  const isWeeklyCount = normSchedule?.mode === 'weekly-count';
+  const isCustomSchedule =
+    normSchedule &&
+    (normSchedule.mode === 'weekdays' || normSchedule.mode === 'interval');
 
   // Filter only completed dates
   const completedDates = Object.keys(entries)
@@ -213,57 +243,217 @@ export function calculateStreak(
       currentStreak: 0,
       bestStreak: 0,
       totalCompletions: 0,
+      unit: isWeeklyCount ? 'weeks' : 'days',
     };
   }
 
-  // Calculate best streak across all historical dates
-  let bestStreak = 0;
-  let currentRun = 0;
-  let prevDate: dayjs.Dayjs | null = null;
+  const refDate = referenceDateStr
+    ? dayjs(referenceDateStr)
+    : dayjs();
 
-  for (const dateKey of completedDates) {
-    const curDate = dayjs(dateKey);
-    if (!prevDate) {
-      currentRun = 1;
-    } else {
-      const diff = curDate.diff(prevDate, 'day');
-      if (diff === 1) {
-        currentRun++;
-      } else if (diff > 1) {
+  if (!normSchedule || normSchedule.mode === 'daily') {
+    // Calculate best streak across all historical dates
+    let bestStreak = 0;
+    let currentRun = 0;
+    let prevDate: dayjs.Dayjs | null = null;
+
+    for (const dateKey of completedDates) {
+      const curDate = dayjs(dateKey);
+      if (!prevDate) {
         currentRun = 1;
+      } else {
+        const diff = curDate.diff(prevDate, 'day');
+        if (diff === 1) {
+          currentRun++;
+        } else if (diff > 1) {
+          currentRun = 1;
+        }
+      }
+      if (currentRun > bestStreak) {
+        bestStreak = currentRun;
+      }
+      prevDate = curDate;
+    }
+
+    // Calculate current streak walking backwards from refDate
+    const completedSet = new Set(completedDates);
+    const todayKey = refDate.format('YYYY-MM-DD');
+    const yesterdayKey = refDate.subtract(1, 'day').format('YYYY-MM-DD');
+
+    let currentStreak = 0;
+    let checkDate: dayjs.Dayjs | null = null;
+
+    if (completedSet.has(todayKey)) {
+      checkDate = refDate;
+    } else if (completedSet.has(yesterdayKey)) {
+      checkDate = refDate.subtract(1, 'day');
+    }
+
+    if (checkDate) {
+      while (completedSet.has(checkDate.format('YYYY-MM-DD'))) {
+        currentStreak++;
+        checkDate = checkDate.subtract(1, 'day');
       }
     }
-    if (currentRun > bestStreak) {
-      bestStreak = currentRun;
+
+    return {
+      currentStreak,
+      bestStreak,
+      totalCompletions,
+      unit: 'days',
+    };
+  }
+
+  if (isCustomSchedule) {
+    const completedSet = new Set(completedDates);
+
+    // Calculate best streak across scheduled days between first and last scheduled completion
+    const scheduledCompleted = completedDates.filter(d =>
+      isHabitScheduledOn(normSchedule, d)
+    );
+
+    let bestStreak = 0;
+    if (scheduledCompleted.length > 0) {
+      const minDate = dayjs(scheduledCompleted[0]);
+      const maxDate = dayjs(scheduledCompleted[scheduledCompleted.length - 1]);
+      let currentRun = 0;
+      let curr = minDate;
+      while (!curr.isAfter(maxDate)) {
+        const dateStr = curr.format('YYYY-MM-DD');
+        if (isHabitScheduledOn(normSchedule, dateStr)) {
+          if (completedSet.has(dateStr)) {
+            currentRun++;
+            if (currentRun > bestStreak) {
+              bestStreak = currentRun;
+            }
+          } else {
+            currentRun = 0;
+          }
+        }
+        curr = curr.add(1, 'day');
+      }
     }
-    prevDate = curDate;
-  }
 
-  // Calculate current streak walking backwards from refDate
-  const completedSet = new Set(completedDates);
-  const todayKey = refDate.format('YYYY-MM-DD');
-  const yesterdayKey = refDate.subtract(1, 'day').format('YYYY-MM-DD');
+    // Calculate current streak walking backwards from refDate
+    const todayStr = refDate.format('YYYY-MM-DD');
+    const isTodayScheduled = isHabitScheduledOn(normSchedule, todayStr);
 
-  let currentStreak = 0;
-  let checkDate: dayjs.Dayjs | null = null;
+    let checkDate: dayjs.Dayjs | null = null;
 
-  if (completedSet.has(todayKey)) {
-    checkDate = refDate;
-  } else if (completedSet.has(yesterdayKey)) {
-    checkDate = refDate.subtract(1, 'day');
-  }
+    if (isTodayScheduled) {
+      if (completedSet.has(todayStr)) {
+        checkDate = refDate;
+      } else {
+        // Grace period: check previous scheduled date
+        const prevScheduled = getPreviousScheduledDate(refDate, normSchedule);
+        if (
+          prevScheduled &&
+          completedSet.has(prevScheduled.format('YYYY-MM-DD'))
+        ) {
+          checkDate = prevScheduled;
+        }
+      }
+    } else {
+      // Today is not scheduled: start from most recent scheduled date before today
+      const prevScheduled = getPreviousScheduledDate(refDate, normSchedule);
+      if (
+        prevScheduled &&
+        completedSet.has(prevScheduled.format('YYYY-MM-DD'))
+      ) {
+        checkDate = prevScheduled;
+      }
+    }
 
-  if (checkDate) {
-    while (completedSet.has(checkDate.format('YYYY-MM-DD'))) {
+    let currentStreak = 0;
+    while (checkDate && completedSet.has(checkDate.format('YYYY-MM-DD'))) {
       currentStreak++;
-      checkDate = checkDate.subtract(1, 'day');
+      checkDate = getPreviousScheduledDate(checkDate, normSchedule);
     }
+
+    bestStreak = Math.max(bestStreak, currentStreak);
+
+    return {
+      currentStreak,
+      bestStreak,
+      totalCompletions,
+      unit: 'days',
+    };
+  }
+
+  if (isWeeklyCount) {
+    const timesPerWeek = normSchedule.timesPerWeek;
+    const completedSet = new Set(completedDates);
+
+    const getCompletionsInWeek = (weekStart: dayjs.Dayjs): number => {
+      let count = 0;
+      for (let i = 0; i < 7; i++) {
+        const dStr = weekStart.add(i, 'day').format('YYYY-MM-DD');
+        if (completedSet.has(dStr)) {
+          count++;
+        }
+      }
+      return count;
+    };
+
+    // Calculate best streak across all weeks between first and last completed date
+    let bestStreak = 0;
+    if (completedDates.length > 0) {
+      const minWeek = dayjs(completedDates[0]).startOf('isoWeek');
+      const maxWeek = dayjs(
+        completedDates[completedDates.length - 1]
+      ).startOf('isoWeek');
+      let run = 0;
+      let w = minWeek;
+      while (!w.isAfter(maxWeek)) {
+        const count = getCompletionsInWeek(w);
+        if (count >= timesPerWeek) {
+          run++;
+          if (run > bestStreak) {
+            bestStreak = run;
+          }
+        } else {
+          run = 0;
+        }
+        w = w.add(1, 'week');
+      }
+    }
+
+    // Calculate current streak walking backwards from refDate's week
+    const currentWeekStart = refDate.startOf('isoWeek');
+    const countThisWeek = getCompletionsInWeek(currentWeekStart);
+
+    let checkWeek: dayjs.Dayjs | null = null;
+    if (countThisWeek >= timesPerWeek) {
+      checkWeek = currentWeekStart;
+    } else {
+      // Grace period for the week in progress: check previous week
+      const prevWeekStart = currentWeekStart.subtract(1, 'week');
+      if (getCompletionsInWeek(prevWeekStart) >= timesPerWeek) {
+        checkWeek = prevWeekStart;
+      }
+    }
+
+    let currentStreak = 0;
+    while (checkWeek && getCompletionsInWeek(checkWeek) >= timesPerWeek) {
+      currentStreak++;
+      checkWeek = checkWeek.subtract(1, 'week');
+    }
+
+    bestStreak = Math.max(bestStreak, currentStreak);
+
+    return {
+      currentStreak,
+      bestStreak,
+      totalCompletions,
+      unit: 'weeks',
+    };
   }
 
   return {
-    currentStreak,
-    bestStreak,
+    currentStreak: 0,
+    bestStreak: 0,
     totalCompletions,
+    unit: 'days',
   };
 }
 
@@ -271,39 +461,113 @@ export function calculateWeeklyConsistency(
   entries: Record<string, boolean | number>,
   weekKey: string,
   type: HabitType = 'boolean',
-  targetValue?: number
-): { count: number; total: 7; percentage: number } {
+  targetValue?: number,
+  schedule?: HabitSchedule
+): { count: number; total: number; percentage: number } {
+  const normSchedule = schedule ? normalizeSchedule(schedule) : undefined;
   const { start } = getWeekDateRange(weekKey);
-  let count = 0;
 
-  for (let i = 0; i < 7; i++) {
-    const dateKey = start.add(i, 'day').format('YYYY-MM-DD');
-    if (isHabitDoneOnDate(entries[dateKey], type, targetValue)) {
-      count++;
+  if (!normSchedule || normSchedule.mode === 'daily') {
+    let count = 0;
+    for (let i = 0; i < 7; i++) {
+      const dateKey = start.add(i, 'day').format('YYYY-MM-DD');
+      if (isHabitDoneOnDate(entries[dateKey], type, targetValue)) {
+        count++;
+      }
     }
+    const percentage = Math.round((count / 7) * 100);
+    return { count, total: 7, percentage };
   }
 
-  const percentage = Math.round((count / 7) * 100);
-  return { count, total: 7, percentage };
+  if (normSchedule.mode === 'weekdays' || normSchedule.mode === 'interval') {
+    let scheduledDays = 0;
+    let count = 0;
+    for (let i = 0; i < 7; i++) {
+      const dateKey = start.add(i, 'day').format('YYYY-MM-DD');
+      if (isHabitScheduledOn(normSchedule, dateKey)) {
+        scheduledDays++;
+        if (isHabitDoneOnDate(entries[dateKey], type, targetValue)) {
+          count++;
+        }
+      }
+    }
+    const total = scheduledDays;
+    const percentage = total > 0 ? Math.round((count / total) * 100) : 100;
+    return { count, total, percentage };
+  }
+
+  if (normSchedule.mode === 'weekly-count') {
+    let count = 0;
+    for (let i = 0; i < 7; i++) {
+      const dateKey = start.add(i, 'day').format('YYYY-MM-DD');
+      if (isHabitDoneOnDate(entries[dateKey], type, targetValue)) {
+        count++;
+      }
+    }
+    const total = normSchedule.timesPerWeek;
+    const percentage =
+      total > 0 ? Math.min(100, Math.round((count / total) * 100)) : 100;
+    return { count, total, percentage };
+  }
+
+  return { count: 0, total: 7, percentage: 0 };
 }
 
 export function calculateMonthlyConsistency(
   entries: Record<string, boolean | number>,
   yearMonth: string, // 'YYYY-MM'
   type: HabitType = 'boolean',
-  targetValue?: number
+  targetValue?: number,
+  schedule?: HabitSchedule
 ): { count: number; daysInMonth: number; percentage: number } {
+  const normSchedule = schedule ? normalizeSchedule(schedule) : undefined;
   const start = dayjs(`${yearMonth}-01`);
   const daysInMonth = start.daysInMonth();
-  let count = 0;
 
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dateKey = start.date(d).format('YYYY-MM-DD');
-    if (isHabitDoneOnDate(entries[dateKey], type, targetValue)) {
-      count++;
+  if (!normSchedule || normSchedule.mode === 'daily') {
+    let count = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateKey = start.date(d).format('YYYY-MM-DD');
+      if (isHabitDoneOnDate(entries[dateKey], type, targetValue)) {
+        count++;
+      }
     }
+    const percentage = Math.round((count / daysInMonth) * 100);
+    return { count, daysInMonth, percentage };
   }
 
-  const percentage = Math.round((count / daysInMonth) * 100);
-  return { count, daysInMonth, percentage };
+  if (normSchedule.mode === 'weekdays' || normSchedule.mode === 'interval') {
+    let scheduledDays = 0;
+    let count = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateKey = start.date(d).format('YYYY-MM-DD');
+      if (isHabitScheduledOn(normSchedule, dateKey)) {
+        scheduledDays++;
+        if (isHabitDoneOnDate(entries[dateKey], type, targetValue)) {
+          count++;
+        }
+      }
+    }
+    const total = scheduledDays;
+    const percentage = total > 0 ? Math.round((count / total) * 100) : 100;
+    return { count, daysInMonth: total, percentage };
+  }
+
+  if (normSchedule.mode === 'weekly-count') {
+    let count = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateKey = start.date(d).format('YYYY-MM-DD');
+      if (isHabitDoneOnDate(entries[dateKey], type, targetValue)) {
+        count++;
+      }
+    }
+    const endStr = start.date(daysInMonth).format('YYYY-MM-DD');
+    const startStr = start.format('YYYY-MM-01');
+    const expected = expectedCompletionsInRange(normSchedule, startStr, endStr);
+    const percentage =
+      expected > 0 ? Math.min(100, Math.round((count / expected) * 100)) : 100;
+    return { count, daysInMonth: expected, percentage };
+  }
+
+  return { count: 0, daysInMonth, percentage: 0 };
 }
