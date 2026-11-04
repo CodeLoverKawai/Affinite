@@ -2,7 +2,20 @@
 
 All notable changes to **AFFiNITe** will be documented in this file.
 
-## [Unreleased]
+## [v0.31.0] - 2026-11-03
+
+### 🌐 AFFiNITe Integration Hub (Core, Calendario, IA & Mobile)
+
+- **Núcleo de Dominio Desacoplado (`@affine/core/modules/affinite-hub`)**:
+  - Claves Yjs canónicas y tipado unificado para proveedores (`habits-provider`, `streaks-provider`, `boards-provider`, `calendar-provider`).
+  - Capas de mutación bidireccional CRDT (`toggleHabitCompletionInYjs`, `toggleBoardCardCompletionInYjs`) garantizando reactividad en vivo en el Calendario sin desincronización ni sobreescrituras destructivas.
+  - Motor unificado de recordatorios y síntesis acústica con Web Audio API (`sound.ts`, `reminders.ts`), emitiendo campanadas y acordes armónicos sintetizados localmente sin dependencias de red.
+  - Instantáneas semanales con puntuación matemática de balance 50/50 y matriz en vivo de 7 días (`weekly-snapshot.ts`).
+- **Navegación Unificada y Copiloto de IA Local**:
+  - 5 nuevos comandos CMDK directos (`affine:goto-boards`, `affine:goto-calendar`, `affine:goto-habits`, `affine:goto-streaks`, `affine:goto-weekly-reports`) y acciones rápidas (`affine:quick-habit`, `affine:goto-calendar-today`).
+  - Inyección automática del bloque estructurado `[AFFINITE_WORKSPACE_INTELLIGENCE]` en el system prompt del asistente de IA local (`copilot-client.ts`), permitiendo a Antigravity (`agy`), Ollama y modelos locales consultar la agenda, metas y consistencia del usuario de forma 100% privada y offline.
+  - Enrutamiento móvil completo en `workbench-router.ts` con carga diferida (`lazy`) antes de rutas comodín para `/chat`, `/boards`, `/calendar`, `/weekly-reports`, `/habits` y `/streaks`.
+  - Normalización y proxy CORS seguro para feeds de calendarios web (`calendar-bridge.ts`).
 
 ### 🎯 Hábitos v2
 

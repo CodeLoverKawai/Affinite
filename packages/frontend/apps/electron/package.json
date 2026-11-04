@@ -1,7 +1,7 @@
 {
   "name": "@affine/electron",
   "private": true,
-  "version": "0.30.0",
+  "version": "0.31.0",
   "main": "./dist/main.js",
   "author": "toeverything",
   "repository": {

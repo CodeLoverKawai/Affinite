@@ -3,7 +3,7 @@ import type { IpcMainInvokeEvent } from 'electron';
 import { logger } from '../logger';
 import type { NamespaceHandlers } from '../type';
 
-const CALENDAR_USER_AGENT = 'AFFiNITe-Calendar/0.30.0';
+const CALENDAR_USER_AGENT = 'AFFiNITe-Calendar/0.31.0';
 const REQUEST_TIMEOUT_MS = 15_000;
 
 export const calendarHandlers = {

@@ -54,6 +54,11 @@
   </recommends>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="0.31.0" date="2026-11-03">
+      <description>
+        <p>Release v0.31.0: Full AFFiNITe Integration Hub (pure domain core in affinite-hub with bidirectional CRDT mutations for habits, calendar, and boards, unified reminder engine with Web Audio acoustic synthesis, weekly intelligence snapshots with 50/50 balance scoring, and workspace context injection into local AI copilot), Hábitos v2 (flexible recurrence engine with daily, weekdays, interval, and weekly-count patterns, expanded catalog of 210 icons across 14 categories and 60 colors with WCAG contrast, schedule-aware streaks and consistency, and clean removal of legacy editor slash habits), and comprehensive mobile route integration.</p>
+      </description>
+    </release>
     <release version="0.30.0" date="2026-11-02">
       <description>
         <p>Release v0.30.0: Full AFFiNE Design System unification (Vanilla Extract .css.ts + cssVarV2 tokens with native Light and Dark mode across Boards, Calendar, Habits, Streaks, Weekly Reports, Journals, and AI Hub), Streaks and Countdowns with Web Audio API harmonic chime and exact pause/resume shifting, interactive Habit Card editor block (&lt;affine-habit-preview&gt;) with live Yjs sync, Calendar v2 with visual time-blocking and annual/tasks views, and removal of legacy Planka/OIDC and Anx-Remix subsystems.</p>
