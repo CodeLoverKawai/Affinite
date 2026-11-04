@@ -6,7 +6,28 @@ All notable changes to **AFFiNITe** will be documented in this file.
 
 ### 🎯 Hábitos v2
 
-- **Eliminación de la función `/habit` del editor**: Se eliminó la función `/habit` del editor; la gestión de hábitos y rutinas se centraliza en `/habits`, el Calendario y los Reportes Semanales.
+- **Eliminación limpia de la función `/habit` del editor**: Se eliminaron completamente el comando slash `/habit`, el bloque preview interactivo `<affine-habit-preview>`, helpers y escrituras a cachés locales obsoletas. La gestión integral de hábitos y rutinas queda centralizada de manera robusta y coherente en `/habits`, el Calendario unificado y los Reportes Semanales.
+- **Motor puro de repetición y recurrencia (`habit-schedule.ts`)**: Soporte completo para 4 patrones de programación flexibles:
+  - `daily`: Diario estándar.
+  - `weekdays`: Días específicos de la semana (Lunes a Domingo seleccionables individualmente).
+  - `interval`: Intervalos cada $N$ días ($N \ge 2$) con fecha de anclaje (permitiendo patrones como "un día sí y un día no").
+  - `weekly-count`: Meta flexible de $X$ veces por semana ($1 \dots 7$).
+- **Cálculo de racha y consistencia consciente de la programación (`habits-calculator.ts`)**:
+  - Días no programados no rompen la racha ni penalizan la consistencia.
+  - Período de gracia en el día en curso.
+  - Soporte para unidades de racha ('días' vs 'semanas' en metas flexibles semanales).
+- **Integración profunda con el AFFiNITe Integration Hub**:
+  - `habits-provider.ts`: Emite `DatedItem`s únicamente en los días programados en el Calendario.
+  - `weekly-snapshot.ts`: Tasa de consistencia y metas esperadas ajustadas con precisión matemática para cada hábito en la semana.
+  - `ai-context.ts`: Inyección de la descripción en español del cronograma del hábito en el prompt del Asistente de IA local.
+- **Catálogo ampliado de iconos y paletas de color con contraste WCAG (`habit-catalog.ts`)**:
+  - Catálogo de más de 210 emojis categorizados en 14 grupos temáticos en español con búsqueda rápida insensible a tildes/mayúsculas y soporte para cualquier emoji personalizado.
+  - 12 paletas armónicas con 60 colores predefinidos más selector hexadecimal nativo (`<input type="color">`).
+  - Cálculo dinámico de contraste accesible WCAG 2.1 (`getReadableTextColor`) sobre los tonos de fondo seleccionados.
+- **Interfaz moderna y amigable en `/habits` (`habits/index.tsx`, `habits.css.ts`)**:
+  - Modal enriquecido con selector de categorías de iconos, búsqueda, selector de colores, selector interactivo de repetición con vista previa dinámica en tiempo real y configuración de hora y recordatorios.
+  - Matriz semanal con días no programados atenuados visualmente y protegidos contra clicks accidentales.
+  - Eliminación del auto-sembrado forzado de datos de prueba en workspaces vacíos; nuevo estado vacío con botón opcional "Cargar Plantillas Sugeridas".
 
 ---
 
