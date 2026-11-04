@@ -182,53 +182,6 @@ describe('Habits Calculator', () => {
     });
   });
 
-  describe('Slash Menu Habits Integration', () => {
-    it('should return default habits when cache is empty', async () => {
-      const { getCachedHabits } = await import(
-        '@blocksuite/affine-widget-slash-menu'
-      );
-      const habits = getCachedHabits();
-      expect(habits.length).toBeGreaterThanOrEqual(5);
-      expect(habits.some(h => h.id === 'habit-water')).toBe(true);
-      expect(habits.some(h => h.id === 'habit-exercise')).toBe(true);
-    });
-
-    it('should include habit slash menu items with search aliases', async () => {
-      const { defaultSlashMenuConfig } = await import(
-        '@blocksuite/affine-widget-slash-menu'
-      );
-      const items =
-        typeof defaultSlashMenuConfig.items === 'function'
-          ? defaultSlashMenuConfig.items({} as any)
-          : defaultSlashMenuConfig.items;
-
-      const allHabitsItem = items.find(i =>
-        i.name.includes('Insertar Todos los Hábitos')
-      );
-      expect(allHabitsItem).toBeDefined();
-      expect(allHabitsItem?.searchAlias).toContain('habits');
-      expect(allHabitsItem?.searchAlias).toContain('habitos');
-
-      const singleHabit = items.find(i =>
-        i.name.includes('Tomar 2L de Agua')
-      );
-      expect(singleHabit).toBeDefined();
-      expect(singleHabit?.searchAlias).toContain('habito');
-
-      const completeItem = items.find(i =>
-        i.name.includes('Registrar Hábito Completado')
-      );
-      expect(completeItem).toBeDefined();
-      expect((completeItem as any)?.subMenu?.length).toBeGreaterThanOrEqual(5);
-
-      const panelItem = items.find(i =>
-        i.name.includes('Ver Panel de Hábitos & Rachas')
-      );
-      expect(panelItem).toBeDefined();
-      expect(panelItem?.searchAlias).toContain('habits');
-    });
-  });
-
   describe('normalizeHabitCreatedAt', () => {
     it('should preserve valid positive numbers and floor them', () => {
       const fixedTimestamp = 1730500000000;

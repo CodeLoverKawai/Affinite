@@ -3,7 +3,6 @@ export const AFFINITE_YMAP_STREAKS = 'affinite_streaks_v1';
 export const AFFINITE_YMAP_CALENDAR = 'affinite_calendar_v1';
 export const AFFINITE_YMAP_BOARD = 'board_data';
 
-export const AFFINITE_CACHE_HABITS = 'affinite_habits_cache_v1';
 export const AFFINITE_CACHE_STREAKS = 'affinite_streaks_cache_v1';
 export const AFFINITE_CACHE_CALENDAR_SECRETS_PREFIX =
   'affinite_calendar_secrets_v1:';

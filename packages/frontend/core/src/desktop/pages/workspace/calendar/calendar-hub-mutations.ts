@@ -1,5 +1,4 @@
 import {
-  AFFINITE_CACHE_HABITS,
   AFFINITE_YMAP_BOARD,
   AFFINITE_YMAP_HABITS,
   normalizeHabitId,
@@ -30,7 +29,6 @@ export function isDoneColumnName(name?: string): boolean {
  * - Normalizes `targetHabitId = normalizeHabitId(habitId)`.
  * - Toggles quantitative vs boolean habits according to their specification.
  * - Updates Y.Doc atomically inside `doc.transact(() => { yMap.set('habits', JSON.stringify(list)); })`.
- * - Syncs `localStorage.setItem('affinite_habits_cache_v1', JSON.stringify(list))` if available.
  * - Returns the new completion state (boolean).
  */
 export function toggleHabitCompletionInYjs(
@@ -142,21 +140,6 @@ export function toggleHabitCompletionInYjs(
     resolvedDoc.transact(executeUpdate);
   } else {
     executeUpdate();
-  }
-
-  const storage =
-    typeof window !== 'undefined'
-      ? window.localStorage
-      : typeof localStorage !== 'undefined'
-        ? localStorage
-        : null;
-
-  if (storage) {
-    try {
-      storage.setItem(AFFINITE_CACHE_HABITS, JSON.stringify(list));
-    } catch {
-      // ignore quota or access errors
-    }
   }
 
   return newCompletionState;

@@ -2,7 +2,6 @@ import { describe, expect, test } from 'vitest';
 
 import {
   AFFINITE_CACHE_CALENDAR_SECRETS_PREFIX,
-  AFFINITE_CACHE_HABITS,
   AFFINITE_CACHE_STREAKS,
   AFFINITE_YMAP_BOARD,
   AFFINITE_YMAP_CALENDAR,
@@ -21,7 +20,6 @@ describe('affinite-hub keys', () => {
   });
 
   test('canonical cache keys and prefixes are non-empty strings', () => {
-    expect(AFFINITE_CACHE_HABITS).toBe('affinite_habits_cache_v1');
     expect(AFFINITE_CACHE_STREAKS).toBe('affinite_streaks_cache_v1');
     expect(AFFINITE_CACHE_CALENDAR_SECRETS_PREFIX).toBe('affinite_calendar_secrets_v1:');
   });

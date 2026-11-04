@@ -6,10 +6,6 @@ import { FrameworkProvider } from '@toeverything/infra';
 import { z } from 'zod';
 
 import {
-  CodeBlockHabitPreview,
-  effects as habitPreviewEffects,
-} from './habit-preview';
-import {
   CodeBlockHtmlPreview,
   effects as htmlPreviewEffects,
 } from './html-preview';
@@ -34,7 +30,6 @@ export class CodeBlockPreviewViewExtension extends ViewExtensionProvider {
   override effect() {
     super.effect();
 
-    habitPreviewEffects();
     htmlPreviewEffects();
     mermaidPreviewEffects();
     typstPreviewEffects();
@@ -45,7 +40,6 @@ export class CodeBlockPreviewViewExtension extends ViewExtensionProvider {
     options?: z.infer<typeof optionsSchema>
   ) {
     super.setup(context, options);
-    context.register(CodeBlockHabitPreview);
     context.register(CodeBlockHtmlPreview);
     context.register(CodeBlockMermaidPreview);
     context.register(CodeBlockTypstPreview);

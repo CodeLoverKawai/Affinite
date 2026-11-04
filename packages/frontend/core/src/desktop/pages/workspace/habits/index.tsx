@@ -177,9 +177,6 @@ export const Component = () => {
         const serialized = JSON.stringify(DEFAULT_HABITS);
         yMap.set('habits', serialized);
         setHabits(DEFAULT_HABITS);
-        try {
-          localStorage.setItem('affinite_habits_cache_v1', serialized);
-        } catch {}
         return;
       }
 
@@ -203,12 +200,6 @@ export const Component = () => {
           entries: item.entries,
         }));
         setHabits(normalizedHabits);
-        try {
-          localStorage.setItem(
-            'affinite_habits_cache_v1',
-            JSON.stringify(normalizedHabits)
-          );
-        } catch {}
       } else {
         setHabits(DEFAULT_HABITS);
       }
@@ -228,9 +219,6 @@ export const Component = () => {
       const yMap = rootYDoc.getMap('affinite_habits_v1');
       const serialized = JSON.stringify(newHabits);
       yMap.set('habits', serialized);
-      try {
-        localStorage.setItem('affinite_habits_cache_v1', serialized);
-      } catch {}
     },
     [workspaceService]
   );

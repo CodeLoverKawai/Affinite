@@ -2,6 +2,14 @@
 
 All notable changes to **AFFiNITe** will be documented in this file.
 
+## [Unreleased]
+
+### 🎯 Hábitos v2
+
+- **Eliminación de la función `/habit` del editor**: Se eliminó la función `/habit` del editor; la gestión de hábitos y rutinas se centraliza en `/habits`, el Calendario y los Reportes Semanales.
+
+---
+
 ## [v0.30.0] - 2026-11-02
 
 ### 🎨 Unificación del Sistema de Diseño Nativo de AFFiNITe (Light & Dark Mode)
