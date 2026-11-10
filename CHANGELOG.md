@@ -4,6 +4,26 @@ All notable changes to **AFFiNITe** will be documented in this file.
 
 ## [v0.31.0] - 2026-11-03
 
+### 🛡️ Control de Servidor Selfhost, Inicio Local Predeterminado y Resiliencia (Escape Hatch)
+
+- **Espacio Local como Único Predeterminado Absoluto**:
+  - Al iniciar la app por primera vez o crear un nuevo espacio de trabajo, la opción seleccionada por defecto es siempre **Espacio Local (`local`)**, garantizando arranque instantáneo, 100% offline y sin bloqueos ni dependencias de Docker.
+- **Preferencia de Arranque Controlada por el Usuario**:
+  - Nueva opción en **Configuración General / Apariencia**: *"Espacio de inicio predeterminado"* con dos alternativas:
+    - *"Siempre iniciar en Espacio Local (Recomendado, 100% Offline)"*: modo predeterminado que abre siempre tu espacio local seguro sin consultar la red ni esperar conexiones de Docker.
+    - *"Recordar el último espacio abierto"*: para usuarios que deseen retomar el último espacio utilizado.
+- **Configuración Dinámica de URL de Servidor Selfhost (Docker)**:
+  - Posibilidad de personalizar la dirección IP o dominio del servidor Docker directamente desde la interfaz (ej. `http://192.168.1.X:5320` para usar AFFiNITe en otra computadora mientras Docker corre en una máquina distinta).
+  - Modal interactivo de configuración de URL con validación estricta de protocolo `http://` / `https://` y normalización de origen.
+  - Opciones de un clic para *"Restablecer localhost"* u *"Ocultar Servidor"* de la lista si no se utiliza.
+- **Eliminación Definitiva del Bucle Infinito y Pantalla de Rescate (Escape Hatch)**:
+  - Si un espacio de trabajo remoto no responde o el contenedor Docker está apagado, la aplicación ya **nunca se congela en un esqueleto gris sin salida**.
+  - Tras un temporizador de gracia de 4.5 segundos, se despliega una pantalla de rescate intuitiva con botones de acción directa:
+    - *"🏠 Volver a mi Espacio Local"*: redirige de inmediato a tu espacio local offline.
+    - *"⚙️ Configurar URL del Servidor"*: abre el modal para corregir la IP o puerto del servidor.
+    - *"🔄 Reintentar"*: reintenta la conexión reactivando el temporizador sin bloqueos.
+  - **Protección estricta de `last_workspace_id`**: nunca se guarda un ID de espacio remoto a menos que su conexión se confirme exitosa (`isRootDocReady`), impidiendo que un servidor caído atrape el arranque posterior de la app.
+
 ### 🌐 AFFiNITe Integration Hub (Core, Calendario, IA & Mobile)
 
 - **Núcleo de Dominio Desacoplado (`@affine/core/modules/affinite-hub`)**:
