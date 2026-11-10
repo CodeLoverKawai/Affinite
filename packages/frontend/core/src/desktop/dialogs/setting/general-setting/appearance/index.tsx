@@ -7,16 +7,64 @@ import {
 } from '@affine/component/setting-components';
 import { LanguageMenu } from '@affine/core/components/affine/language-menu';
 import { TraySettingService } from '@affine/core/modules/editor-setting/services/tray-settings';
+import {
+  type AffiniteStartupMode,
+  getStartupMode,
+  setStartupMode,
+} from '@affine/core/modules/cloud';
 import { FeatureFlagService } from '@affine/core/modules/feature-flag';
 import { useI18n } from '@affine/i18n';
 import { useLiveData, useService } from '@toeverything/infra';
 import { useTheme } from 'next-themes';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { useAppSettingHelper } from '../../../../../components/hooks/affine/use-app-setting-helper';
 import { OpenInAppLinksMenu } from './links';
 import { settingWrapper } from './style.css';
 import { ThemeEditorSetting } from './theme-editor-setting';
+
+const StartupWorkspaceSetting = () => {
+  const [mode, setMode] = useState<AffiniteStartupMode>(() => getStartupMode());
+
+  const handleChange = useCallback((val: string) => {
+    const nextMode = val === 'last' ? 'last' : 'local';
+    setStartupMode(nextMode);
+    setMode(nextMode);
+  }, []);
+
+  const items = useMemo<RadioItem[]>(
+    () => [
+      {
+        value: 'local',
+        label: 'Siempre iniciar en Espacio Local (Recomendado, 100% Offline)',
+        testId: 'startup-local-trigger',
+      },
+      {
+        value: 'last',
+        label: 'Recordar el último espacio abierto',
+        testId: 'startup-last-trigger',
+      },
+    ],
+    []
+  );
+
+  return (
+    <SettingWrapper title="Espacio de inicio">
+      <SettingRow
+        name="Espacio de inicio predeterminado"
+        desc="Elige si AFFiNITe debe iniciar siempre en tu espacio local seguro u abrir el último espacio usado."
+      >
+        <RadioGroup
+          items={items}
+          value={mode}
+          width={320}
+          className={settingWrapper}
+          onChange={handleChange}
+        />
+      </SettingRow>
+    </SettingWrapper>
+  );
+};
 
 export const getThemeOptions = (t: ReturnType<typeof useI18n>) =>
   [
@@ -166,6 +214,8 @@ export const AppearanceSettings = () => {
         title={t['com.affine.appearanceSettings.title']()}
         subtitle={t['com.affine.appearanceSettings.subtitle']()}
       />
+
+      <StartupWorkspaceSetting />
 
       <SettingWrapper title={t['com.affine.appearanceSettings.theme.title']()}>
         <SettingRow

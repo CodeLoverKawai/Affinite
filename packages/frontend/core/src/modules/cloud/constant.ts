@@ -8,6 +8,25 @@ import type { ServerConfig, ServerMetadata } from './types';
 
 export const AFFINITE_SELFHOST_STORAGE_KEY = 'affinite_selfhost_base_url';
 export const AFFINITE_SELFHOST_DISABLED_KEY = 'affinite_selfhost_disabled';
+export const AFFINITE_STARTUP_MODE_KEY = 'affinite_startup_mode';
+
+export type AffiniteStartupMode = 'local' | 'last';
+
+export function getStartupMode(): AffiniteStartupMode {
+  if (typeof window !== 'undefined' && window.localStorage !== undefined) {
+    const mode = window.localStorage.getItem(AFFINITE_STARTUP_MODE_KEY);
+    if (mode === 'last' || mode === 'local') {
+      return mode;
+    }
+  }
+  return 'local';
+}
+
+export function setStartupMode(mode: AffiniteStartupMode): void {
+  if (typeof window !== 'undefined' && window.localStorage !== undefined) {
+    window.localStorage.setItem(AFFINITE_STARTUP_MODE_KEY, mode);
+  }
+}
 
 export function getSelfhostBaseUrl(): string {
   if (typeof window !== 'undefined' && window.localStorage !== undefined) {

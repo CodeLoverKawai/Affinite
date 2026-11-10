@@ -26,7 +26,7 @@ import {
   useNavigateHelper,
 } from '../../../components/hooks/use-navigate-helper';
 import { WorkspaceNavigator } from '../../../components/workspace-selector';
-import { AuthService } from '../../../modules/cloud';
+import { AuthService, getStartupMode } from '../../../modules/cloud';
 import { AppContainer } from '../../components/app-container';
 
 /**
@@ -91,16 +91,21 @@ export const Component = ({
       return;
     }
 
+    const startupMode = getStartupMode();
     const lastId = localStorage.getItem('last_workspace_id');
-    const hasLocalTarget =
-      list.length > 0 &&
-      (list.find(w => w.id === lastId) ?? (BUILD_CONFIG.isNative ? list[0] : null));
+    const localWorkspace = list.find(w => w.flavour === 'local');
+
+    const targetWorkspace =
+      list.length > 0
+        ? startupMode === 'local'
+          ? (localWorkspace ?? (lastId ? list.find(w => w.id === lastId) : null) ?? list[0])
+          : ((lastId ? list.find(w => w.id === lastId) : null) ?? localWorkspace ?? list[0])
+        : null;
 
     // Offline-First / Native instant launch: if we already have a workspace available and not explicitly requesting cloud init,
     // navigate immediately without blocking on remote cloud revalidation (listIsLoading).
-    if (hasLocalTarget && searchParams.get('initCloud') !== 'true') {
-      const openWorkspace = list.find(w => w.id === lastId) ?? list[0];
-      openPage(openWorkspace.id, defaultIndexRoute, RouteLogic.REPLACE);
+    if (targetWorkspace && searchParams.get('initCloud') !== 'true') {
+      openPage(targetWorkspace.id, defaultIndexRoute, RouteLogic.REPLACE);
       return;
     }
 
@@ -134,8 +139,8 @@ export const Component = ({
         setNavigating(false);
         return;
       }
-      // open last workspace
-      const openWorkspace = list.find(w => w.id === lastId) ?? list[0];
+      // open workspace according to startup preference
+      const openWorkspace = targetWorkspace ?? list[0];
       openPage(openWorkspace.id, defaultIndexRoute, RouteLogic.REPLACE);
     }
   }, [

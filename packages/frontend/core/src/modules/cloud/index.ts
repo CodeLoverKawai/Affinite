@@ -35,6 +35,20 @@ export { WorkspaceInvoicesService } from './services/workspace-invoices';
 export { WorkspaceServerService } from './services/workspace-server';
 export { WorkspaceSubscriptionService } from './services/workspace-subscription';
 export type { ServerConfig } from './types';
+export {
+  AFFINITE_SELFHOST_DISABLED_KEY,
+  AFFINITE_SELFHOST_STORAGE_KEY,
+  AFFINITE_STARTUP_MODE_KEY,
+  type AffiniteStartupMode,
+  BUILD_IN_SERVERS,
+  getBuildInServers,
+  getSelfhostBaseUrl,
+  getStartupMode,
+  isSelfhostDisabled,
+  setSelfhostBaseUrl,
+  setSelfhostDisabled,
+  setStartupMode,
+} from './constant';
 
 // eslint-disable-next-line simple-import-sort/imports
 import { type Framework } from '@toeverything/infra';
