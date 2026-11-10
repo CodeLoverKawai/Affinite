@@ -169,7 +169,7 @@ describe('Selfhost URL & Resilience Configuration', () => {
       localStorage.setItem('last_workspace_id', 'safe-local-id');
 
       const isRemoteRootDocReady = false;
-      const remoteWorkspaceFlavour = 'affine-cloud';
+      const remoteWorkspaceFlavour: string = 'affine-cloud';
 
       // Emulate the effect in workspace/index.tsx
       if (remoteWorkspaceFlavour === 'local' || isRemoteRootDocReady) {
@@ -184,7 +184,7 @@ describe('Selfhost URL & Resilience Configuration', () => {
       localStorage.setItem('last_workspace_id', 'safe-local-id');
 
       const isRemoteRootDocReady = true;
-      const remoteWorkspaceFlavour = 'affine-cloud';
+      const remoteWorkspaceFlavour: string = 'affine-cloud';
 
       if (remoteWorkspaceFlavour === 'local' || isRemoteRootDocReady) {
         localStorage.setItem('last_workspace_id', 'connected-remote-id');

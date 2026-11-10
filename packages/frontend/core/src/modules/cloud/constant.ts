@@ -109,6 +109,15 @@ export const BUILD_IN_SERVERS = new Proxy([] as (ServerMetadata & { config: Serv
     }
     return val;
   },
+  has(_target, prop) {
+    return Reflect.has(getBuildInServers(), prop);
+  },
+  ownKeys(_target) {
+    return Reflect.ownKeys(getBuildInServers());
+  },
+  getOwnPropertyDescriptor(_target, prop) {
+    return Reflect.getOwnPropertyDescriptor(getBuildInServers(), prop);
+  },
 });
 
 export type TelemetryChannel =

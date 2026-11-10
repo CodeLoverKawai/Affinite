@@ -32,20 +32,22 @@ export const ConfigureServerModal = ({
       return;
     }
 
+    let cleanUrl = trimmed;
     try {
-      new URL(trimmed);
+      const parsed = new URL(trimmed);
+      cleanUrl = parsed.origin;
     } catch {
       setError('Formato de URL inválido.');
       return;
     }
 
     setSelfhostDisabled(false);
-    setSelfhostBaseUrl(trimmed);
+    setSelfhostBaseUrl(cleanUrl);
     notify.success({
       title: 'Servidor Configurado',
-      message: `Nueva dirección del servidor: ${trimmed}`,
+      message: `Nueva dirección del servidor: ${cleanUrl}`,
     });
-    onSaved?.(trimmed);
+    onSaved?.(cleanUrl);
     onOpenChange(false);
   }, [onOpenChange, onSaved, url]);
 
@@ -54,7 +56,7 @@ export const ConfigureServerModal = ({
     setUrl(defaultUrl);
     setSelfhostDisabled(false);
     setSelfhostBaseUrl(defaultUrl);
-    notify.info({
+    notify({
       title: 'Restablecido',
       message: 'Dirección de servidor restablecida a http://localhost:5320',
     });
@@ -64,7 +66,7 @@ export const ConfigureServerModal = ({
 
   const handleDisable = useCallback(() => {
     setSelfhostDisabled(true);
-    notify.info({
+    notify.warning({
       title: 'Servidor Desconectado',
       message: 'El servidor remoto ha sido ocultado de la lista.',
     });

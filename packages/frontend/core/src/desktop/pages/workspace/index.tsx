@@ -268,17 +268,19 @@ const WorkspacePage = ({ meta }: { meta: WorkspaceMetadata }) => {
   );
   const isRootDocReady = useLiveData(rootDocReady$) ?? false;
   const [hasTimeout, setHasTimeout] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (isRootDocReady || workspace?.flavour === 'local') {
       setHasTimeout(false);
       return;
     }
+    setHasTimeout(false);
     const timer = setTimeout(() => {
       setHasTimeout(true);
     }, 4500);
     return () => clearTimeout(timer);
-  }, [isRootDocReady, workspace?.flavour]);
+  }, [isRootDocReady, workspace?.flavour, retryCount]);
 
   useEffect(() => {
     if (workspace && (workspace.flavour === 'local' || isRootDocReady)) {
@@ -359,7 +361,10 @@ const WorkspacePage = ({ meta }: { meta: WorkspaceMetadata }) => {
                 <ServerRescueScreen
                   workspace={workspace}
                   meta={meta}
-                  onRetry={() => setHasTimeout(false)}
+                  onRetry={() => {
+                    setHasTimeout(false);
+                    setRetryCount(c => c + 1);
+                  }}
                 />
               )}
             </AppContainer>

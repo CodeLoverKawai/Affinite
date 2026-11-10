@@ -6,6 +6,7 @@ import { GlobalDialogService } from '@affine/core/modules/dialogs';
 import {
   type Workspace,
   type WorkspaceMetadata,
+  WorkspaceProfileService,
   WorkspacesService,
 } from '@affine/core/modules/workspace';
 import { useLiveData, useService } from '@toeverything/infra';
@@ -24,8 +25,11 @@ export const ServerRescueScreen = ({
   onRetry,
 }: ServerRescueScreenProps) => {
   const workspacesService = useService(WorkspacesService);
+  const workspaceProfileService = useService(WorkspaceProfileService);
   const globalDialogService = useService(GlobalDialogService);
   const workspaces = useLiveData(workspacesService.list.workspaces$);
+  const profile = useLiveData(workspaceProfileService.getProfile(meta).profile$);
+  const workspaceName = profile?.name || 'Remoto';
   const { openPage } = useNavigateHelper();
   const [configModalOpen, setConfigModalOpen] = useState(false);
 
@@ -51,7 +55,7 @@ export const ServerRescueScreen = ({
           No se pudo conectar al servidor
         </h2>
         <p className={styles.rescueDesc}>
-          El espacio de trabajo <strong>&quot;{meta.name || 'Remoto'}&quot;</strong> no responde.
+          El espacio de trabajo <strong>&quot;{workspaceName}&quot;</strong> no responde.
           El servidor Docker en la dirección configurada parece estar apagado o en otra máquina:
         </p>
         <div className={styles.rescueUrlBox}>{serverUrl}</div>
@@ -78,7 +82,9 @@ export const ServerRescueScreen = ({
         open={configModalOpen}
         onOpenChange={setConfigModalOpen}
         onSaved={() => {
-          onRetry?.();
+          if (typeof window !== 'undefined') {
+            window.location.reload();
+          }
         }}
       />
     </div>
