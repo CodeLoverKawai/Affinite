@@ -21,6 +21,7 @@ import {
   LocalWorkspaceIcon,
   MoreHorizontalIcon,
   SelfhostIcon,
+  SettingsIcon,
   SignOutIcon,
 } from '@blocksuite/icons/rc';
 import {
@@ -29,8 +30,10 @@ import {
   useService,
   useServiceOptional,
 } from '@toeverything/infra';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
+import { ConfigureServerModal } from '../../../../desktop/dialogs/server-config';
+import { setSelfhostDisabled } from '../../../../modules/cloud/constant';
 import { WorkspaceCard } from '../../workspace-card';
 import { AddServer } from '../add-server';
 import * as styles from './index.css';
@@ -49,6 +52,7 @@ const WorkspaceServerInfo = ({
   name,
   account,
   accountStatus,
+  onConfigureServer,
   onDeleteServer,
   onSignOut,
 }: {
@@ -56,6 +60,7 @@ const WorkspaceServerInfo = ({
   name: string;
   account?: AuthAccountInfo | null;
   accountStatus?: 'authenticated' | 'unauthenticated';
+  onConfigureServer?: () => void;
   onDeleteServer?: () => void;
   onSignOut?: () => void;
 }) => {
@@ -71,7 +76,16 @@ const WorkspaceServerInfo = ({
   const menuItems = useMemo(
     () =>
       [
-        server !== 'affine-cloud' && server !== 'local' && (
+        server === 'affine-cloud' && onConfigureServer && (
+          <MenuItem
+            prefixIcon={<SettingsIcon />}
+            key="config-server"
+            onClick={onConfigureServer}
+          >
+            Configurar URL del servidor
+          </MenuItem>
+        ),
+        server !== 'local' && (
           <MenuItem
             prefixIcon={<DeleteIcon />}
             type="danger"
@@ -92,7 +106,7 @@ const WorkspaceServerInfo = ({
           </MenuItem>
         ),
       ].filter(Boolean),
-    [accountStatus, onDeleteServer, onSignOut, server, t]
+    [accountStatus, onConfigureServer, onDeleteServer, onSignOut, server, t]
   );
 
   return (
@@ -140,12 +154,26 @@ const CloudWorkSpaceList = ({
   const account = useLiveData(authService.session.account$);
   const accountStatus = useLiveData(authService.session.status$);
   const navigateHelper = useNavigateHelper();
+  const [configModalOpen, setConfigModalOpen] = useState(false);
 
   const currentWorkspaceFlavour = useLiveData(
     globalContextService.globalContext.workspaceFlavour.$
   );
 
+  const handleConfigureServer = useCallback(() => {
+    setConfigModalOpen(true);
+  }, []);
+
   const handleDeleteServer = useCallback(() => {
+    if (server.id === 'affine-cloud') {
+      setSelfhostDisabled(true);
+      const otherWorkspace = workspaces.find(w => w.flavour !== server.id);
+      if (otherWorkspace) {
+        navigateHelper.openPage(otherWorkspace.id, 'all');
+      }
+      window.location.reload();
+      return;
+    }
     serversService.removeServer(server.id);
 
     if (currentWorkspaceFlavour === server.id) {
@@ -177,9 +205,19 @@ const CloudWorkSpaceList = ({
         name={serverName}
         account={account}
         accountStatus={accountStatus}
+        onConfigureServer={server.id === 'affine-cloud' ? handleConfigureServer : undefined}
         onDeleteServer={handleDeleteServer}
         onSignOut={handleSignOut}
       />
+      {server.id === 'affine-cloud' && (
+        <ConfigureServerModal
+          open={configModalOpen}
+          onOpenChange={setConfigModalOpen}
+          onSaved={() => {
+            window.location.reload();
+          }}
+        />
+      )}
       {accountStatus === 'unauthenticated' ? (
         <MenuItem key="sign-in" onClick={handleSignIn}>
           <div className={styles.signInMenuItemContent}>
