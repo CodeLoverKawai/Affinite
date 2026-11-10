@@ -6,7 +6,6 @@ import { GlobalDialogService } from '@affine/core/modules/dialogs';
 import {
   type Workspace,
   type WorkspaceMetadata,
-  WorkspaceProfileService,
   WorkspacesService,
 } from '@affine/core/modules/workspace';
 import { useLiveData, useService } from '@toeverything/infra';
@@ -25,10 +24,9 @@ export const ServerRescueScreen = ({
   onRetry,
 }: ServerRescueScreenProps) => {
   const workspacesService = useService(WorkspacesService);
-  const workspaceProfileService = useService(WorkspaceProfileService);
   const globalDialogService = useService(GlobalDialogService);
   const workspaces = useLiveData(workspacesService.list.workspaces$);
-  const profile = useLiveData(workspaceProfileService.getProfile(meta).profile$);
+  const profile = useLiveData(workspacesService.getProfile(meta).profile$);
   const workspaceName = profile?.name || 'Remoto';
   const { openPage } = useNavigateHelper();
   const [configModalOpen, setConfigModalOpen] = useState(false);
