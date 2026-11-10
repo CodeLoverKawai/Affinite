@@ -39,6 +39,7 @@ import { WorkbenchRoot } from '../../../modules/workbench';
 import { AppContainer } from '../../components/app-container';
 import { PageNotFound } from '../404';
 import { WorkspaceLayout } from './layouts/workspace-layout';
+import { ServerRescueScreen } from './server-rescue';
 import { SharePage } from './share/share-page';
 
 declare global {
@@ -266,6 +267,24 @@ const WorkspacePage = ({ meta }: { meta: WorkspaceMetadata }) => {
     [workspace]
   );
   const isRootDocReady = useLiveData(rootDocReady$) ?? false;
+  const [hasTimeout, setHasTimeout] = useState(false);
+
+  useEffect(() => {
+    if (isRootDocReady || workspace?.flavour === 'local') {
+      setHasTimeout(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setHasTimeout(true);
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, [isRootDocReady, workspace?.flavour]);
+
+  useEffect(() => {
+    if (workspace && (workspace.flavour === 'local' || isRootDocReady)) {
+      localStorage.setItem('last_workspace_id', workspace.id);
+    }
+  }, [isRootDocReady, workspace]);
 
   useEffect(() => {
     if (workspace) {
@@ -313,7 +332,6 @@ const WorkspacePage = ({ meta }: { meta: WorkspaceMetadata }) => {
         };
         input.click();
       };
-      localStorage.setItem('last_workspace_id', workspace.id);
       globalContextService.globalContext.workspaceId.set(workspace.id);
       globalContextService.globalContext.workspaceFlavour.set(
         workspace.flavour
@@ -336,7 +354,15 @@ const WorkspacePage = ({ meta }: { meta: WorkspaceMetadata }) => {
       <FrameworkScope scope={workspace.scope}>
         <DNDContextProvider>
           <OpenInAppGuard>
-            <AppContainer fallback />
+            <AppContainer fallback>
+              {hasTimeout && (
+                <ServerRescueScreen
+                  workspace={workspace}
+                  meta={meta}
+                  onRetry={() => setHasTimeout(false)}
+                />
+              )}
+            </AppContainer>
           </OpenInAppGuard>
         </DNDContextProvider>
       </FrameworkScope>
